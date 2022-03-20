@@ -12,8 +12,8 @@ client.once('ready', () => {
     console.log("Discord client is ready.")
 
     //Actives scanners as specified in .env
-    if(process.env.PS5BIGW && process.env.PS5BIGW_CHANNEL_ID) {
-        const ps5BigW = new Ps5BigW(client, process.env.PS5BIGW_CHANNEL_ID);
+    if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
+        const ps5BigW = new Ps5BigW(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
         setInterval(ps5BigW.scan, 10000);
     }
 });
