@@ -3,12 +3,14 @@ import axios from "axios";
 
 class Ps5BigW {
     wasFound: boolean;
+    wasFound2: boolean;
     client: Client;
     channelId: string;
     roleId: string;
 
     constructor(client: Client, channelId: string, roleId: string) {
         this.wasFound = false;
+        this.wasFound2 = false;
         this.client = client;
         this.channelId = channelId;
         this.roleId = roleId;
@@ -41,8 +43,8 @@ class Ps5BigW {
                 let finding: string = res.data.products[124626].listingStatus;
                 if(finding !== "LISTEDINSTOREONLY") {
                     //wasFound stops messages from repeatedly being sent if the PS5 is in stock
-                    if(!this.wasFound) {
-                        this.wasFound = true;
+                    if(!this.wasFound2) {
+                        this.wasFound2 = true;
                         this.client.channels.fetch(this.channelId)
                         .then(channel => <TextChannel>channel)
                         .then(channel => {
@@ -51,7 +53,7 @@ class Ps5BigW {
                         .catch(console.error)
                     }
                 }
-                else this.wasFound = false;
+                else this.wasFound2 = false;
             })
             .catch(err => console.log("Error: " + err));
     }   

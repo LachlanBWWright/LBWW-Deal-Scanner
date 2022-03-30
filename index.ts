@@ -5,6 +5,7 @@ Dotenv.config();
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW";
+import Ps5Target from "./scanners/ps5Target";
 import XboxBigW from "./scanners/xboxBigW";
 
 //Discord Client Setup
@@ -17,10 +18,13 @@ client.once('ready', () => {
         const ps5BigW = new Ps5BigW(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
         setInterval(ps5BigW.scan, 10000);
     }
-
     if(process.env.XBOXBIGW && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) {
         const xboxBigW = new XboxBigW(client, process.env.XBOX_CHANNEL_ID, process.env.XBOX_ROLE_ID);
         setInterval(xboxBigW.scan, 10000);
+    }
+    if(process.env.PS5TARGET && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
+        const ps5Target = new Ps5Target(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
+        setInterval(ps5Target.scan, 10000);
     }
 });
 
