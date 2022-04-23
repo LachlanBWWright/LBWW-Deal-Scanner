@@ -1,12 +1,17 @@
-//Imports
 import {Client, Intents} from "discord.js";
 import Dotenv from "dotenv";
+import {MongoClient} from "mongodb";
+//const dbClient = new MongoClient(process.env.MONGO_URI); TODO: Re-enable
 Dotenv.config();
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW";
 import Ps5Target from "./scanners/ps5Target";
 import XboxBigW from "./scanners/xboxBigW";
+import CsDeals from "./scanners/csDeals";
+
+const csDeals = new CsDeals();
+csDeals.scan();
 
 //Discord Client Setup
 const client = new Client({ intents: [Intents.FLAGS.GUILDS]});
