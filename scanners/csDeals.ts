@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer';
-import {PendingXHR} from 'pending-xhr-puppeteer'
+import mongoose from 'mongoose';
+import CsDealsItem from '../schema/csDealsItem.js';
 
 class CsDeals {
     browser: Promise<puppeteer.Browser>;
@@ -8,25 +9,35 @@ class CsDeals {
         this.browser = puppeteer.launch({
             headless: true
         });
+
+        const csDealsItem = new CsDealsItem({
+            name: "StatTrak™ MP7 | Armor Core (Minimal Wear)",
+            maxPrice: 5,
+            minFloat: 0.07,
+            maxFloat: 0.08
+        })
+        csDealsItem.save();
+        console.log(csDealsItem);
+
     }
 
     async scan() {
         try {
             const page = await (await this.browser).newPage();
-            await page.goto("https://cs.deals/trade-skins");
-            await page.reload(); //This is necessary to get the network activity
+            page.goto("https://cs.deals/trade-skins");
+            //await page.reload(); //This is necessary to get the network activity
 
             page.on('response', async res => {
                 if(res.url().endsWith("botsinventory?appid=0")) {
                     let items = await res.json()
                     let csgoItemCount = items.response.items[730].length;
                     items = items.response.items[730];
+
                     let count = 0;
                     console.time("Test")
                     for(let i = 0; i < csgoItemCount; i++) count++
                     console.timeEnd("Test");
                     console.log("Count " + count);
-
                 }
             })
         }
@@ -38,9 +49,7 @@ class CsDeals {
 
 export default CsDeals;
 
-
 /* 
-
 JSON Example
 
 {

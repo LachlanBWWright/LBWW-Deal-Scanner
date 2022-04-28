@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node build/index.js",
     "build": "tsc",
@@ -16,6 +17,7 @@
     "discord.js": "^13.6.0",
     "dotenv": "^16.0.0",
     "mongodb": "^4.5.0",
+    "mongoose": "^6.3.1",
     "pending-xhr-puppeteer": "^2.3.3",
     "puppeteer": "^13.6.0"
   },

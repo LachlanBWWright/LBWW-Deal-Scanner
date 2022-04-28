@@ -1,15 +1,29 @@
 import {Client, Intents} from "discord.js";
 import Dotenv from "dotenv";
-import {MongoClient} from "mongodb";
-//const dbClient = new MongoClient(process.env.MONGO_URI); TODO: Re-enable
-Dotenv.config();
+import mongoose from "mongoose";
+
+//Schema Imports
+/* import CsDealsItem from "./schema/csDealsItem.js"; */
 
 //Scanner Imports
-import Ps5BigW from "./scanners/ps5BigW";
-import Ps5Target from "./scanners/ps5Target";
-import XboxBigW from "./scanners/xboxBigW";
-import CsDeals from "./scanners/csDeals";
+import Ps5BigW from "./scanners/ps5BigW.js";
+import Ps5Target from "./scanners/ps5Target.js";
+import XboxBigW from "./scanners/xboxBigW.js";
+import CsDeals from "./scanners/csDeals.js";
 
+Dotenv.config();
+mongoose.connect(`${process.env.MONGO_URI}`);
+
+//MongoDB Testing
+/* const csDealsItem = new CsDealsItem({
+    name: "Test",
+    maxPrice: 5,
+    minFloat: 0.07,
+    maxFloat: 0.08
+})
+csDealsItem.save();
+console.log(csDealsItem);
+*/
 const csDeals = new CsDeals();
 csDeals.scan();
 
