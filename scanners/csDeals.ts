@@ -1,11 +1,20 @@
+import {Client, TextChannel} from "discord.js";
 import puppeteer from 'puppeteer';
 import mongoose from 'mongoose';
 import CsDealsItem from '../schema/csDealsItem.js';
 
 class CsDeals {
     browser: Promise<puppeteer.Browser>;
+    client: Client;
+    channelId: string;
+    roleId: string;
 
-    constructor() {
+
+    constructor(client: Client, channelId: string, roleId: string) {
+        this.client = client;
+        this.channelId = channelId;
+        this.roleId = roleId;
+
         this.browser = puppeteer.launch({
             headless: true
         });
@@ -16,30 +25,55 @@ class CsDeals {
             minFloat: 0.07,
             maxFloat: 0.08
         })
-        csDealsItem.save();
-        console.log(csDealsItem);
-
+        csDealsItem.save(err => console.log(err));
+        console.log(csDealsItem);        
     }
 
     async scan() {
         try {
             const page = await (await this.browser).newPage();
             page.goto("https://cs.deals/trade-skins");
-            //await page.reload(); //This is necessary to get the network activity
-
+        
+            //Iterates through all items found in the list
             page.on('response', async res => {
                 if(res.url().endsWith("botsinventory?appid=0")) {
-                    let items = await res.json()
+                    let items = await res.json();
                     let csgoItemCount = items.response.items[730].length;
                     items = items.response.items[730];
+                    console.time("Test");
+                    let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
+                    for(let item = await cursor.next(); item != null; item = await cursor.next()) {
+                        let itemWasFound = false;
+                        for(let i = 0; i < csgoItemCount; i++) { //Iterates through every item on the website
+                            //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
+                            if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].price <= item.maxPrice) {
+                                if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
+                                    item.found = true;
+                                    item.save();
 
-                    let count = 0;
-                    console.time("Test")
-                    for(let i = 0; i < csgoItemCount; i++) count++
+                                    this.client.channels.fetch(this.channelId)
+                                    .then(channel => <TextChannel>channel)
+                                    .then(channel => {
+                                        if(channel) channel.send(`<@&${this.roleId}> Please know that a Disc PS5 is available at: https://www.bigw.com.au/product/playstation-5-console/p/124625`);
+                                    })
+                                    .catch(console.error)
+
+
+                                }
+
+                                itemWasFound = true;
+                                console.log("Name: " + items[i].c + " Float: " + items[i].d1 + " Price: $" + items[i].i);
+                            }  
+
+                        }
+                        if(!itemWasFound) {
+                            item.found = false;
+                            item.save();
+                        }
+                    }
                     console.timeEnd("Test");
-                    console.log("Count " + count);
                 }
-            })
+            });
         }
         catch(error) {
             console.log(error);
@@ -51,7 +85,6 @@ export default CsDeals;
 
 /* 
 JSON Example
-
 {
   a: '68',
   c: 'Souvenir AUG | Radiation Hazard (Factory New)',
@@ -85,5 +118,4 @@ JSON Example
   d1: '0.05834920331836',                                                                Float Value
   e1: 160
 }
-
 */
