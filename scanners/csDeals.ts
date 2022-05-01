@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer from 'puppeteer';
+import puppeteer, { HTTPResponse } from 'puppeteer';
 import mongoose from 'mongoose';
 import CsDealsItem from '../schema/csDealsItem.js';
 
@@ -26,7 +26,10 @@ class CsDeals {
             maxFloat: 0.08
         })
         csDealsItem.save(err => console.log(err));
-        console.log(csDealsItem); */        
+        console.log(csDealsItem); */ 
+
+        this.scan = this.scan.bind(this);
+        this.skinExists = this.skinExists.bind(this);
     }
 
     async scan() {
@@ -39,6 +42,7 @@ class CsDeals {
                 if(res.url().endsWith("botsinventory?appid=0")) {
                     let items = await res.json();
                     let csgoItemCount = items.response.items[730].length;
+                    console.log("CS Items Found: " + csgoItemCount);
                     items = items.response.items[730];
                     console.time("Test");
                     let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
@@ -71,6 +75,48 @@ class CsDeals {
                 }
             });
         }
+        catch(error) {
+            console.log(error);
+        }
+    }
+
+    async skinExists(name: string) {
+        try {
+            const page = await (await this.browser).newPage();
+            page.goto("https://cs.deals/trade-skins");
+        
+            let skinWasFound = false;
+            let foundResponse;
+
+            await page.waitForResponse(response => { 
+                if(response.url().endsWith("botsinventory?appid=0")) {
+                    foundResponse = response;
+                    return true;
+                }
+                else return false
+            });
+
+            if(foundResponse != undefined) {
+                foundResponse = <HTTPResponse>foundResponse;
+                let items = await foundResponse.json();
+                let csgoItemCount = items.response.items[730].length;
+                items = items.response.items[730];
+
+                for(let i = 0; i < csgoItemCount; i++) { //Iterates through every item on the website
+                    //Checks if a match is found, and sends a message if it is | .c = Name
+                    if(items[i].c === name) {
+                        skinWasFound = true;
+                        break;
+                    }
+                }  
+            }
+            else return false;
+
+            //Returns true if a skin with the matching name was found
+            if(skinWasFound) return true;
+            else return false;
+
+            }
         catch(error) {
             console.log(error);
         }

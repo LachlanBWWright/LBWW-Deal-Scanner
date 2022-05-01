@@ -6,6 +6,7 @@ import Dotenv from "dotenv";
 import mongoose from "mongoose";
 
 //Schema Imports
+import CsDealsItem from './schema/csDealsItem.js';
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -38,7 +39,7 @@ const commands = [
                 .setRequired(true)
         )
         .addNumberOption(option => 
-            option.setName("maximumprice")
+            option.setName("maxprice")
                 .setDescription("Enter the maximum acceptable price for the skin, according to the website\'s default currency.")
                 .setRequired(true)
         )
@@ -86,10 +87,56 @@ client.once('ready', () => {
 client.on("interactionCreate", async interaction => {
     try {
         if(!interaction.isCommand()) return; //Cancels if not a command
+
+        if(interaction.commandName === "createcssearch") {
+            await interaction.deferReply();
+            let website = interaction.options.getString("website") || "csdeals";
+            let skinName = interaction.options.getString("skinname") || "placeholder";
+            let maxPrice = interaction.options.getNumber("maxprice") || -1;
+            let maxFloat = interaction.options.getNumber("maxfloat") || -1;
+            let minFloat = interaction.options.getNumber("minfloat") || -1;
+            //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
+
+            if(maxPrice <= 0 || maxPrice > 500) {
+                interaction.editReply("I cannot stress enough: The price must be above $0, and no more than $500.");
+            }
+            else if(minFloat > maxFloat) {
+                interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
+            }
+            else if(maxFloat <= 0 || maxFloat >= 1) {
+                interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
+            }
+            else if(minFloat <= 0 || minFloat >= 1) {
+                interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
+            }
+            else if(website == "csdeals") {
+                const csDeals = new CsDeals(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+                if(await csDeals.skinExists(skinName)) {
+                    const csDealsItem = new CsDealsItem({
+                        name: skinName,
+                        maxPrice: maxPrice,
+                        minFloat: minFloat,
+                        maxFloat: maxFloat
+                    })
+                    csDealsItem.save(err => console.log(err));
+                    console.log(csDealsItem);
+
+                    interaction.editReply("Please know that the skin has been added to the watchlist. Hopefully.");
+                }
+                else {
+                    interaction.editReply("The skin was not added to the database, as it could not be found on the site. Try finding it on the site, right click it, and copy and paste. I cannot stress enough: It should look something like: ★ Moto Gloves | Cool Mint (Minimal Wear)");    
+                }
+            }
+            else {
+                interaction.editReply("Please know that something went wrong.");
+            }
+        }
     }
     catch(error) {
         console.log(error);
     }
 });
+
+
 
 client.login(process.env.DISCORD_TOKEN);
