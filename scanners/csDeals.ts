@@ -19,14 +19,14 @@ class CsDeals {
             headless: true
         });
 
-        const csDealsItem = new CsDealsItem({
+/*         const csDealsItem = new CsDealsItem({
             name: "StatTrak™ MP7 | Armor Core (Minimal Wear)",
             maxPrice: 5,
             minFloat: 0.07,
             maxFloat: 0.08
         })
         csDealsItem.save(err => console.log(err));
-        console.log(csDealsItem);        
+        console.log(csDealsItem); */        
     }
 
     async scan() {
@@ -46,23 +46,19 @@ class CsDeals {
                         let itemWasFound = false;
                         for(let i = 0; i < csgoItemCount; i++) { //Iterates through every item on the website
                             //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
-                            if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].price <= item.maxPrice) {
+                            if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].i <= item.maxPrice) {
                                 if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                     item.found = true;
-                                    item.save();
+                                    item.save(err => console.log(err));
 
                                     this.client.channels.fetch(this.channelId)
                                     .then(channel => <TextChannel>channel)
                                     .then(channel => {
-                                        if(channel) channel.send(`<@&${this.roleId}> Please know that a Disc PS5 is available at: https://www.bigw.com.au/product/playstation-5-console/p/124625`);
+                                        if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`);
                                     })
                                     .catch(console.error)
-
-
                                 }
-
                                 itemWasFound = true;
-                                console.log("Name: " + items[i].c + " Float: " + items[i].d1 + " Price: $" + items[i].i);
                             }  
 
                         }
