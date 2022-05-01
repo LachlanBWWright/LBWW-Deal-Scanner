@@ -14,19 +14,6 @@ import CsDeals from "./scanners/csDeals.js";
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
 
-//MongoDB Testing
-/* const csDealsItem = new CsDealsItem({
-    name: "Test",
-    maxPrice: 5,
-    minFloat: 0.07,
-    maxFloat: 0.08
-})
-csDealsItem.save();
-console.log(csDealsItem);
-*/
-const csDeals = new CsDeals();
-csDeals.scan();
-
 //Discord Client Setup
 const client = new Client({ intents: [Intents.FLAGS.GUILDS]});
 client.once('ready', () => {
@@ -44,6 +31,10 @@ client.once('ready', () => {
     if(process.env.PS5TARGET && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
         const ps5Target = new Ps5Target(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
         setInterval(ps5Target.scan, 10000);
+    }
+    if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
+        const csDeals = new CsDeals(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
+        csDeals.scan();
     }
 });
 
