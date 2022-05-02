@@ -37,43 +37,53 @@ class CsDeals {
             const page = await (await this.browser).newPage();
             page.goto("https://cs.deals/trade-skins");
         
-            //Iterates through all items found in the list
-            page.on('response', async res => {
-                if(res.url().endsWith("botsinventory?appid=0")) {
-                    let items = await res.json();
-                    let csgoItemCount = items.response.items[730].length;
-                    console.log("CS Items Found: " + csgoItemCount);
-                    items = items.response.items[730];
-                    console.time("Test");
-                    let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
-                    for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                        let itemWasFound = false;
-                        for(let i = 0; i < csgoItemCount; i++) { //Iterates through every item on the website
-                            //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
-                            if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].i <= item.maxPrice) {
-                                if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-                                    item.found = true;
-                                    item.save(err => console.log(err));
+            //New eventlistener replacement
+            let foundResponse;
 
-                                    this.client.channels.fetch(this.channelId)
-                                    .then(channel => <TextChannel>channel)
-                                    .then(channel => {
-                                        if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`);
-                                    })
-                                    .catch(console.error)
-                                }
-                                itemWasFound = true;
-                            }  
-
-                        }
-                        if(!itemWasFound) {
-                            item.found = false;
-                            item.save();
-                        }
-                    }
-                    console.timeEnd("Test");
+            await page.waitForResponse(response => { 
+                if(response.url().endsWith("botsinventory?appid=0")) {
+                    foundResponse = response;
+                    return true;
                 }
+                else return false
             });
+
+            if(foundResponse != undefined) {
+                foundResponse = <HTTPResponse>foundResponse;
+
+                let items = await foundResponse.json();
+                let csgoItemCount = items.response.items[730].length;
+                console.log("CS Items Found: " + csgoItemCount);
+                items = items.response.items[730];
+                console.time("Test");
+                let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
+                for(let item = await cursor.next(); item != null; item = await cursor.next()) {
+                    let itemWasFound = false;
+                    for(let i = 0; i < csgoItemCount; i++) { //Iterates through every item on the website
+                        //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
+                        if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].i <= item.maxPrice) {
+                            if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
+                                item.found = true;
+                                item.save(err => console.log(err));
+
+                                this.client.channels.fetch(this.channelId)
+                                .then(channel => <TextChannel>channel)
+                                .then(channel => {
+                                    if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`);
+                                })
+                                .catch(console.error)
+                            }
+                            itemWasFound = true;
+                        }  
+
+                    }
+                    if(!itemWasFound) {
+                        item.found = false;
+                        item.save();
+                    }
+                }
+                console.timeEnd("Test");
+            }
         }
         catch(error) {
             console.log(error);
