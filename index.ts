@@ -7,12 +7,14 @@ import mongoose from "mongoose";
 
 //Schema Imports
 import CsDealsItem from './schema/csDealsItem.js';
+import CsTradeItem from './schema/csTradeItem.js';
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
 import Ps5Target from "./scanners/ps5Target.js";
 import XboxBigW from "./scanners/xboxBigW.js";
 import CsDeals from "./scanners/csDeals.js";
+import CsTrade from "./scanners/csTrade.js";
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -30,6 +32,10 @@ const commands = [
                     {
                         name: "Cs.Deals", //Just copy and paste this to add more choices
                         value: "csdeals"
+                    },
+                    {
+                        name: "Cs.Trade",
+                        value: "cstrade"
                     }
                 )
         )
@@ -81,6 +87,10 @@ client.once('ready', () => {
         const csDeals = new CsDeals(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         csDeals.scan();
         setInterval(csDeals.scan, 900000);
+
+        const csTrade = new CsTrade(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
+        csTrade.scan();
+        setInterval(csTrade.scan, 900000);
     }
 });
 
@@ -126,6 +136,24 @@ client.on("interactionCreate", async interaction => {
                 else {
                     interaction.editReply("The skin was not added to the database, as it could not be found on the site. Try finding it on the site, right click it, and copy and paste. I cannot stress enough: It should look something like: ★ Moto Gloves | Cool Mint (Minimal Wear)");    
                 }
+            }
+            else if(website == "cstrade") {
+                const csTrade = new CsTrade(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+                if(await csTrade.skinExists(skinName)) {
+                    const csTradeItem = new CsTradeItem({
+                        name: skinName,
+                        maxPrice: maxPrice,
+                        minFloat: minFloat,
+                        maxFloat: maxFloat
+                    })
+                    csTradeItem.save(err => console.log(err));
+                    console.log(csTradeItem);
+                    interaction.editReply("Please know that the skin has been added to the watchlist. Hopefully.");
+                }
+                else {
+                    interaction.editReply("The skin was not added to the database, as it could not be found on the site. Try finding it on the site, right click it, and copy and paste. I cannot stress enough: It should look something like: ★ Moto Gloves | Cool Mint (Minimal Wear)");
+                }
+                
             }
             else {
                 interaction.editReply("Please know that something went wrong.");

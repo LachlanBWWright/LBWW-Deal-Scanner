@@ -84,6 +84,9 @@ class CsDeals {
                 }
                 console.timeEnd("Test");
             }
+
+            await page.close();
+            
         }
         catch(error) {
             console.log(error);
@@ -103,7 +106,9 @@ class CsDeals {
                     foundResponse = response;
                     return true;
                 }
-                else return false
+                else {
+                    return false
+                }
             });
 
             if(foundResponse != undefined) {
@@ -125,8 +130,7 @@ class CsDeals {
             //Returns true if a skin with the matching name was found
             if(skinWasFound) return true;
             else return false;
-
-            }
+        }
         catch(error) {
             console.log(error);
         }
