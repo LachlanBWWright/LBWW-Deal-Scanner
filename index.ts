@@ -116,7 +116,7 @@ client.on("interactionCreate", async interaction => {
             else if(maxFloat <= 0 || maxFloat >= 1) {
                 interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
             }
-            else if(minFloat <= 0 || minFloat >= 1) {
+            else if(minFloat < 0 || minFloat >= 1) {
                 interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
             }
             else if(website == "csdeals") {
