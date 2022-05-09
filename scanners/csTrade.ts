@@ -29,7 +29,7 @@ class CsTrade {
                 let cursor = CsTradeItem.find().cursor()
                 for(let item = await cursor.next(); item != null; item = await cursor.next()) {
                     let itemWasFound = false;
-                    let itemCount = items.length();
+                    let itemCount = items.length;
                     for(let i = 0; i < itemCount; i++) {
                         if(items[i].price <= item.maxPrice && items[i].wear >= item.minFloat && items[i].wear <= item.maxFloat && items[i].market_hash_name === item.name) {
                             if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent

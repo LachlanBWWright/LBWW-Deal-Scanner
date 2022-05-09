@@ -104,7 +104,7 @@ client.on("interactionCreate", async interaction => {
             let skinName = interaction.options.getString("skinname") || "placeholder";
             let maxPrice = interaction.options.getNumber("maxprice") || -1;
             let maxFloat = interaction.options.getNumber("maxfloat") || -1;
-            let minFloat = interaction.options.getNumber("minfloat") || -1;
+            let minFloat = interaction.options.getNumber("minfloat") || 0;
             //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
 
             if(maxPrice <= 0 || maxPrice > 500) {
