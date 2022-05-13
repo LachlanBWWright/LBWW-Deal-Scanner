@@ -58,6 +58,34 @@ const commands = [
             option.setName("minfloat")
                 .setDescription("Enter the minimum acceptable float value for the skin.")
                 .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName("createmultisearch")
+        .setDescription("Creates a search for a CS:GO item on multiple trade bots")
+        .addStringOption(option =>
+            option.setName("skinname")
+                .setDescription("Copy and paste the EXACT name of the skin as it is shown from the website.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("minfloat")
+                .setDescription("Enter the minimum acceptable float value for the skin.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxfloat")
+                .setDescription("Enter the maximum acceptable float value for the skin.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxpricecsdeals")
+                .setDescription("Enter the max price for the skin on cs.deals, no search will be created if it's $0.")
+                .setRequired(false)
+        )
+        .addNumberOption(option => 
+            option.setName("maxpricecstrade")
+                .setDescription("Enter the max price for the skin on cs.trade, no search will be created if it's $0.")
+                .setRequired(false)
         )
 ].map(command => command.toJSON());
 const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
@@ -157,6 +185,68 @@ client.on("interactionCreate", async interaction => {
             }
             else {
                 interaction.editReply("Please know that something went wrong.");
+            }
+        }
+
+        if(interaction.commandName === "createmultisearch") {
+            await interaction.deferReply();
+            let replyText = "Please know the results of your attempt to create new searches - ";
+            let website = interaction.options.getString("website") || "csdeals";
+            let skinName = interaction.options.getString("skinname") || "placeholder";
+            let maxPriceCsDeals = interaction.options.getNumber("maxpricecsdeals") || -1;
+            let maxPriceCsTrade = interaction.options.getNumber("maxpricecstrade") || -1;
+            let maxFloat = interaction.options.getNumber("maxfloat") || -1;
+            let minFloat = interaction.options.getNumber("minfloat") || 0;
+            //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
+            if(minFloat > maxFloat) {
+                interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
+            }
+            else if(maxFloat <= 0 || maxFloat >= 1) {
+                interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
+            }
+            else if(minFloat < 0 || minFloat >= 1) {
+                interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
+            }
+            else { //Attempt creating new searches
+                interaction.editReply(replyText);
+                if(maxPriceCsDeals > 0) {
+                    const csDeals = new CsDeals(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+                    if(await csDeals.skinExists(skinName)) {
+                        const csDealsItem = new CsDealsItem({
+                            name: skinName,
+                            maxPrice: maxPriceCsDeals,
+                            minFloat: minFloat,
+                            maxFloat: maxFloat
+                        })
+                        csDealsItem.save(err => console.log(err));
+                        console.log(csDealsItem);
+    
+                        replyText = replyText.concat("Cs.Deals: Successful, ");
+                    }
+                    else {
+                        replyText = replyText.concat("Cs.Deals: Skin not found on site, ");
+                    }
+                    interaction.editReply(replyText);
+                }
+                if(maxPriceCsTrade > 0) {
+                    const csTrade = new CsTrade(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+                    if(await csTrade.skinExists(skinName)) {
+                        const csTradeItem = new CsTradeItem({
+                            name: skinName,
+                            maxPrice: maxPriceCsTrade,
+                            minFloat: minFloat,
+                            maxFloat: maxFloat
+                        })
+                        csTradeItem.save(err => console.log(err));
+                        console.log(csTradeItem);
+    
+                        replyText = replyText.concat("Cs.Trade: Successful, ");
+                    }
+                    else {
+                        replyText = replyText.concat("Cs.Trade: Skin not found on site, ");
+                    }
+                    interaction.editReply(replyText);
+                }
             }
         }
     }
