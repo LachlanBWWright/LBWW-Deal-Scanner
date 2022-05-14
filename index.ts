@@ -6,8 +6,9 @@ import Dotenv from "dotenv";
 import mongoose from "mongoose";
 
 //Schema Imports
-import CsDealsItem from './schema/csDealsItem.js';
-import CsTradeItem from './schema/csTradeItem.js';
+import CsDealsItem from "./schema/csDealsItem.js";
+import CsTradeItem from "./schema/csTradeItem.js";
+import TradeItItem from "./schema/tradeItItem.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -15,6 +16,7 @@ import Ps5Target from "./scanners/ps5Target.js";
 import XboxBigW from "./scanners/xboxBigW.js";
 import CsDeals from "./scanners/csDeals.js";
 import CsTrade from "./scanners/csTrade.js";
+import TradeIt from "./scanners/tradeIt.js";
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -64,7 +66,7 @@ const commands = [
         .setDescription("Creates a search for a CS:GO item on multiple trade bots")
         .addStringOption(option =>
             option.setName("skinname")
-                .setDescription("Copy and paste the EXACT name of the skin as it is shown from the website.")
+                .setDescription("Copy and paste from the SCM, E.G. \"StatTrak™ XM1014 | Seasons (Minimal Wear)\".")
                 .setRequired(true)
         )
         .addNumberOption(option => 
@@ -85,6 +87,11 @@ const commands = [
         .addNumberOption(option => 
             option.setName("maxpricecstrade")
                 .setDescription("Enter the max price for the skin on cs.trade, no search will be created if it's $0.")
+                .setRequired(false)
+        )
+        .addNumberOption(option => 
+            option.setName("maxpricetradeit")
+                .setDescription("Enter the max price for the skin on tradeit.gg, no search will be created if it's $0.")
                 .setRequired(false)
         )
 ].map(command => command.toJSON());
@@ -119,6 +126,10 @@ client.once('ready', () => {
         const csTrade = new CsTrade(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         csTrade.scan();
         setInterval(csTrade.scan, 900000);
+
+        const tradeIt = new TradeIt(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
+        tradeIt.scan();
+        setInterval(tradeIt.scan, 900000);
     }
 });
 
@@ -195,6 +206,7 @@ client.on("interactionCreate", async interaction => {
             let skinName = interaction.options.getString("skinname") || "placeholder";
             let maxPriceCsDeals = interaction.options.getNumber("maxpricecsdeals") || -1;
             let maxPriceCsTrade = interaction.options.getNumber("maxpricecstrade") || -1;
+            let maxPriceTradeIt = interaction.options.getNumber("maxpricetradeit") || -1;
             let maxFloat = interaction.options.getNumber("maxfloat") || -1;
             let minFloat = interaction.options.getNumber("minfloat") || 0;
             //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
@@ -247,6 +259,25 @@ client.on("interactionCreate", async interaction => {
                     }
                     interaction.editReply(replyText);
                 }
+                if(maxPriceTradeIt > 0) {
+                    const tradeIt = new TradeIt(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+                    if(await tradeIt.skinExists(skinName)) {
+                        const tradeItItem = new TradeItItem({
+                            name: skinName,
+                            maxPrice: maxPriceTradeIt,
+                            minFloat: minFloat,
+                            maxFloat: maxFloat
+                        })
+                        tradeItItem.save(err => console.log(err));
+                        console.log(tradeItItem);
+    
+                        replyText = replyText.concat("Tradeit.gg: Successful, ");
+                    }
+                    else {
+                        replyText = replyText.concat("Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), ");
+                    }
+                    interaction.editReply(replyText);
+                }
             }
         }
     }
@@ -254,7 +285,5 @@ client.on("interactionCreate", async interaction => {
         console.log(error);
     }
 });
-
-
 
 client.login(process.env.DISCORD_TOKEN);
