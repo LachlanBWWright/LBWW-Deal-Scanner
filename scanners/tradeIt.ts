@@ -32,7 +32,6 @@ class TradeIt {
         }
         try {
             let items = <any>itemsArray;
-            //console.log(items[1].price/100.0, items[1].name, items[1].floatValue); //
             let cursor = TradeItItem.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
                 let itemWasFound = false;
@@ -78,7 +77,6 @@ class TradeIt {
                 })
                 .catch(err => console.log('TradeIt error'));
         }
-        console.log("TRADEIT length: " + itemsArray.length)
         try {
             let items = <any>itemsArray;
             for(let i = 0; i < items.length; i++) {

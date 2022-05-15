@@ -40,17 +40,12 @@ class CsDeals {
                 else return false
             });
 
-            console.log("TEST1")
-            
-            console.log("TEST2")
             if(foundResponse != undefined) {
                 foundResponse = <HTTPResponse>foundResponse;
 
                 let items = await foundResponse.json();
                 let csgoItemCount = items.response.items[730].length;
-                console.log("CS Items Found: " + csgoItemCount);
                 items = items.response.items[730];
-                console.time("Test");
                 let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
                 for(let item = await cursor.next(); item != null; item = await cursor.next()) {
                     let itemWasFound = false;
@@ -77,10 +72,7 @@ class CsDeals {
                         item.save();
                     }
                 }
-                console.timeEnd("Test");
             }
-
-            //await page.close();
             browser.close();
         }
         catch(error) {

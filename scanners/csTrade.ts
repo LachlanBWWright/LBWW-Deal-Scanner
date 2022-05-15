@@ -24,7 +24,6 @@ class CsTrade {
             .then(async res => {
                 let items = res.data.inventory; 
                 items = items.filter((item: { app_id: number; }) => item.app_id == 730);
-                console.log(items.length);
 
                 let cursor = CsTradeItem.find().cursor()
                 for(let item = await cursor.next(); item != null; item = await cursor.next()) {
@@ -47,8 +46,6 @@ class CsTrade {
                         }
                     }
                 }
-
-                //console.log(res.data.inventory)
             })
             .catch(err => console.log(err))
     }   
