@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import CsDealsItem from '../schema/csDealsItem.js';
 
 class CsDeals {
-    browser: Promise<puppeteer.Browser>;
+    //browser: Promise<puppeteer.Browser>;
     client: Client;
     channelId: string;
     roleId: string;
@@ -15,18 +15,9 @@ class CsDeals {
         this.channelId = channelId;
         this.roleId = roleId;
 
-        this.browser = puppeteer.launch({
+/*         this.browser = puppeteer.launch({
             headless: true
-        });
-
-/*         const csDealsItem = new CsDealsItem({
-            name: "StatTrak™ MP7 | Armor Core (Minimal Wear)",
-            maxPrice: 5,
-            minFloat: 0.07,
-            maxFloat: 0.08
-        })
-        csDealsItem.save(err => console.log(err));
-        console.log(csDealsItem); */ 
+        }); */
 
         this.scan = this.scan.bind(this);
         this.skinExists = this.skinExists.bind(this);
@@ -34,7 +25,8 @@ class CsDeals {
 
     async scan() {
         try {
-            const page = await (await this.browser).newPage();
+            const browser = await puppeteer.launch({headless: true});
+            const page = await browser.newPage();
             page.goto("https://cs.deals/trade-skins");
         
             //New eventlistener replacement
@@ -48,6 +40,9 @@ class CsDeals {
                 else return false
             });
 
+            console.log("TEST1")
+            
+            console.log("TEST2")
             if(foundResponse != undefined) {
                 foundResponse = <HTTPResponse>foundResponse;
 
@@ -85,17 +80,20 @@ class CsDeals {
                 console.timeEnd("Test");
             }
 
-            await page.close();
-            
+            //await page.close();
+            browser.close();
         }
         catch(error) {
             console.log(error);
         }
+
+        
     }
 
     async skinExists(name: string) {
         try {
-            const page = await (await this.browser).newPage();
+            const browser = await puppeteer.launch();
+            const page = await (browser).newPage();
             page.goto("https://cs.deals/trade-skins");
         
             let skinWasFound = false;
@@ -111,6 +109,8 @@ class CsDeals {
                 }
             });
 
+            
+
             if(foundResponse != undefined) {
                 foundResponse = <HTTPResponse>foundResponse;
                 let items = await foundResponse.json();
@@ -125,8 +125,11 @@ class CsDeals {
                     }
                 }  
             }
-            else return false;
-
+            else {
+                browser.close();
+                return false;
+            }
+            browser.close();
             //Returns true if a skin with the matching name was found
             if(skinWasFound) return true;
             else return false;

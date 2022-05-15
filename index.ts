@@ -24,44 +24,6 @@ mongoose.connect(`${process.env.MONGO_URI}`);
 //Creates the bot's /commands
 const commands = [
     new SlashCommandBuilder()
-        .setName("createcssearch")
-        .setDescription("Creates a search for a CS:GO item")
-        .addStringOption(option =>
-            option.setName("website")
-                .setDescription("Which website you want to create a search for?")
-                .setRequired(true)
-                .setChoices(
-                    {
-                        name: "Cs.Deals", //Just copy and paste this to add more choices
-                        value: "csdeals"
-                    },
-                    {
-                        name: "Cs.Trade",
-                        value: "cstrade"
-                    }
-                )
-        )
-        .addStringOption(option =>
-            option.setName("skinname")
-                .setDescription("Copy and paste the EXACT name of the skin as it is shown from the website.")
-                .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("maxprice")
-                .setDescription("Enter the maximum acceptable price for the skin, according to the website\'s default currency.")
-                .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("maxfloat")
-                .setDescription("Enter the maximum acceptable float value for the skin.")
-                .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("minfloat")
-                .setDescription("Enter the minimum acceptable float value for the skin.")
-                .setRequired(true)
-        ),
-    new SlashCommandBuilder()
         .setName("createmultisearch")
         .setDescription("Creates a search for a CS:GO item on multiple trade bots")
         .addStringOption(option =>
