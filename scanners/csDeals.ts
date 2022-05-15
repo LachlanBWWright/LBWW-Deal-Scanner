@@ -4,20 +4,14 @@ import mongoose from 'mongoose';
 import CsDealsItem from '../schema/csDealsItem.js';
 
 class CsDeals {
-    //browser: Promise<puppeteer.Browser>;
     client: Client;
     channelId: string;
     roleId: string;
-
 
     constructor(client: Client, channelId: string, roleId: string) {
         this.client = client;
         this.channelId = channelId;
         this.roleId = roleId;
-
-/*         this.browser = puppeteer.launch({
-            headless: true
-        }); */
 
         this.scan = this.scan.bind(this);
         this.skinExists = this.skinExists.bind(this);
@@ -27,7 +21,7 @@ class CsDeals {
         try {
             const browser = await puppeteer.launch({headless: true});
             const page = await browser.newPage();
-            page.goto("https://cs.deals/trade-skins");
+            await page.goto("https://cs.deals/trade-skins");
         
             //New eventlistener replacement
             let foundResponse;
@@ -73,9 +67,10 @@ class CsDeals {
                     }
                 }
             }
-            browser.close();
+            await browser.close();
         }
         catch(error) {
+            console.log("csDeals error!")
             console.log(error);
         }
 
@@ -85,8 +80,8 @@ class CsDeals {
     async skinExists(name: string) {
         try {
             const browser = await puppeteer.launch();
-            const page = await (browser).newPage();
-            page.goto("https://cs.deals/trade-skins");
+            const page = await browser.newPage();
+            await page.goto("https://cs.deals/trade-skins");
         
             let skinWasFound = false;
             let foundResponse;
@@ -118,10 +113,10 @@ class CsDeals {
                 }  
             }
             else {
-                browser.close();
+                await browser.close();
                 return false;
             }
-            browser.close();
+            await browser.close();
             //Returns true if a skin with the matching name was found
             if(skinWasFound) return true;
             else return false;
