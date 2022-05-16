@@ -90,7 +90,7 @@ client.once('ready', () => {
     if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
         const csDeals = new CsDeals(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         csDeals.scan();
-        setInterval(csDeals.scan, 900000);
+        setInterval(csDeals.scan, 900000); //TODO: Revert interval
 
         const csTrade = new CsTrade(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         csTrade.scan();

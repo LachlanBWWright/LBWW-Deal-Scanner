@@ -18,6 +18,8 @@ class CsDeals {
     }
 
     async scan() {
+        let date = new Date;
+        console.log(date.toUTCString());
         const browser = await puppeteer.launch({headless: true});
         try {
             const page = await browser.newPage();
@@ -32,10 +34,9 @@ class CsDeals {
                 }
                 else return false
             });
-
+            
             if(foundResponse != undefined) {
                 foundResponse = <HTTPResponse>foundResponse;
-
                 let items = await foundResponse.json();
                 let csgoItemCount = items.response.items[730].length;
                 items = items.response.items[730];
