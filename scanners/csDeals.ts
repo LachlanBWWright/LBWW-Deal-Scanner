@@ -20,7 +20,7 @@ class CsDeals {
     async scan() {
         let date = new Date;
         console.log(date.toUTCString());
-        const browser = await puppeteer.launch({headless: true});
+        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         try {
             const page = await browser.newPage();
             page.goto("https://cs.deals/trade-skins");
