@@ -45,6 +45,10 @@ class CsTrade {
                             itemWasFound = true;
                         }
                     }
+                    if(!itemWasFound) {
+                        item.found = false;
+                        item.save();
+                    }
                 }
             })
             .catch(err => console.log(err))

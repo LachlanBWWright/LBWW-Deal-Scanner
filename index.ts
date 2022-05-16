@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import CsDealsItem from "./schema/csDealsItem.js";
 import CsTradeItem from "./schema/csTradeItem.js";
 import TradeItItem from "./schema/tradeItItem.js";
+import LootFarmItem from "./schema/lootFarmItem.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -17,6 +18,7 @@ import XboxBigW from "./scanners/xboxBigW.js";
 import CsDeals from "./scanners/csDeals.js";
 import CsTrade from "./scanners/csTrade.js";
 import TradeIt from "./scanners/tradeIt.js";
+import LootFarm from "./scanners/lootFarm.js";
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -56,6 +58,11 @@ const commands = [
                 .setDescription("Enter the max price for the skin on tradeit.gg, no search will be created if it's $0.")
                 .setRequired(false)
         )
+        .addNumberOption(option => 
+            option.setName("maxpricelootfarm")
+                .setDescription("Enter the max price for the skin on loot.farm, no search will be created if it's $0.")
+                .setRequired(false)
+        )
 ].map(command => command.toJSON());
 const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
 rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
@@ -92,6 +99,9 @@ client.once('ready', () => {
         const tradeIt = new TradeIt(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         tradeIt.scan();
         setInterval(tradeIt.scan, 900000);
+
+        const lootFarm = new LootFarm(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
+        lootFarm.scan();
     }
 });
 
@@ -169,6 +179,7 @@ client.on("interactionCreate", async interaction => {
             let maxPriceCsDeals = interaction.options.getNumber("maxpricecsdeals") || -1;
             let maxPriceCsTrade = interaction.options.getNumber("maxpricecstrade") || -1;
             let maxPriceTradeIt = interaction.options.getNumber("maxpricetradeit") || -1;
+            let maxPriceLootFarm = interaction.options.getNumber("maxpricelootfarm") || -1;
             let maxFloat = interaction.options.getNumber("maxfloat") || -1;
             let minFloat = interaction.options.getNumber("minfloat") || 0;
             //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
@@ -237,6 +248,25 @@ client.on("interactionCreate", async interaction => {
                     }
                     else {
                         replyText = replyText.concat("Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), ");
+                    }
+                    interaction.editReply(replyText);
+                }
+                if(maxPriceLootFarm > 0) {
+                    const lootFarm = new LootFarm(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+                    if(await lootFarm.skinExists(skinName)) {
+                        const lootFarmItem = new LootFarmItem({
+                            name: skinName,
+                            maxPrice: maxPriceLootFarm,
+                            minFloat: minFloat,
+                            maxFloat: maxFloat
+                        })
+                        lootFarmItem.save(err => console.log(err));
+                        console.log(lootFarmItem);
+    
+                        replyText = replyText.concat("Loot.farm: Successful, ");
+                    }
+                    else {
+                        replyText = replyText.concat("Loot.farm: Skin not found on site, ");
                     }
                     interaction.editReply(replyText);
                 }

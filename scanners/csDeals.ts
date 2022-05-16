@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer, { HTTPResponse } from 'puppeteer';
+import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
 import mongoose from 'mongoose';
 import CsDealsItem from '../schema/csDealsItem.js';
 
@@ -18,14 +18,13 @@ class CsDeals {
     }
 
     async scan() {
+        const browser = await puppeteer.launch({headless: false});
         try {
-            const browser = await puppeteer.launch({headless: true});
             const page = await browser.newPage();
-            await page.goto("https://cs.deals/trade-skins");
+            page.goto("https://cs.deals/trade-skins");
         
             //New eventlistener replacement
             let foundResponse;
-
             await page.waitForResponse(response => { 
                 if(response.url().endsWith("botsinventory?appid=0")) {
                     foundResponse = response;
@@ -67,19 +66,19 @@ class CsDeals {
                     }
                 }
             }
-            await browser.close();
         }
         catch(error) {
             console.log("csDeals error!")
             console.log(error);
         }
-
-        
+        finally {
+            await browser.close();
+        }
     }
 
     async skinExists(name: string) {
+        const browser = await puppeteer.launch();
         try {
-            const browser = await puppeteer.launch();
             const page = await browser.newPage();
             await page.goto("https://cs.deals/trade-skins");
         
@@ -95,8 +94,6 @@ class CsDeals {
                     return false
                 }
             });
-
-            
 
             if(foundResponse != undefined) {
                 foundResponse = <HTTPResponse>foundResponse;
