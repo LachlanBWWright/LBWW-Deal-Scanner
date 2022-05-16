@@ -18,7 +18,7 @@ class CsDeals {
     }
 
     async scan() {
-        const browser = await puppeteer.launch({headless: false});
+        const browser = await puppeteer.launch({headless: true});
         try {
             const page = await browser.newPage();
             page.goto("https://cs.deals/trade-skins");
