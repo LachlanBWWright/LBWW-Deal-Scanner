@@ -73,59 +73,59 @@ const commands = [
         .setDescription("Creates a search for a SCM Query")
         .addStringOption(option =>
             option.setName("query")
-                .setDescription("The URL of the query. Sort by ascending price.")
-                .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("maxprice")
+            .setDescription("The URL of the query. Sort by ascending price.")
+            .setRequired(true)
+            )
+            .addNumberOption(option => 
+                option.setName("maxprice")
                 .setDescription("Enter the maximum price for a notification.")
                 .setRequired(true)
-        ),
+                ),
     new SlashCommandBuilder()
         .setName("createcsmarket")
         .setDescription("Creates a search for a CS item on the SCM.")
         .addStringOption(option =>
             option.setName("query")
-                .setDescription("The URL of the query.")
-                .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("maxfloat")
+            .setDescription("The URL of the query.")
+            .setRequired(true)
+            )
+            .addNumberOption(option => 
+                option.setName("maxfloat")
                 .setDescription("Enter the max float value for a notification.")
                 .setRequired(true)
-        ),
+                ),
     new SlashCommandBuilder()
         .setName("createcashquery")
         .setDescription("Creates a search for a Cash Converters Query")
         .addStringOption(option =>
             option.setName("query")
-                .setDescription("The URL of the query. Sort by price or newness.")
-                .setRequired(true)
-        )
+            .setDescription("The URL of the query. Sort by price or newness.")
+            .setRequired(true)
+            )
         .addNumberOption(option => 
             option.setName("maxprice")
-                .setDescription("Enter the maximum price for a notification.")
-                .setRequired(true)
-        ),
+            .setDescription("Enter the maximum price for a notification.")
+            .setRequired(true)
+            ),
     new SlashCommandBuilder()
         .setName("createsalvosquery")
         .setDescription("Creates a search for a Salvos Query")
         .addStringOption(option =>
             option.setName("query")
-                .setDescription("The URL of the query. Sort by price or newness.")
-                .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("maxprice")
+            .setDescription("The URL of the query. Sort by price or newness.")
+            .setRequired(true)
+            )
+            .addNumberOption(option => 
+                option.setName("maxprice")
                 .setDescription("Enter the maximum price for a notification.")
                 .setRequired(true)
-        )
-].map(command => command.toJSON());
-const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
-rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
-    .then(() => console.log("Registered the bot\'s commands successfully"))
-    .catch(console.error);
-
+                )
+            ].map(command => command.toJSON());
+            const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
+            rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
+            .then(() => console.log("Registered the bot\'s commands successfully"))
+            .catch(console.error);
+                                    
 //Discord Client Setup
 const client = new Client({ intents: [Intents.FLAGS.GUILDS]});
 client.once('ready', () => {
@@ -282,6 +282,36 @@ client.on("interactionCreate", async interaction => {
                     await interaction.editReply(replyText);
                 }
             }
+        }
+         // createscmquery  createcsmarket createcashquery createsalvosquery
+        else if(interaction.commandName === "createscmquery") {
+            let query = interaction.options.getString("query") || "placeholder";
+            let maxPrice = interaction.options.getNumber("maxprice") || 1;
+
+            try {
+                if(!query.includes("https://steamcommunity.com/market/search")) query = "thiswillthrowanerror";
+                new URL(query);
+                const steamQuery = new SteamQuery({
+                    name: query,
+                    maxPrice: maxPrice
+                })
+                steamQuery.save(err => console.log(err));
+                console.log(steamQuery);
+                await interaction.editReply("Item added successfully!");
+            }
+            catch (e) {
+                await interaction.editReply("The URL is invalid!");
+            }
+
+        }
+        else if(interaction.commandName === "createcsmarket") {
+
+        }
+        else if(interaction.commandName === "createcashquery") {
+
+        }
+        else if(interaction.commandName === "createsalvosquery") {
+
         }
     }
     catch(error) {
