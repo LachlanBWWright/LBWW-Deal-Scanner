@@ -1,7 +1,7 @@
-import {Client, Intents} from "discord.js";
+import {Client, GuildMember, GuildMemberRoleManager, Intents} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {REST} from "@discordjs/rest";
-import {Routes} from "discord-api-types/v9";
+import {Routes, APIInteractionGuildMember} from "discord-api-types/v9";
 import Dotenv from "dotenv";
 import mongoose from "mongoose";
 
@@ -10,6 +10,10 @@ import CsDealsItem from "./schema/csDealsItem.js";
 import CsTradeItem from "./schema/csTradeItem.js";
 import TradeItItem from "./schema/tradeItItem.js";
 import LootFarmItem from "./schema/lootFarmItem.js";
+import CashConvertersQuery from "./schema/cashConvertersQuery.js";
+import CsMarketItem from "./schema/csMarketItem.js";
+import SalvosQuery from "./schema/salvosQuery.js";
+import SteamQuery from "./schema/steamQuery.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -19,6 +23,7 @@ import CsDeals from "./scanners/csDeals.js";
 import CsTrade from "./scanners/csTrade.js";
 import TradeIt from "./scanners/tradeIt.js";
 import LootFarm from "./scanners/lootFarm.js";
+//TODO: Add the 4 new scanners
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -62,6 +67,58 @@ const commands = [
             option.setName("maxpricelootfarm")
                 .setDescription("Enter the max price for the skin on loot.farm, no search will be created if it's $0.")
                 .setRequired(false)
+        ),
+    new SlashCommandBuilder()
+        .setName("createscmquery")
+        .setDescription("Creates a search for a SCM Query")
+        .addStringOption(option =>
+            option.setName("query")
+                .setDescription("The URL of the query. Sort by ascending price.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+                .setDescription("Enter the maximum price for a notification.")
+                .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName("createcsmarket")
+        .setDescription("Creates a search for a CS item on the SCM.")
+        .addStringOption(option =>
+            option.setName("query")
+                .setDescription("The URL of the query.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxfloat")
+                .setDescription("Enter the max float value for a notification.")
+                .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName("createcashquery")
+        .setDescription("Creates a search for a Cash Converters Query")
+        .addStringOption(option =>
+            option.setName("query")
+                .setDescription("The URL of the query. Sort by price or newness.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+                .setDescription("Enter the maximum price for a notification.")
+                .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName("createsalvosquery")
+        .setDescription("Creates a search for a Salvos Query")
+        .addStringOption(option =>
+            option.setName("query")
+                .setDescription("The URL of the query. Sort by price or newness.")
+                .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+                .setDescription("Enter the maximum price for a notification.")
+                .setRequired(true)
         )
 ].map(command => command.toJSON());
 const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
@@ -103,76 +160,30 @@ client.once('ready', () => {
         const lootFarm = new LootFarm(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         lootFarm.scan();
     }
+
+
 });
 
 client.on("interactionCreate", async interaction => {
     try {
         if(!interaction.isCommand()) return; //Cancels if not a command
+        await interaction.deferReply(); //Creates the loading '...'
 
-        if(interaction.commandName === "createcssearch") {
-            await interaction.deferReply();
-            let website = interaction.options.getString("website") || "csdeals";
-            let skinName = interaction.options.getString("skinname") || "placeholder";
-            let maxPrice = interaction.options.getNumber("maxprice") || -1;
-            let maxFloat = interaction.options.getNumber("maxfloat") || -1;
-            let minFloat = interaction.options.getNumber("minfloat") || 0;
-            //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
-
-            if(maxPrice <= 0 || maxPrice > 500) {
-                interaction.editReply("I cannot stress enough: The price must be above $0, and no more than $500.");
+        let roleFound = false;
+        let member = interaction.member;
+        member = <GuildMember> member;
+        member.roles.cache.map(role => {
+            if(role.id == process.env.COMMAND_PERMISSION_ROLE_ID) {
+                roleFound = true;
             }
-            else if(minFloat > maxFloat) {
-                interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
-            }
-            else if(maxFloat <= 0 || maxFloat >= 1) {
-                interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
-            }
-            else if(minFloat < 0 || minFloat >= 1) {
-                interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
-            }
-            else if(website == "csdeals") {
-                const csDeals = new CsDeals(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
-                if(await csDeals.skinExists(skinName)) {
-                    const csDealsItem = new CsDealsItem({
-                        name: skinName,
-                        maxPrice: maxPrice,
-                        minFloat: minFloat,
-                        maxFloat: maxFloat
-                    })
-                    csDealsItem.save(err => console.log(err));
-                    console.log(csDealsItem);
-
-                    interaction.editReply("Please know that the skin has been added to the watchlist. Hopefully.");
-                }
-                else {
-                    interaction.editReply("The skin was not added to the database, as it could not be found on the site. Try finding it on the site, right click it, and copy and paste. I cannot stress enough: It should look something like: ★ Moto Gloves | Cool Mint (Minimal Wear)");    
-                }
-            }
-            else if(website == "cstrade") {
-                const csTrade = new CsTrade(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
-                if(await csTrade.skinExists(skinName)) {
-                    const csTradeItem = new CsTradeItem({
-                        name: skinName,
-                        maxPrice: maxPrice,
-                        minFloat: minFloat,
-                        maxFloat: maxFloat
-                    })
-                    csTradeItem.save(err => console.log(err));
-                    console.log(csTradeItem);
-                    interaction.editReply("Please know that the skin has been added to the watchlist. Hopefully.");
-                }
-                else {
-                    interaction.editReply("The skin was not added to the database, as it could not be found on the site. Try finding it on the site, right click it, and copy and paste. I cannot stress enough: It should look something like: ★ Moto Gloves | Cool Mint (Minimal Wear)");
-                }
-                
-            }
-            else {
-                interaction.editReply("Please know that something went wrong.");
-            }
+        })
+        if(!roleFound) {
+            await interaction.editReply("Please know you don't have the role needed to make commands. That's not acceptable.");
+            return;
         }
-
+        console.log(roleFound)
+        
         if(interaction.commandName === "createmultisearch") {
-            await interaction.deferReply();
             let replyText = "Please know the results of your attempt to create new searches - ";
             let website = interaction.options.getString("website") || "csdeals";
             let skinName = interaction.options.getString("skinname") || "placeholder";
@@ -184,16 +195,16 @@ client.on("interactionCreate", async interaction => {
             let minFloat = interaction.options.getNumber("minfloat") || 0;
             //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
             if(minFloat > maxFloat) {
-                interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
+                await interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
             }
             else if(maxFloat <= 0 || maxFloat >= 1) {
-                interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
+                await interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
             }
             else if(minFloat < 0 || minFloat >= 1) {
-                interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
+                await interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
             }
             else { //Attempt creating new searches
-                interaction.editReply(replyText);
+                await interaction.editReply(replyText);
                 if(maxPriceCsDeals > 0) {
                     const csDeals = new CsDeals(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
                     if(await csDeals.skinExists(skinName)) {
@@ -211,7 +222,7 @@ client.on("interactionCreate", async interaction => {
                     else {
                         replyText = replyText.concat("Cs.Deals: Skin not found on site, ");
                     }
-                    interaction.editReply(replyText);
+                    await interaction.editReply(replyText);
                 }
                 if(maxPriceCsTrade > 0) {
                     const csTrade = new CsTrade(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
@@ -230,7 +241,7 @@ client.on("interactionCreate", async interaction => {
                     else {
                         replyText = replyText.concat("Cs.Trade: Skin not found on site, ");
                     }
-                    interaction.editReply(replyText);
+                    await interaction.editReply(replyText);
                 }
                 if(maxPriceTradeIt > 0) {
                     const tradeIt = new TradeIt(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
@@ -249,7 +260,7 @@ client.on("interactionCreate", async interaction => {
                     else {
                         replyText = replyText.concat("Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), ");
                     }
-                    interaction.editReply(replyText);
+                    await interaction.editReply(replyText);
                 }
                 if(maxPriceLootFarm > 0) {
                     const lootFarm = new LootFarm(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
@@ -268,7 +279,7 @@ client.on("interactionCreate", async interaction => {
                     else {
                         replyText = replyText.concat("Loot.farm: Skin not found on site, ");
                     }
-                    interaction.editReply(replyText);
+                    await interaction.editReply(replyText);
                 }
             }
         }
