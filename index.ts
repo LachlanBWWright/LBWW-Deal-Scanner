@@ -163,10 +163,15 @@ client.once('ready', () => {
 
         const lootFarm = new LootFarm(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         lootFarm.scan();
+        setInterval(lootFarm.scan, 900000);
     }
 
     if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
         const steamMarket = new SteamMarket(client, process.env.STEAM_QUERY_CHANNEL_ID, process.env.STEAM_QUERY_ROLE_ID, process.env.CS_MARKET_CHANNEL_ID, process.env.CS_MARKET_ROLE_ID);
+        steamMarket.scanCs();
+        steamMarket.scanQuery();
+        setInterval(steamMarket.scanCs, 600000);
+        setInterval(steamMarket.scanQuery, 600000);
     }
 });
 

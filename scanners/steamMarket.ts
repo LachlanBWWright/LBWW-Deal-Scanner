@@ -23,102 +23,112 @@ class SteamMarket {
         this.csChannelId = csChannelId;
         this.csRoleId = csRoleId;
 
-        this.scan = this.scan.bind(this);
+        this.sleep = this.sleep.bind(this);
+        this.scanQuery = this.scanQuery.bind(this);
+        this.scanCs = this.scanCs.bind(this);
         this.createQuery = this.createQuery.bind(this);
+        this.createCs = this.createCs.bind(this);
     }
 
-    async scan() {
-       /*  let itemsArray: JSONArray = [];
-        for(let i = 0; i < 20; i++) { //Has to make multiple searches due to a size limit.
-            await axios.get(`https://tradeit.gg/api/v2/inventory/data?gameId=730&offset=${i*1000}&limit=1000&sortType=(CSGO)+Best+Float&searchValue=&minPrice=0&maxPrice=100000&minFloat=0&maxFloat=1&hideTradeLock=false&fresh=true`, {headers: {'User-Agent': 'Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion'}})
-                .then(res => {
-                    itemsArray = [...itemsArray, ...res.data.items];
-                    if(res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
-                })
-                .catch(err => console.log('TradeIt error'));
-        }
+    async scanQuery() {
         try {
-            let items = <any>itemsArray;
-            let cursor = TradeItItem.find().cursor();
+            let cursor = SteamQuery.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                let itemWasFound = false;
-                let itemCount = items.length;
-                for(let i = 0; i < itemCount; i++) {
-                    if(items[i].price/100.0 <= item.maxPrice && items[i].name === item.name) {
-                        let bestFloat = 1;
-                        if(items[i].floatValue) bestFloat = items[i].floatValue;
-                        else if(items[i].floatValues) {
-                            for(let x = 0; x < items[i].floatValues.length; x++) {
-                                if(items[i].floatValues[x] < bestFloat) bestFloat = items[i].floatValues[x];
+                await this.sleep(4000);
+                console.log(item);
+                await axios.get(`${item.name}`)
+                    .then(res => {
+                        let price: number = res.data.results[0].sell_price;
+                        for(let instance in res.data.results) {
+                            let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
+                            if(thisPrice < price) price = thisPrice;
+                            let lastPrice = <number>item.lastPrice;
+                            if(price < item.maxPrice && price < (lastPrice * 0.95)) {
+                                this.client.channels.fetch(this.queryChannelId)
+                                    .then(channel => <TextChannel>channel)
+                                    .then(channel => {
+                                        if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.name}`);
+                                    })
+                                    .catch(console.error)
+                                    break;
                             }
                         }
-                        if(bestFloat >= item.minFloat && bestFloat <= item.maxFloat) {
-                            if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-                                item.found = true;
-                                item.save(err => console.log(err));
-
-                                this.client.channels.fetch(this.channelId)
-                                .then(channel => <TextChannel>channel)
-                                .then(channel => {
-                                    if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[i].name} with a float of ${bestFloat} is available for $${items[i].price/100.0} USD at: https://tradeit.gg/csgo/trade`);
-                                })
-                                .catch(console.error)
-                            }
-                            itemWasFound = true;
+                        if(price != item.lastPrice) {
+                            item.lastPrice = price;
+                            item.save(err => console.log(err));
                         }
-                    }
-                }
-                if(!itemWasFound) {
-                    item.found = false;
-                    item.save();
-                }
+                }).catch(err => console.log(err));
             }
         }
-        catch(err) {console.log(err);} */
+        catch(e) {
+            console.log(e);
+        }
     }   
 
-    async createQuery(query: string, maxPrice: number): Promise<[boolean, string]> { //TODO: Implement
-        //TODO: Implement
-        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+    async scanCs() {
+
+    }   
+
+    sleep(ms: number) {
+        return new Promise(
+          res => setTimeout(res, ms)
+        );
+    }
+
+    async createQuery(oldQuery: string, maxPrice: number): Promise<[boolean, string]> {
+        let browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+        const page = await browser.newPage();
         let response: [boolean, string];
         response = [false, ""];
         try {
-            if(!query.includes("https://steamcommunity.com/market/search")) {
+            if(!oldQuery.includes("https://steamcommunity.com/market/search")) {
                 response = [false, ""];
             }
 
-            const page = await browser.newPage();
-            page.goto(query);
             let responseUrl = "";
+            let query = new URL(oldQuery);
+            page.goto(query.toString());
 
             //New eventlistener replacement
-            await page.waitForResponse(async response => { 
+            await page.waitForResponse(response => { 
                 if(response.url().includes("https://steamcommunity.com/market/search/render/?query")) {
                     console.log(response.url());
                     new URL(query);
-                    const steamQuery = new SteamQuery({
-                        name: response.url(),
+                    let steamQuery = new SteamQuery({
+                        name: response.url().toString().concat("&norender=1"),
                         maxPrice: maxPrice
                     })
                     steamQuery.save(err => {console.log(err);});
                     console.log(steamQuery);
-                    responseUrl = await response.url().toString();
+                    responseUrl = response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
                     return true;
                 }
                 return false;
             })
             response = [true, responseUrl];
+            
         }
         catch (e) {
             console.log(e);
             response = [false, ""];
         }
         finally {
+            console.log("If the app has just crashed, it\'s steamMarket.ts\'s fault!");
+            await page.close();
+            await browser.disconnect();
             await browser.close();
             return response;
         }
     }
+    async createCs(oldQuery: string, maxPrice: number): Promise<[boolean, string]> { 
+        console.log("TEST");
+        return[true, "TEST"];
+    }
 }
 
 export default SteamMarket;
+
+function sleep(arg0: number) {
+    throw new Error("Function not implemented.");
+}
 
