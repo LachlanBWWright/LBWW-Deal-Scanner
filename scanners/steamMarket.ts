@@ -43,7 +43,7 @@ class SteamMarket {
                             let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
                             if(thisPrice < price) price = thisPrice;
                             let lastPrice = <number>item.lastPrice;
-                            if(price < item.maxPrice && price < (lastPrice * 0.95)) {
+                            if(price < item.maxPrice && price * 1.04 < (item.lastPrice)) {
                                 this.client.channels.fetch(this.queryChannelId)
                                     .then(channel => <TextChannel>channel)
                                     .then(channel => {
