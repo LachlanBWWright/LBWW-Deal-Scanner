@@ -19,7 +19,7 @@ class CsDeals {
 
     async scan() {
         let date = new Date;
-        console.log(date.toUTCString());
+        console.log(date.toUTCString()); //TODO: Remove
         const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         try {
             const page = await browser.newPage();

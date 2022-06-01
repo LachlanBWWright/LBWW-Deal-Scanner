@@ -24,6 +24,10 @@ import CsTrade from "./scanners/csTrade.js";
 import TradeIt from "./scanners/tradeIt.js";
 import LootFarm from "./scanners/lootFarm.js";
 //TODO: Add the 4 new scanners
+//TODO: Cash
+import SteamMarket from "./scanners/steamMarket.js"; //TODO: CsMarket
+//TODO: Steam
+//TODO: Salvos
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -161,7 +165,9 @@ client.once('ready', () => {
         lootFarm.scan();
     }
 
-
+    if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
+        const steamMarket = new SteamMarket(client, process.env.STEAM_QUERY_CHANNEL_ID, process.env.STEAM_QUERY_ROLE_ID, process.env.CS_MARKET_CHANNEL_ID, process.env.CS_MARKET_ROLE_ID);
+    }
 });
 
 client.on("interactionCreate", async interaction => {
@@ -289,15 +295,10 @@ client.on("interactionCreate", async interaction => {
             let maxPrice = interaction.options.getNumber("maxprice") || 1;
 
             try {
-                if(!query.includes("https://steamcommunity.com/market/search")) query = "thiswillthrowanerror";
-                new URL(query);
-                const steamQuery = new SteamQuery({
-                    name: query,
-                    maxPrice: maxPrice
-                })
-                steamQuery.save(err => console.log(err));
-                console.log(steamQuery);
-                await interaction.editReply("Item added successfully!");
+                const steamMarket = new SteamMarket(client, `${process.env.STEAM_QUERY_CHANNEL_ID}`, `${process.env.STEAM_QUERY_ROLE_ID}`, `${process.env.CS_MARKET_CHANNEL_ID}`, `${process.env.CS_MARKET_ROLE_ID}`);
+                let response = await steamMarket.createQuery(query, maxPrice);
+                if(response[0]) await interaction.editReply("Item added successfully! URL generated: " + response[1]);
+                else await interaction.editReply("The URL is invalid!");
             }
             catch (e) {
                 await interaction.editReply("The URL is invalid!");
