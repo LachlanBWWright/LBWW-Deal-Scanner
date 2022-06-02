@@ -1,6 +1,7 @@
 import {Client, TextChannel} from "discord.js";
 import axios from "axios";
 import SteamQuery from '../schema/steamQuery.js';
+import CsMarketItem from "../schema/csMarketItem.js";
 import { JSONArray } from "puppeteer";
 import { JSONEncodable } from "@discordjs/builders";
 import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
@@ -14,7 +15,9 @@ class SteamMarket {
     queryRoleId: string;
     csChannelId: string;
     csRoleId: string;
-
+    itemsFound: Map<string, number>; //<Url, TTL>
+    //This is to store the names of CS items found,
+    
     constructor(client: Client, queryChannelId: string, queryRoleId: string, csChannelId: string, csRoleId: string) {
         this.wasFound = false;
         this.client = client;
@@ -22,6 +25,8 @@ class SteamMarket {
         this.queryRoleId = queryRoleId;
         this.csChannelId = csChannelId;
         this.csRoleId = csRoleId;
+
+        this.itemsFound = new Map<string, number>();
 
         this.sleep = this.sleep.bind(this);
         this.scanQuery = this.scanQuery.bind(this);
@@ -35,7 +40,6 @@ class SteamMarket {
             let cursor = SteamQuery.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
                 await this.sleep(4000);
-                console.log(item);
                 await axios.get(`${item.name}`)
                     .then(res => {
                         let price: number = res.data.results[0].sell_price;
@@ -50,7 +54,7 @@ class SteamMarket {
                                         if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.name}`);
                                     })
                                     .catch(console.error)
-                                    break;
+                                break;
                             }
                         }
                         if(price != item.lastPrice) {
@@ -66,7 +70,57 @@ class SteamMarket {
     }   
 
     async scanCs() {
+        try {
+            let cursor = CsMarketItem.find().cursor()
+            for(let item = await cursor.next(); item != null; item = await cursor.next()) {
+                await this.sleep(4000);
 
+                await axios.get(`${item.name}`)
+                    .then(async res => {
+                        let i = 0;
+                        for(let skin in res.data.listinginfo) {
+                            // res.data.listinginfo[skin].asset.market_actions.link && https://api.csgofloat.com/?url=
+                            //steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M%listingid%A%assetid%D4676111808990322346
+                            //res.data.listinginfo[skin].listingid
+                            //res.data.listinginfo[skin].asset.id
+
+                            console.log(res.data.listinginfo[skin].asset.market_actions)
+                            let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
+                                .replace("%listingid%", res.data.listinginfo[skin].listingid)
+                                .replace("%assetid%", res.data.listinginfo[skin].asset.id);
+                            console.log(query)
+                            
+                            let price = res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit;
+                            //Only calls the API if the skin isn't in the map, and the item is in the first 10
+                            if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
+                                .then(response => {
+                                    console.log(response.data.iteminfo.floatvalue);
+                                    if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
+                                        this.client.channels.fetch(this.csChannelId)
+                                            .then(channel => <TextChannel>channel)
+                                            .then(channel => {
+                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} is available for $${price} USD at: ${item.name}`);
+                                            })
+                                            .catch(console.error)
+                                    }
+                                }).catch(e => console.error);
+                            if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
+                            else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+                            i++;
+                        }
+                }).catch(err => console.log(err));
+            }
+
+            //Decrement the TTL in the map
+            for(let value of this.itemsFound.values()) {
+                console.log(value);
+                value--;
+                console.log(value);
+            }
+        }
+        catch(e) {
+            console.log(e);
+        }
     }   
 
     sleep(ms: number) {
@@ -92,7 +146,6 @@ class SteamMarket {
             //New eventlistener replacement
             await page.waitForResponse(response => { 
                 if(response.url().includes("https://steamcommunity.com/market/search/render/?query")) {
-                    console.log(response.url());
                     new URL(query);
                     let steamQuery = new SteamQuery({
                         name: response.url().toString().concat("&norender=1"),
@@ -120,15 +173,29 @@ class SteamMarket {
             return response;
         }
     }
-    async createCs(oldQuery: string, maxPrice: number): Promise<[boolean, string]> { 
-        console.log("TEST");
-        return[true, "TEST"];
+    async createCs(oldQuery: string, maxPrice: number, maxFloat: number) { 
+        //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
+        //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
+        try {
+            if(oldQuery.includes("https://steamcommunity.com/market/listings/730/")) {
+                let search = new URL(oldQuery.concat("/render/?query=&start=0&count=20&country=AU&language=english&currency=1").trim()).toString();
+                let csMarketItem = new CsMarketItem({
+                    name: search,
+                    maxPrice: maxPrice,
+                    maxFloat: maxFloat
+                });
+                csMarketItem.save(err => console.error);
+                return search;
+            }
+            return "";
+        }
+        catch(e) {
+            console.error;
+            return "";
+        }
     }
 }
 
 export default SteamMarket;
 
-function sleep(arg0: number) {
-    throw new Error("Function not implemented.");
-}
 

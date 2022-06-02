@@ -21,6 +21,8 @@ class CsDeals {
         const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         try {
             const page = await browser.newPage();
+            await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
+
             page.goto("https://cs.deals/trade-skins");
         
             //New eventlistener replacement

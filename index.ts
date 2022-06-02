@@ -93,11 +93,16 @@ const commands = [
             .setDescription("The URL of the query.")
             .setRequired(true)
             )
-            .addNumberOption(option => 
-                option.setName("maxfloat")
-                .setDescription("Enter the max float value for a notification.")
-                .setRequired(true)
-                ),
+        .addNumberOption(option => 
+            option.setName("maxfloat")
+            .setDescription("Enter the max float value for a notification.")
+            .setRequired(true)
+            )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+            .setDescription("Enter the maximum price for a notification.")
+            .setRequired(true)
+            ),
     new SlashCommandBuilder()
         .setName("createcashquery")
         .setDescription("Creates a search for a Cash Converters Query")
@@ -308,10 +313,22 @@ client.on("interactionCreate", async interaction => {
             catch (e) {
                 await interaction.editReply("The URL is invalid!");
             }
-
+            
         }
         else if(interaction.commandName === "createcsmarket") {
-
+            let query = interaction.options.getString("query") || "placeholder";
+            let maxFloat = interaction.options.getNumber("maxfloat") || 1;
+            let maxPrice = interaction.options.getNumber("maxprice") || 1;
+            
+            try {
+                const steamMarket = new SteamMarket(client, `${process.env.STEAM_QUERY_CHANNEL_ID}`, `${process.env.STEAM_QUERY_ROLE_ID}`, `${process.env.CS_MARKET_CHANNEL_ID}`, `${process.env.CS_MARKET_ROLE_ID}`);
+                let response = await steamMarket.createCs(query, maxPrice, maxFloat);
+                if(response != "") await interaction.editReply("Please know a search has been created with the URL: " + response);
+                else await interaction.editReply("Please know that the url was invalid!");
+            }
+            catch(e) {
+                await interaction.editReply("Please know that the url was invalid!");
+            }
         }
         else if(interaction.commandName === "createcashquery") {
 
