@@ -39,7 +39,7 @@ class SteamMarket {
         try {
             let cursor = SteamQuery.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                await this.sleep(4000);
+                await this.sleep(15000);
                 await axios.get(`${item.name}`)
                     .then(res => {
                         let price: number = res.data.results[0].sell_price;
@@ -73,8 +73,8 @@ class SteamMarket {
         try {
             let cursor = CsMarketItem.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                await this.sleep(4000);
-
+                await this.sleep(15000);
+                console.log("TEST")
                 await axios.get(`${item.name}`)
                     .then(async res => {
                         let i = 0;
@@ -84,22 +84,21 @@ class SteamMarket {
                             //res.data.listinginfo[skin].listingid
                             //res.data.listinginfo[skin].asset.id
 
-                            console.log(res.data.listinginfo[skin].asset.market_actions)
                             let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
                                 .replace("%listingid%", res.data.listinginfo[skin].listingid)
                                 .replace("%assetid%", res.data.listinginfo[skin].asset.id);
-                            console.log(query)
+              
+                            let price = (res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit)/100.0;
                             
-                            let price = res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit;
                             //Only calls the API if the skin isn't in the map, and the item is in the first 10
                             if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
                                 .then(response => {
-                                    console.log(response.data.iteminfo.floatvalue);
+                                    console.log(response.data.iteminfo.floatvalue + " "  + price)
                                     if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
                                         this.client.channels.fetch(this.csChannelId)
                                             .then(channel => <TextChannel>channel)
                                             .then(channel => {
-                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} is available for $${price} USD at: ${item.name}`);
+                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.name}`);
                                             })
                                             .catch(console.error)
                                     }
@@ -112,10 +111,9 @@ class SteamMarket {
             }
 
             //Decrement the TTL in the map
-            for(let value of this.itemsFound.values()) {
-                console.log(value);
+            for(let [key, value] of this.itemsFound) {
                 value--;
-                console.log(value);
+                if(value <= 0) this.itemsFound.delete(key);
             }
         }
         catch(e) {
