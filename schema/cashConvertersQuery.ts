@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 
 interface cashConvertersInterface {
-    name: String,
-    lastItemFound: String
+    name: string,
+    lastItemFound: string
 }
 
 const CashConvertersSchema = new mongoose.Schema<cashConvertersInterface>({

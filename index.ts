@@ -11,9 +11,7 @@ import CsTradeItem from "./schema/csTradeItem.js";
 import TradeItItem from "./schema/tradeItItem.js";
 import LootFarmItem from "./schema/lootFarmItem.js";
 import CashConvertersQuery from "./schema/cashConvertersQuery.js";
-import CsMarketItem from "./schema/csMarketItem.js";
 import SalvosQuery from "./schema/salvosQuery.js";
-import SteamQuery from "./schema/steamQuery.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -23,11 +21,9 @@ import CsDeals from "./scanners/csDeals.js";
 import CsTrade from "./scanners/csTrade.js";
 import TradeIt from "./scanners/tradeIt.js";
 import LootFarm from "./scanners/lootFarm.js";
-//TODO: Add the 4 new scanners
-//TODO: Cash
-import SteamMarket from "./scanners/steamMarket.js"; //TODO: CsMarket
-//TODO: Steam
-//TODO: Salvos
+import CashConverters from "./scanners/cashConverters.js";  //TODO: Cash
+import SteamMarket from "./scanners/steamMarket.js";
+import Salvos from "./scanners/salvos.js"; //TODO: Salvos
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -110,11 +106,6 @@ const commands = [
             option.setName("query")
             .setDescription("The URL of the query. Sort by price or newness.")
             .setRequired(true)
-            )
-        .addNumberOption(option => 
-            option.setName("maxprice")
-            .setDescription("Enter the maximum price for a notification.")
-            .setRequired(true)
             ),
     new SlashCommandBuilder()
         .setName("createsalvosquery")
@@ -123,15 +114,10 @@ const commands = [
             option.setName("query")
             .setDescription("The URL of the query. Sort by price or newness.")
             .setRequired(true)
-            )
-            .addNumberOption(option => 
-                option.setName("maxprice")
-                .setDescription("Enter the maximum price for a notification.")
-                .setRequired(true)
-                )
-            ].map(command => command.toJSON());
-            const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
-            rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
+    )]
+        .map(command => command.toJSON());
+        const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
+        rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
             .then(() => console.log("Registered the bot\'s commands successfully"))
             .catch(console.error);
                                     
@@ -170,13 +156,22 @@ client.once('ready', () => {
         lootFarm.scan();
         setInterval(lootFarm.scan, 900000);
     }
-
     if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
         const steamMarket = new SteamMarket(client, process.env.STEAM_QUERY_CHANNEL_ID, process.env.STEAM_QUERY_ROLE_ID, process.env.CS_MARKET_CHANNEL_ID, process.env.CS_MARKET_ROLE_ID);
         steamMarket.scanCs();
         steamMarket.scanQuery();
         setInterval(steamMarket.scanCs, 600000);
         setInterval(steamMarket.scanQuery, 600000);
+    }
+    if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) {
+        const cashConverters = new CashConverters(client, process.env.CASH_CONVERTERS_CHANNEL_ID, process.env.CASH_CONVERTERS_ROLE_ID);
+        cashConverters.scan();
+        setInterval(cashConverters.scan, 1000000);
+    }
+    if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) {
+        const salvos = new Salvos(client, process.env.SALVOS_CHANNEL_ID, process.env.SALVOS_ROLE_ID);
+        salvos.scan();
+        setInterval(salvos.scan, 1000000);
     }
 });
 
@@ -331,10 +326,28 @@ client.on("interactionCreate", async interaction => {
             }
         }
         else if(interaction.commandName === "createcashquery") {
-
+            let query = interaction.options.getString("query") || "placeholder";
+            let search = new URL(query);
+            if(search.toString().includes("https://www.cashconverters.com.au/")) {
+                let cashQuery = new CashConvertersQuery({
+                    name: search.toString()
+                })
+                cashQuery.save();
+                await interaction.editReply("Please know that the search has been created: " + search.toString());
+            }
+            else interaction.editReply("Please know that your search was invalid!")
         }
         else if(interaction.commandName === "createsalvosquery") {
-
+            let query = interaction.options.getString("query") || "placeholder";
+            let search = new URL(query);
+            if(search.toString().includes("https://www.salvosstores.com.au/shop?search=")) {
+                let salvosQuery = new SalvosQuery({
+                    name: search.toString()
+                })
+                salvosQuery.save();
+                await interaction.editReply("Please know that the search has been created: " + search.toString());
+            }
+            else interaction.editReply("Please know that your search was invalid!")
         }
     }
     catch(error) {

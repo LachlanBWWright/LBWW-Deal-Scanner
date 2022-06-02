@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 
 interface salvosInterface {
-    name: String,
-    lastItemFound: String
+    name: string,
+    lastItemFound: string
 }
 
 const SalvosSchema = new mongoose.Schema<salvosInterface>({

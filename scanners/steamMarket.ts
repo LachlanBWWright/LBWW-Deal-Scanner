@@ -74,7 +74,6 @@ class SteamMarket {
             let cursor = CsMarketItem.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
                 await this.sleep(15000);
-                console.log("TEST")
                 await axios.get(`${item.name}`)
                     .then(async res => {
                         let i = 0;
@@ -93,7 +92,6 @@ class SteamMarket {
                             //Only calls the API if the skin isn't in the map, and the item is in the first 10
                             if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
                                 .then(response => {
-                                    console.log(response.data.iteminfo.floatvalue + " "  + price)
                                     if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
                                         this.client.channels.fetch(this.csChannelId)
                                             .then(channel => <TextChannel>channel)
