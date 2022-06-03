@@ -182,7 +182,7 @@ class SteamMarket {
                     maxPrice: maxPrice,
                     maxFloat: maxFloat
                 });
-                csMarketItem.save(err => console.error);
+                await csMarketItem.save(err => console.error);
                 console.log("Search created test")
                 console.log(csMarketItem);
                 return search;
