@@ -3,16 +3,14 @@ import mongoose from 'mongoose';
 interface csMarketInterface {
     name: string,
     displayUrl: string,
-    maxPrice: Number,
-    maxFloat: Number,
-    lastFloat: Number,
-    found: Boolean
+    maxPrice: number,
+    maxFloat: number,
 }
 
 const CsMarketItemSchema = new mongoose.Schema<csMarketInterface>({
     name: {type: String, required: true, unique: true},
-    displayUrl: {type: String, required: false},
-    maxPrice: {type: Number, required: true, min: 0, max: 100},
+    displayUrl: {type: String, required: true, unique: true},
+    maxPrice: {type: Number, required: true, min: 0, max: 250},
     maxFloat: {type: Number, required: true, min:0, max: 1}
 })
 
