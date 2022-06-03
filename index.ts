@@ -129,15 +129,15 @@ client.once('ready', () => {
     //Actives scanners as specified in .env
     if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
         const ps5BigW = new Ps5BigW(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
-        setInterval(ps5BigW.scan, 10000);
+        setInterval(ps5BigW.scan, 100000);
     }
     if(process.env.XBOXBIGW && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) {
         const xboxBigW = new XboxBigW(client, process.env.XBOX_CHANNEL_ID, process.env.XBOX_ROLE_ID);
-        setInterval(xboxBigW.scan, 10000);
+        setInterval(xboxBigW.scan, 100000);
     }
     if(process.env.PS5TARGET && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
         const ps5Target = new Ps5Target(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
-        setInterval(ps5Target.scan, 10000);
+        setInterval(ps5Target.scan, 100000);
     }
     if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
         const csDeals = new CsDeals(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
