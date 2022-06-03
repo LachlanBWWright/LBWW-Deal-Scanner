@@ -51,7 +51,7 @@ class SteamMarket {
                                 this.client.channels.fetch(this.queryChannelId)
                                     .then(channel => <TextChannel>channel)
                                     .then(channel => {
-                                        if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.name}`);
+                                        if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
                                     })
                                     .catch(console.error)
                                 break;
@@ -96,7 +96,7 @@ class SteamMarket {
                                         this.client.channels.fetch(this.csChannelId)
                                             .then(channel => <TextChannel>channel)
                                             .then(channel => {
-                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.name}`);
+                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
                                             })
                                             .catch(console.error)
                                     }
@@ -145,6 +145,7 @@ class SteamMarket {
                     new URL(query);
                     let steamQuery = new SteamQuery({
                         name: response.url().toString().concat("&norender=1"),
+                        displayUrl: oldQuery,
                         maxPrice: maxPrice
                     })
                     steamQuery.save(err => {console.log(err);});
@@ -177,6 +178,7 @@ class SteamMarket {
                 let search = new URL(oldQuery.concat("/render/?query=&start=0&count=20&country=AU&language=english&currency=1").trim()).toString();
                 let csMarketItem = new CsMarketItem({
                     name: search,
+                    displayUrl: oldQuery,
                     maxPrice: maxPrice,
                     maxFloat: maxFloat
                 });
