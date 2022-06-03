@@ -183,6 +183,7 @@ class SteamMarket {
                     maxFloat: maxFloat
                 });
                 csMarketItem.save(err => console.error);
+                console.log("Search created test")
                 return search;
             }
             return "";
