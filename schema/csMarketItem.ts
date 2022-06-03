@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 
 interface csMarketInterface {
-    name: String,
-    displayUrl: String,
+    name: string,
+    displayUrl: string,
     maxPrice: Number,
     maxFloat: Number,
     lastFloat: Number,
