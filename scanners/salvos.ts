@@ -23,6 +23,7 @@ class Salvos {
             let cursor = SalvosQuery.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) { 
                 try {
+                    console.log("SALVOS")
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
                     let selector = await page.waitForSelector('.mt-2.flex-grow.text-xs');
