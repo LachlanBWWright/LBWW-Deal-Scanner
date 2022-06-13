@@ -146,15 +146,15 @@ client.once('ready', () => {
 
         const csTrade = new CsTrade(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         csTrade.scan();
-        setInterval(csTrade.scan, 900000);
+        setInterval(csTrade.scan, 890000);
 
         const tradeIt = new TradeIt(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         tradeIt.scan();
-        setInterval(tradeIt.scan, 900000);
+        setInterval(tradeIt.scan, 880000);
 
         const lootFarm = new LootFarm(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
         lootFarm.scan();
-        setInterval(lootFarm.scan, 900000);
+        setInterval(lootFarm.scan, 870000);
     }
     if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
         const steamMarket = new SteamMarket(client, process.env.STEAM_QUERY_CHANNEL_ID, process.env.STEAM_QUERY_ROLE_ID, process.env.CS_MARKET_CHANNEL_ID, process.env.CS_MARKET_ROLE_ID);
@@ -171,7 +171,7 @@ client.once('ready', () => {
     if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) {
         const salvos = new Salvos(client, process.env.SALVOS_CHANNEL_ID, process.env.SALVOS_ROLE_ID);
         salvos.scan();
-        setInterval(salvos.scan, 1000000);
+        setInterval(salvos.scan, 1100000);
     }
 });
 
