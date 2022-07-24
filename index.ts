@@ -115,64 +115,52 @@ const commands = [
             .setDescription("The URL of the query. Sort by price or newness.")
             .setRequired(true)
     )]
-        .map(command => command.toJSON());
-        const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
-        rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
-            .then(() => console.log("Registered the bot\'s commands successfully"))
-            .catch(console.error);
+    .map(command => command.toJSON());
+    const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
+    rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
+        .then(() => console.log("Registered the bot\'s commands successfully"))
+        .catch(console.error);
                                     
 //Discord Client Setup
 const client = new Client({ intents: [Intents.FLAGS.GUILDS]});
 client.once('ready', () => {
     console.log("Discord client is ready.")
 
-    //Actives scanners as specified in .env
-    if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
-        const ps5BigW = new Ps5BigW(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
-        setInterval(ps5BigW.scan, 100000);
-    }
-    if(process.env.XBOXBIGW && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) {
-        const xboxBigW = new XboxBigW(client, process.env.XBOX_CHANNEL_ID, process.env.XBOX_ROLE_ID);
-        setInterval(xboxBigW.scan, 100000);
-    }
-    if(process.env.PS5TARGET && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) {
-        const ps5Target = new Ps5Target(client, process.env.PS5_CHANNEL_ID, process.env.PS5_ROLE_ID);
-        setInterval(ps5Target.scan, 100000);
-    }
-    if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
-        const csDeals = new CsDeals(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
-        csDeals.scan();
-        setInterval(csDeals.scan, 900000); //TODO: Revert interval
+    const ps5BigW = new Ps5BigW(client, `${process.env.PS5_CHANNEL_ID}`, `${process.env.PS5_ROLE_ID}`);
+    const xboxBigW = new XboxBigW(client, `${process.env.XBOX_CHANNEL_ID}`, `${process.env.XBOX_ROLE_ID}`);
+    const ps5Target = new Ps5Target(client, `${process.env.PS5_CHANNEL_ID}`, `${process.env.PS5_ROLE_ID}`);
+    const csDeals = new CsDeals(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+    const csTrade = new CsTrade(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+    const tradeIt = new TradeIt(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+    const lootFarm = new LootFarm(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
+    const steamMarket = new SteamMarket(client, `${process.env.STEAM_QUERY_CHANNEL_ID}`, `${process.env.STEAM_QUERY_ROLE_ID}`, `${process.env.CS_MARKET_CHANNEL_ID}`, `${process.env.CS_MARKET_ROLE_ID}`);
+    const cashConverters = new CashConverters(client, `${process.env.CASH_CONVERTERS_CHANNEL_ID}`, `${process.env.CASH_CONVERTERS_ROLE_ID}`);
+    const salvos = new Salvos(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
 
-        const csTrade = new CsTrade(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
-        csTrade.scan();
-        setInterval(csTrade.scan, 890000);
+    const scanFrequently = async () => {
+        if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
+        if(process.env.XBOXBIGW && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) await xboxBigW.scan();
+        if(process.env.PS5TARGET && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5Target.scan();
+    }
+    const scanInfrequently = async () => {
+        if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
+            await csDeals.scan();
+            await csTrade.scan();
+            await tradeIt.scan();
+            await lootFarm.scan();
+        }
+        if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
+            await steamMarket.scanCs();
+            await steamMarket.scanQuery();
+        }
+        if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
+        if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
+    }
 
-        const tradeIt = new TradeIt(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
-        tradeIt.scan();
-        setInterval(tradeIt.scan, 880000);
-
-        const lootFarm = new LootFarm(client, process.env.CS_CHANNEL_ID, process.env.CS_ROLE_ID);
-        lootFarm.scan();
-        setInterval(lootFarm.scan, 870000);
-    }
-    if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
-        const steamMarket = new SteamMarket(client, process.env.STEAM_QUERY_CHANNEL_ID, process.env.STEAM_QUERY_ROLE_ID, process.env.CS_MARKET_CHANNEL_ID, process.env.CS_MARKET_ROLE_ID);
-        steamMarket.scanCs();
-        steamMarket.scanQuery();
-        setInterval(steamMarket.scanCs, 600000);
-        setInterval(steamMarket.scanQuery, 600000);
-    }
-    if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) {
-        const cashConverters = new CashConverters(client, process.env.CASH_CONVERTERS_CHANNEL_ID, process.env.CASH_CONVERTERS_ROLE_ID);
-        cashConverters.scan();
-        setInterval(cashConverters.scan, 1000000);
-    }
-    if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) {
-        const salvos = new Salvos(client, process.env.SALVOS_CHANNEL_ID, process.env.SALVOS_ROLE_ID);
-        salvos.scan();
-        setInterval(salvos.scan, 1100000);
-    }
+    scanFrequently();
+    scanInfrequently();
+    setInterval(scanFrequently, 100000);
+    setInterval(scanInfrequently, 880000);
 });
 
 client.on("interactionCreate", async interaction => {
