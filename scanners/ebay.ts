@@ -16,7 +16,7 @@ class Ebay {
     }
 
     async scan() {
-        const browser = await puppeteer.launch({headless: false, args: ['--no-sandbox']});
+        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         const page = await browser.newPage();
         try {
             let cursor = EbayQuery.find().cursor();
@@ -24,8 +24,7 @@ class Ebay {
                 try {
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
-                    //let selector = await page.waitForSelector('.mt-2.flex-grow.text-xs');  #srp-river-results > ul > li:nth-child(1) > div > div.s-item__info.clearfix > div.s-item__details.clearfix > div:nth-child(1) > span
-                    let selector = await page.waitForSelector('#srp-river-results > ul > li:nth-child(1) > div > div.s-item__info.clearfix > a > h3');
+                    let selector = await page.waitForSelector('#srp-river-results > ul > li:nth-child(3) > div > div.s-item__info.clearfix > a > h3');
                     let ebayItem = await selector?.evaluate(el => el.textContent);
                     //.evaluate(el => el.textContent);
                     if(ebayItem != item.lastItemFound) {
