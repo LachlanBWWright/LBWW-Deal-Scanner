@@ -11,6 +11,7 @@ CS_ITEMS = true
 STEAM_QUERY = true
 CASH_CONVERTERS = true
 SALVOS = true
+EBAY = false
 
 PS5_CHANNEL_ID = 
 PS5_ROLE_ID = 
@@ -21,7 +22,7 @@ XBOX_ROLE_ID =
 CS_CHANNEL_ID = 
 CS_ROLE_ID = 
 
-# All four must be initialized for for either to work
+# All four must be initialized for any to work
 STEAM_QUERY_CHANNEL_ID = 
 STEAM_QUERY_ROLE_ID = 
 CS_MARKET_CHANNEL_ID = 
@@ -32,3 +33,6 @@ CASH_CONVERTERS_ROLE_ID =
 
 SALVOS_CHANNEL_ID = 
 SALVOS_ROLE_ID = 
+
+EBAY_CHANNEL_ID = 
+EBAY_ROLE_ID = 

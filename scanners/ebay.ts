@@ -1,8 +1,8 @@
 import {Client, TextChannel} from "discord.js";
 import puppeteer from 'puppeteer';
-import SalvosQuery from "../schema/salvosQuery.js";
+import EbayQuery from "../schema/ebayQuery.js";
 
-class Salvos {
+class Ebay {
     client: Client;
     channelId: string;
     roleId: string;
@@ -16,27 +16,27 @@ class Salvos {
     }
 
     async scan() {
-        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+        const browser = await puppeteer.launch({headless: false, args: ['--no-sandbox']});
         const page = await browser.newPage();
         try {
-            let cursor = SalvosQuery.find().cursor();
+            let cursor = EbayQuery.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) { 
                 try {
-                    console.log("SALVOS")
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
-                    let selector = await page.waitForSelector('.mt-2.flex-grow.text-xs');
-                    let salvosItem = await selector?.evaluate(el => el.textContent);
+                    //let selector = await page.waitForSelector('.mt-2.flex-grow.text-xs');  #srp-river-results > ul > li:nth-child(1) > div > div.s-item__info.clearfix > div.s-item__details.clearfix > div:nth-child(1) > span
+                    let selector = await page.waitForSelector('#srp-river-results > ul > li:nth-child(1) > div > div.s-item__info.clearfix > a > h3');
+                    let ebayItem = await selector?.evaluate(el => el.textContent);
                     //.evaluate(el => el.textContent);
-                    if(salvosItem != item.lastItemFound) {
+                    if(ebayItem != item.lastItemFound) {
                         this.client.channels.fetch(this.channelId)
                             .then(channel => <TextChannel>channel)
                             .then(channel => {
-                                if(channel) channel.send(`<@&${this.roleId}> Please know that a ${salvosItem} is available at  ${item.name}`);
+                                if(channel) channel.send(`<@&${this.roleId}> Please know that a ${ebayItem} is available at  ${item.name}`);
                             })
                             .catch(console.error)
-                        if(salvosItem != undefined) {
-                            item.lastItemFound = salvosItem;
+                        if(ebayItem != undefined) {
+                            item.lastItemFound = ebayItem;
                             item.save();
                         }
                     }
@@ -57,4 +57,4 @@ class Salvos {
     }   
 }
 
-export default Salvos;
+export default Ebay;

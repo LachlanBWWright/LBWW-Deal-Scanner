@@ -12,6 +12,7 @@ import TradeItItem from "./schema/tradeItItem.js";
 import LootFarmItem from "./schema/lootFarmItem.js";
 import CashConvertersQuery from "./schema/cashConvertersQuery.js";
 import SalvosQuery from "./schema/salvosQuery.js";
+import EbayQuery from "./schema/ebayQuery.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -21,9 +22,10 @@ import CsDeals from "./scanners/csDeals.js";
 import CsTrade from "./scanners/csTrade.js";
 import TradeIt from "./scanners/tradeIt.js";
 import LootFarm from "./scanners/lootFarm.js";
-import CashConverters from "./scanners/cashConverters.js";  //TODO: Cash
+import CashConverters from "./scanners/cashConverters.js";
 import SteamMarket from "./scanners/steamMarket.js";
-import Salvos from "./scanners/salvos.js"; //TODO: Salvos
+import Salvos from "./scanners/salvos.js"; 
+import Ebay from "./scanners/ebay.js"; 
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -112,10 +114,18 @@ const commands = [
         .setDescription("Creates a search for a Salvos Query")
         .addStringOption(option =>
             option.setName("query")
-            .setDescription("The URL of the query. Sort by price or newness.")
+            .setDescription("The URL of the query. Sort by newest first.")
             .setRequired(true)
-    )]
-    .map(command => command.toJSON());
+    ),
+    new SlashCommandBuilder()
+        .setName("createebayquery")
+        .setDescription("Creates a search for an eBay Query")
+        .addStringOption(option =>
+            option.setName("query")
+            .setDescription("The URL of the query. Sort by newest first.")
+            .setRequired(true)
+    )
+    ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
     rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
         .then(() => console.log("Registered the bot\'s commands successfully"))
@@ -136,6 +146,7 @@ client.once('ready', () => {
     const steamMarket = new SteamMarket(client, `${process.env.STEAM_QUERY_CHANNEL_ID}`, `${process.env.STEAM_QUERY_ROLE_ID}`, `${process.env.CS_MARKET_CHANNEL_ID}`, `${process.env.CS_MARKET_ROLE_ID}`);
     const cashConverters = new CashConverters(client, `${process.env.CASH_CONVERTERS_CHANNEL_ID}`, `${process.env.CASH_CONVERTERS_ROLE_ID}`);
     const salvos = new Salvos(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
+    const ebay = new Ebay(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
 
     const scanFrequently = async () => {
         if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
@@ -155,6 +166,7 @@ client.once('ready', () => {
         }
         if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
         if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
+        if(process.env.EBAY && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID) await ebay.scan();
     }
 
     scanFrequently();
@@ -333,6 +345,18 @@ client.on("interactionCreate", async interaction => {
                     name: search.toString()
                 })
                 salvosQuery.save();
+                await interaction.editReply("Please know that the search has been created: " + search.toString());
+            }
+            else interaction.editReply("Please know that your search was invalid!")
+        }
+        else if(interaction.commandName === "createebayquery") {
+            let query = interaction.options.getString("query") || "placeholder";
+            let search = new URL(query);
+            if(search.toString().includes("https://www.ebay.com.au/")) {
+                let ebayQuery = new EbayQuery({
+                    name: search.toString()
+                })
+                ebayQuery.save();
                 await interaction.editReply("Please know that the search has been created: " + search.toString());
             }
             else interaction.editReply("Please know that your search was invalid!")
