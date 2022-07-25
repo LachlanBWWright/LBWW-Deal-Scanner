@@ -363,7 +363,8 @@ client.on("interactionCreate", async interaction => {
             let search = new URL(query);
             if(search.toString().includes("https://www.ebay.com.au/")) {
                 let ebayQuery = new EbayQuery({
-                    name: search.toString()
+                    name: search.toString(),
+                    maxPrice: maxPrice
                 })
                 ebayQuery.save();
                 await interaction.editReply("Please know that the search has been created: " + search.toString());
