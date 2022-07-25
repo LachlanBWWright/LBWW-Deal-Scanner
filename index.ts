@@ -124,7 +124,13 @@ const commands = [
             option.setName("query")
             .setDescription("The URL of the query. Sort by newest first.")
             .setRequired(true)
-    )
+        )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+            .setDescription("Enter the maximum price (in AUD) a notification.")
+            .setRequired(true)
+        ),
+
     ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
     rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
@@ -147,6 +153,8 @@ client.once('ready', () => {
     const cashConverters = new CashConverters(client, `${process.env.CASH_CONVERTERS_CHANNEL_ID}`, `${process.env.CASH_CONVERTERS_ROLE_ID}`);
     const salvos = new Salvos(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
     const ebay = new Ebay(client, `${process.env.EBAY_CHANNEL_ID}`, `${process.env.EBAY_ROLE_ID}`);
+
+    ebay.scan();
 
     const scanFrequently = async () => {
         if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
@@ -351,6 +359,7 @@ client.on("interactionCreate", async interaction => {
         }
         else if(interaction.commandName === "createebayquery") {
             let query = interaction.options.getString("query") || "placeholder";
+            let maxPrice = interaction.options.getNumber("maxprice") || 1000;
             let search = new URL(query);
             if(search.toString().includes("https://www.ebay.com.au/")) {
                 let ebayQuery = new EbayQuery({

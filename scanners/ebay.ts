@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer from 'puppeteer';
+import puppeteer, { ElementHandle } from 'puppeteer';
 import EbayQuery from "../schema/ebayQuery.js";
 
 class Ebay {
@@ -24,18 +24,28 @@ class Ebay {
                 try {
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
-                    let selector = await page.waitForSelector('#srp-river-results > ul > li:nth-child(3) > div > div.s-item__info.clearfix > a > h3');
-                    let ebayItem = await selector?.evaluate(el => el.textContent);
-                    //.evaluate(el => el.textContent);
-                    if(ebayItem != item.lastItemFound) {
+
+                    let foundName: string | undefined
+                    let foundPrice: number | undefined
+
+                    let result = await page.$('#srp-river-results');
+                    if(result) {
+                        let resName = await result.$eval('div.s-item__info.clearfix > a > h3', res => res.textContent);
+                        if(resName) foundName = resName;
+
+                        let resPrice = await result.$eval('div.s-item__info.clearfix > div.s-item__details.clearfix > div:nth-child(1) > span', res => res.textContent);
+                        if(resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g,""))
+                    }
+                    
+                    if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound && foundPrice <= item.maxPrice) {
                         this.client.channels.fetch(this.channelId)
                             .then(channel => <TextChannel>channel)
                             .then(channel => {
-                                if(channel) channel.send(`<@&${this.roleId}> Please know that a ${ebayItem} is available at  ${item.name}`);
+                                if(channel) channel.send(`<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`);
                             })
                             .catch(console.error)
-                        if(ebayItem != undefined) {
-                            item.lastItemFound = ebayItem;
+                        if(foundName != undefined) {
+                            item.lastItemFound = foundName;
                             item.save();
                         }
                     }
