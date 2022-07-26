@@ -393,11 +393,11 @@ client.on("interactionCreate", async interaction => {
             let maxPrice = interaction.options.getNumber("maxprice") || 1000;
             let search = new URL(query);
             if(search.toString().includes("https://www.gumtree.com.au/")) {
-                let ebayQuery = new GumtreeQuery({
+                let gumtreeQuery = new GumtreeQuery({
                     name: search.toString(),
                     maxPrice: maxPrice
                 })
-                ebayQuery.save();
+                gumtreeQuery.save();
                 await interaction.editReply("Please know that the search has been created: " + search.toString());
             }
             else interaction.editReply("Please know that your search was invalid!")

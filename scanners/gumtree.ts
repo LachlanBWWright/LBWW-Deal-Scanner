@@ -25,13 +25,29 @@ class Gumtree {
             let cursor = GumtreeQuery.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) { 
                 try {
+                    console.log('Gumtree Scanning Test')
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
 
                     let foundName: string | undefined
                     let foundPrice: number | undefined
                     
-                    let result = await page.$('.user-ad-collection-new-design'); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
+                    let results = await page.$$('.user-ad-collection-new-design'); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
+                    let resIndex = 0;
+                    let result: puppeteer.ElementHandle<Element>;
+
+                    for(let i = 0; i < results.length; i++) {
+                        let tempRes = results[i];
+                        //#user-ad-1296285847 > div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top
+                        if(!(await tempRes.$('div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top'))) {
+                            console.log('1')
+                            result = tempRes;
+                            break;
+                        }
+                        else console.log('2')
+                    }
+
+                    result = await results[resIndex];
                     if(result) {
                         let resName = await result.$eval('div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span', res => res.textContent);
                         if(resName) foundName = resName;
