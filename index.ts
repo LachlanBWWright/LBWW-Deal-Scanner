@@ -13,6 +13,7 @@ import LootFarmItem from "./schema/lootFarmItem.js";
 import CashConvertersQuery from "./schema/cashConvertersQuery.js";
 import SalvosQuery from "./schema/salvosQuery.js";
 import EbayQuery from "./schema/ebayQuery.js";
+import GumtreeQuery from "./schema/gumtreeQuery.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -26,6 +27,7 @@ import CashConverters from "./scanners/cashConverters.js";
 import SteamMarket from "./scanners/steamMarket.js";
 import Salvos from "./scanners/salvos.js"; 
 import Ebay from "./scanners/ebay.js"; 
+import Gumtree from "./scanners/gumtree.js";
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -130,6 +132,19 @@ const commands = [
             .setDescription("Enter the maximum price (in AUD) a notification.")
             .setRequired(true)
         ),
+    new SlashCommandBuilder()
+        .setName("creategumtreequery")
+        .setDescription("Creates a search for a Gumtree Query")
+        .addStringOption(option =>
+            option.setName("query")
+            .setDescription("The URL of the query. Sort by newest first.")
+            .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+            .setDescription("Enter the maximum price (in AUD) a notification.")
+            .setRequired(true)
+        ),
 
     ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
@@ -153,8 +168,9 @@ client.once('ready', () => {
     const cashConverters = new CashConverters(client, `${process.env.CASH_CONVERTERS_CHANNEL_ID}`, `${process.env.CASH_CONVERTERS_ROLE_ID}`);
     const salvos = new Salvos(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
     const ebay = new Ebay(client, `${process.env.EBAY_CHANNEL_ID}`, `${process.env.EBAY_ROLE_ID}`);
+    const gumtree = new Gumtree(client, `${process.env.GUMTREE_CHANNEL_ID}`, `${process.env.GUMTREE_ROLE_ID}`)
 
-    ebay.scan();
+    gumtree.scan();
 
     const scanFrequently = async () => {
         if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
@@ -175,6 +191,7 @@ client.once('ready', () => {
         if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
         if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
         if(process.env.EBAY && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID) await ebay.scan();
+        if(process.env.GUMTREE && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
     }
 
     scanFrequently();
