@@ -38,6 +38,7 @@ class Gumtree {
                         
                         let resPrice = await result.$eval('div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price', res => res.textContent);
                         if(resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g,""))
+                        if(resPrice && resPrice.includes('Free')) foundPrice = 0
                     }
                     
                     
