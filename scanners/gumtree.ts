@@ -19,8 +19,6 @@ class Gumtree {
         const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         const page = await browser.newPage();
 
-        console.log('Gumtree Scanning')
-
         try {
             let cursor = GumtreeQuery.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) { 
@@ -34,20 +32,17 @@ class Gumtree {
                     
                     let results = await page.$$('.user-ad-collection-new-design'); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
                     let resIndex = 0;
-                    let result: puppeteer.ElementHandle<Element>;
+                    let result: puppeteer.ElementHandle<Element> | undefined;
 
                     for(let i = 0; i < results.length; i++) {
                         let tempRes = results[i];
                         //#user-ad-1296285847 > div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top
                         if(!(await tempRes.$('div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top'))) {
-                            console.log('1')
                             result = tempRes;
                             break;
                         }
-                        else console.log('2')
                     }
 
-                    result = await results[resIndex];
                     if(result) {
                         let resName = await result.$eval('div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span', res => res.textContent);
                         if(resName) foundName = resName;
