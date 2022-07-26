@@ -30,19 +30,16 @@ class Gumtree {
 
                     let foundName: string | undefined
                     let foundPrice: number | undefined
-                    console.log('2')
+                    
                     let result = await page.$('.user-ad-collection-new-design'); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
                     if(result) {
-                        console.log('3')
-                        //#user-ad-1298634939 > div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span
                         let resName = await result.$eval('div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span', res => res.textContent);
                         if(resName) foundName = resName;
-                        //#user-ad-1298634939 > div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price
+                        
                         let resPrice = await result.$eval('div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price', res => res.textContent);
                         if(resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g,""))
-                        console.log('foundName: ' + foundName + 'foundPrice ' + foundPrice)
                     }
-                    else console.log('4')
+                    
                     
                     if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound && foundPrice <= item.maxPrice) {
                         this.client.channels.fetch(this.channelId)
