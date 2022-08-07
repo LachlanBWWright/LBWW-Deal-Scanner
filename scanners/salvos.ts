@@ -25,9 +25,8 @@ class Salvos {
                     console.log("SALVOS")
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
-                    let selector = await page.waitForSelector('.mt-2.flex-grow.text-xs');
+                    let selector = await page.waitForSelector('.line-clamp-3');
                     let salvosItem = await selector?.evaluate(el => el.textContent);
-                    //.evaluate(el => el.textContent);
                     if(salvosItem != item.lastItemFound) {
                         this.client.channels.fetch(this.channelId)
                             .then(channel => <TextChannel>channel)
