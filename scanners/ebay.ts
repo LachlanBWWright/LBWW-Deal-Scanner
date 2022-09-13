@@ -16,7 +16,7 @@ class Ebay {
     }
 
     async scan() {
-        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+        const browser = await puppeteer.launch({headless: false, args: ['--no-sandbox']});
         const page = await browser.newPage();
         try {
             let cursor = EbayQuery.find().cursor();
@@ -27,14 +27,14 @@ class Ebay {
 
                     let foundName: string | undefined
                     let foundPrice: number | undefined
-
-                    let result = await page.$('#srp-river-results');
+                    
+                    let result = await page.$("div[class='srp-river-results clearfix']"); //#s-item__wrapper
                     if(result) {
-                        let resName = await result.$eval('div.s-item__info.clearfix > a > h3', res => res.textContent);
+                        let resName = await result.$eval("span[role='heading']", res => res.textContent);
                         if(resName) foundName = resName;
-
-                        let resPrice = await result.$eval('div.s-item__info.clearfix > div.s-item__details.clearfix > div:nth-child(1) > span', res => res.textContent);
+                        let resPrice = await result.$eval("span[class='s-item__price']", res => res.textContent);
                         if(resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g,""))
+                        console.log(resName + " " + resPrice)
                     }
                     
                     if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound && foundPrice <= item.maxPrice) {
