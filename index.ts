@@ -194,9 +194,8 @@ client.once('ready', () => {
         }
     }
 
-    scanFrequently();
     scanInfrequently();
-    setInterval(scanFrequently, 100000);
+    if(process.env.PS5BIGW || process.env.XBOXBIGW || process.env.PS5TARGET) setInterval(scanFrequently, 100000);
 });
 
 client.on("interactionCreate", async interaction => {
