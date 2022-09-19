@@ -6,11 +6,13 @@ class Gumtree {
     client: Client;
     channelId: string;
     roleId: string;
+    recentlyFound: Map<string, Map<string, number>>; //Date() - Returns current time, 
 
     constructor(client: Client, channelId: string, roleId: string) {
         this.client = client;
         this.channelId = channelId;
         this.roleId = roleId;
+        this.recentlyFound = new Map();
 
         this.scan = this.scan.bind(this);
     }
@@ -22,8 +24,7 @@ class Gumtree {
         try {
             let cursor = GumtreeQuery.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) { 
-                try {
-                    console.log('Gumtree Scanning Test')
+                try {                    
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
 
@@ -52,8 +53,28 @@ class Gumtree {
                         if(resPrice && resPrice.includes('Free')) foundPrice = 0
                     }
                     
+                    //Map stuff
+                    let foundRecently = true;
+                    let map = this.recentlyFound.get(item.name) ?? this.recentlyFound.set(item.name, new Map()).get(item.name); //Expands map if item does not exist in it.
+                    if(map !== undefined && foundName !== undefined) {
+                        if(map.get(foundName) === undefined) foundRecently = false; //Block notification if date was already found
+                        console.log(Date.now())
+                        map.set(foundName, Date.now()) //MS pased since 1970, lower = older
+
+                        if(map.size > 10) { //Purges the youngest from the map
+                            let toDelete = "";
+                            let oldest = 0;
+                            map.forEach((val, key) => {
+                                if(val < oldest || oldest === 0) {
+                                    toDelete = key;
+                                    oldest = val;
+                                }
+                            })
+                            map.delete(toDelete);
+                        }
+                    }
                     
-                    if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound && foundPrice <= item.maxPrice) {
+                    if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound && foundPrice <= item.maxPrice && !foundRecently) {
                         this.client.channels.fetch(this.channelId)
                             .then(channel => <TextChannel>channel)
                             .then(channel => {
