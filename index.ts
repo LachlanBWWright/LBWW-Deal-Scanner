@@ -177,17 +177,17 @@ client.once('ready', () => {
     }
     const scanInfrequently = async () => {
         while(true) {
-            if(process.env.GUMTREE && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
+            if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
+                await steamMarket.scanCs();
+                await steamMarket.scanQuery();
+            }
             if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
                 await csDeals.scan();
                 await csTrade.scan();
                 await tradeIt.scan();
                 await lootFarm.scan();
             }
-            if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
-                await steamMarket.scanCs();
-                await steamMarket.scanQuery();
-            }
+            if(process.env.GUMTREE && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
             if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
             if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
             if(process.env.EBAY && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID) await ebay.scan();
@@ -401,8 +401,8 @@ client.on("interactionCreate", async interaction => {
             else interaction.editReply("Please know that your search was invalid!")
         }
     }
-    catch(error) {
-        console.log(error);
+    catch(e) {
+        console.error(e);
     }
 });
 

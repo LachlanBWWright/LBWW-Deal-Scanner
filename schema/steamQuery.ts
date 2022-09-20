@@ -14,6 +14,6 @@ const SteamQuerySchema = new mongoose.Schema<steamQueryInterface>({
     lastPrice: {type: Number, required: false, default: 0}
 })
 
-const SteamQuery = mongoose.model<steamQueryInterface>('SteamQuery', SteamQuerySchema);
+const SteamQuery = mongoose.model<steamQueryInterface>('SteamQueries', SteamQuerySchema);
 
 export default SteamQuery;

@@ -40,13 +40,13 @@ class Ps5Target {
                         .then(channel => {
                             if(channel) channel.send(`<@&${this.roleId}> Please know that a Disc PS5 is available at: https://www.target.com.au/p/playstation-reg-5-console/64226187`);
                         })
-                        .catch(console.error)
+                        .catch(e => console.error(e))
                     }
                 }
                 else this.wasFound = false;
 
             })
-            .catch(err => console.error);
+            .catch(e => console.error(e));
 
         axios.get("https://www.target.com.au/ws-api/v1/target/delivery/estimate/64226170?postalCode=2052&storeNumber=5286&mode=CC"/* "https://www.target.com.au/ws-api/v1/target/delivery/estimate/64226187?postalCode=2052&storeNumber=5286&mode=CC" */)
             .then(res => {
@@ -58,13 +58,13 @@ class Ps5Target {
                         .then(channel => {
                             if(channel) channel.send(`<@&${this.roleId}> Please know that a Digital PS5 is available at: https://www.target.com.au/p/playstation-reg-5-console-digital-edition/64226170`);
                         })
-                        .catch(console.error)
+                        .catch(e => console.error(e))
                     }
                 }
                 else this.wasFound2 = false;
 
             })
-            .catch(err => console.error);
+            .catch(e => console.error(e));
     }   
 }
 

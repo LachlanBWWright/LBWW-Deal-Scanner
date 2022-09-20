@@ -38,10 +38,12 @@ class SteamMarket {
     async scanQuery() {
         try {
             let cursor = SteamQuery.find().cursor()
-            for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                await this.sleep(15000);
-                await axios.get(`${item.name}`)
-                    .then(res => {
+            for(let item = await cursor.next(); item !== null; item = await cursor.next()) {
+                try{
+                    errorCheck: for(let i = 0; i < 10; i++) {
+                        await this.sleep(15000);
+                        let res = await axios.get(`${item.name}`);
+                        if(res.status !== 200) continue errorCheck;       
                         let price: number = res.data.results[0].sell_price;
                         for(let instance in res.data.results) {
                             let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
@@ -53,19 +55,23 @@ class SteamMarket {
                                     .then(channel => {
                                         if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
                                     })
-                                    .catch(console.error)
-                                break;
+                                    .catch(e => console.error(e))
                             }
                         }
                         if(price != item.lastPrice) {
                             item.lastPrice = price;
-                            item.save(err => console.error);
+                            item.save(e => console.error(e));
                         }
-                }).catch(err => console.error);
+                        break errorCheck;
+                    }
+                }
+                catch(e) {
+                    console.error(e);
+                }
             }
         }
         catch(e) {
-            console.error
+            console.error(e)
         }
         
     }   
@@ -74,15 +80,49 @@ class SteamMarket {
         try {
             let cursor = CsMarketItem.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                await this.sleep(15000);
+                errorCheck: for(let z = 0; z < 10; z++) {
+                    try {
+                        await this.sleep(15000);
+                        let res = await axios.get(`${item.name}`);
+                        if(res.status !== 200) continue errorCheck; 
+                        let i = 0;
+                        for(let skin in res.data.listinginfo) {
+    
+                            let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
+                                .replace("%listingid%", res.data.listinginfo[skin].listingid)
+                                .replace("%assetid%", res.data.listinginfo[skin].asset.id);
+              
+                            let price = (res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit)/100.0;
+                            
+                            //Only calls the API if the skin isn't in the map, and the item is in the first 10
+                            if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
+                                .then(response => {
+                                    if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
+                                        this.client.channels.fetch(this.csChannelId)
+                                            .then(channel => <TextChannel>channel)
+                                            .then(channel => {
+                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
+                                            })
+                                            .catch(e => console.error(e))
+                                    }
+                                }).catch(e => console.error(e));
+                            if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
+                            else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+                            i++;
+                        }
+                        break errorCheck;
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }
+                }
+
+
+
                 await axios.get(`${item.name}`)
                     .then(async res => {
                         let i = 0;
                         for(let skin in res.data.listinginfo) {
-                            // res.data.listinginfo[skin].asset.market_actions.link && https://api.csgofloat.com/?url=
-                            //steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M%listingid%A%assetid%D4676111808990322346
-                            //res.data.listinginfo[skin].listingid
-                            //res.data.listinginfo[skin].asset.id
 
                             let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
                                 .replace("%listingid%", res.data.listinginfo[skin].listingid)
@@ -99,14 +139,14 @@ class SteamMarket {
                                             .then(channel => {
                                                 if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
                                             })
-                                            .catch(console.error)
+                                            .catch(e => console.error(e))
                                     }
-                                }).catch(e => console.error);
+                                }).catch(e => console.error(e));
                             if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
                             else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
                             i++;
                         }
-                }).catch(err => console.error);
+                }).catch(e => console.error(e));
             }
 
             //Decrement the TTL in the map
@@ -116,7 +156,7 @@ class SteamMarket {
             }
         }
         catch(e) {
-            console.error;
+            console.error(e);
         }
     }   
 
@@ -149,8 +189,7 @@ class SteamMarket {
                         displayUrl: oldQuery,
                         maxPrice: maxPrice
                     })
-                    steamQuery.save(err => {console.log(err);});
-                    console.log(steamQuery);
+                    steamQuery.save(e => console.error(e));
                     responseUrl = response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
                     return true;
                 }
@@ -160,11 +199,10 @@ class SteamMarket {
             
         }
         catch (e) {
-            console.log(e);
+            console.error(e);
             response = [false, ""];
         }
         finally {
-            console.log("If the app has just crashed, it\'s steamMarket.ts\'s fault!");
             await page.close();
             await browser.disconnect();
             await browser.close();
@@ -184,13 +222,13 @@ class SteamMarket {
                     maxFloat: maxFloat
                 });
                 
-                await csMarketItem.save(err => console.log(err));
+                await csMarketItem.save(e => console.error(e));
                 return search;
             }
             return "";
         }
         catch(e) {
-            console.error;
+            console.error(e);
             return "";
         }
     }

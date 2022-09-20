@@ -48,14 +48,14 @@ class CsDeals {
                         if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].i <= item.maxPrice) {
                             if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                 item.found = true;
-                                item.save(err => console.error);
+                                item.save(e => console.error(e));
 
                                 this.client.channels.fetch(this.channelId)
                                 .then(channel => <TextChannel>channel)
                                 .then(channel => {
                                     if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`);
                                 })
-                                .catch(console.error)
+                                .catch(e => console.error(e))
                             }
                             itemWasFound = true;
                         }  
@@ -68,8 +68,8 @@ class CsDeals {
                 }
             }
         }
-        catch(error) {
-            console.error;
+        catch(e) {
+            console.error(e);
         }
         finally {
             await browser.close();
@@ -118,8 +118,8 @@ class CsDeals {
             if(skinWasFound) return true;
             else return false;
         }
-        catch(error) {
-            console.log(error);
+        catch(e) {
+            console.error(e);
         }
     }
 }

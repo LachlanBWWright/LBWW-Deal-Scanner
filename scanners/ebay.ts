@@ -34,7 +34,6 @@ class Ebay {
                         if(resName) foundName = resName;
                         let resPrice = await result.$eval("span[class='s-item__price']", res => res.textContent);
                         if(resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g,""))
-                        console.log(resName + " " + resPrice)
                     }
                     
                     if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound && foundPrice <= item.maxPrice) {
@@ -43,7 +42,7 @@ class Ebay {
                             .then(channel => {
                                 if(channel) channel.send(`<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`);
                             })
-                            .catch(console.error)
+                            .catch(e => console.error(e))
                         if(foundName != undefined) {
                             item.lastItemFound = foundName;
                             item.save();
@@ -51,12 +50,12 @@ class Ebay {
                     }
                 }
                 catch (e) {
-                    console.log(e);
+                    console.error(e);
                 }
             }
         }
         catch(e) {
-            console.log(e);
+            console.error(e);
         }
         finally {
             await page.close();

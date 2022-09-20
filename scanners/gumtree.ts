@@ -57,7 +57,6 @@ class Gumtree {
                     let map = this.recentlyFound.get(item.name) ?? this.recentlyFound.set(item.name, new Map()).get(item.name); //Expands map if item does not exist in it.
                     if(map !== undefined && foundName !== undefined) {
                         if(map.get(foundName) === undefined) foundRecently = false; //Block notification if date was already found
-                        console.log(Date.now())
                         map.set(foundName, Date.now()) //MS pased since 1970, lower = older
 
                         if(map.size > 10) { //Purges the youngest from the map
@@ -79,7 +78,7 @@ class Gumtree {
                             .then(channel => {
                                 if(channel) channel.send(`<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`);
                             })
-                            .catch(console.error)
+                            .catch(e => console.error(e))
                         if(foundName != undefined) {
                             item.lastItemFound = foundName;
                             item.save();
@@ -87,12 +86,12 @@ class Gumtree {
                     }
                 }
                 catch (e) {
-                    console.log(e);
+                    console.error(e);
                 }
             }
         }
         catch(e) {
-            console.log(e);
+            console.error(e);
         }
         finally {
             await page.close();

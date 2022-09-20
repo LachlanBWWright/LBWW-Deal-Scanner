@@ -22,7 +22,6 @@ class Salvos {
             let cursor = SalvosQuery.find().cursor();
             for(let item = await cursor.next(); item != null; item = await cursor.next()) { 
                 try {
-                    console.log("SALVOS")
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
                     let selector = await page.waitForSelector('.line-clamp-3');
@@ -33,7 +32,7 @@ class Salvos {
                             .then(channel => {
                                 if(channel) channel.send(`<@&${this.roleId}> Please know that a ${salvosItem} is available at  ${item.name}`);
                             })
-                            .catch(console.error)
+                            .catch(e => console.error(e))
                         if(salvosItem != undefined) {
                             item.lastItemFound = salvosItem;
                             item.save();
@@ -41,12 +40,12 @@ class Salvos {
                     }
                 }
                 catch (e) {
-                    console.error;
+                    console.error(e);
                 }
             }
         }
         catch(e) {
-            console.error;
+            console.error(e);
         }
         finally {
             await page.close();

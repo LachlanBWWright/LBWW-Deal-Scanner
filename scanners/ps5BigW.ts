@@ -31,12 +31,12 @@ class Ps5BigW {
                         .then(channel => {
                             if(channel) channel.send(`<@&${this.roleId}> Please know that a Disc PS5 is available at: https://www.bigw.com.au/product/playstation-5-console/p/124625`);
                         })
-                        .catch(console.error)
+                        .catch(e => console.error(e))
                     }
                 }
                 else this.wasFound = false;
             })
-            .catch(err => console.error);
+            .catch(e => console.error(e));
 
         axios.get("https://api.bigw.com.au/api/products/v0/product/124626")
             .then(res => {
@@ -50,12 +50,12 @@ class Ps5BigW {
                         .then(channel => {
                             if(channel) channel.send(`<@&${this.roleId}> Please know that a Digital PS5 is available at: https://www.bigw.com.au/product/playstation-5-console/p/124626`);
                         })
-                        .catch(console.error)
+                        .catch(e => console.error(e))
                     }
                 }
                 else this.wasFound2 = false;
             })
-            .catch(err => console.error);
+            .catch(e => console.error(e));
     }   
 }
 

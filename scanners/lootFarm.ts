@@ -32,14 +32,14 @@ class LootFarm {
                                     if(parseInt(items[skinType].u[instance][0].f)/100000 >= item.minFloat && parseInt(items[skinType].u[instance][0].f)/100000 <= item.maxFloat && (!item.name.includes("StatTrak") || items[skinType].u[instance][0].st != undefined)) {
                                         if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                             item.found = true;
-                                            item.save(err => console.error);
+                                            item.save(e => console.error(e));
 
                                             this.client.channels.fetch(this.channelId)
                                             .then(channel => <TextChannel>channel)
                                             .then(channel => {
                                                 if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[skinType].n} with a float of ${parseInt(items[skinType].u[instance][0].f)/100000} is available for $${items[skinType].p/100} USD at: https://loot.farm/`);
                                             })
-                                            .catch(console.error)
+                                            .catch(e => console.error(e))
                                         }
                                         itemWasFound = true;
                                     }
@@ -52,7 +52,7 @@ class LootFarm {
                         }
                     }
             })
-            .catch(err => console.error)
+            .catch(e => console.error(e))
     }   
 
     async skinExists(name: string) {
@@ -67,7 +67,7 @@ class LootFarm {
                     }
                 }
             })
-            .catch(err => console.error)
+            .catch(e => console.error(e))
         return skinFound;
     }
 }

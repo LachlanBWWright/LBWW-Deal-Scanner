@@ -28,7 +28,7 @@ class TradeIt {
                     itemsArray = [...itemsArray, ...res.data.items];
                     if(res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
                 })
-                .catch(err => console.error);
+                .catch(e => console.error(e));
         }
         try {
             let items = <any>itemsArray;
@@ -48,14 +48,14 @@ class TradeIt {
                         if(bestFloat >= item.minFloat && bestFloat <= item.maxFloat) {
                             if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                 item.found = true;
-                                item.save(err => console.error);
+                                item.save(e => console.error(e));
 
                                 this.client.channels.fetch(this.channelId)
                                 .then(channel => <TextChannel>channel)
                                 .then(channel => {
                                     if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[i].name} with a float of ${bestFloat} is available for $${items[i].price/100.0} USD at: https://tradeit.gg/csgo/trade`);
                                 })
-                                .catch(console.error)
+                                .catch(e => console.error(e))
                             }
                             itemWasFound = true;
                         }
@@ -67,7 +67,9 @@ class TradeIt {
                 }
             }
         }
-        catch(err) {console.error;}
+        catch(e) {
+            console.error(e);
+        }
     }   
 
     async skinExists(name: string) {
@@ -79,7 +81,7 @@ class TradeIt {
                     itemsArray = [...itemsArray, ...res.data.items];
                     if(res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
                 })
-                .catch(err => console.error);
+                .catch(e => console.error(e));
         }
         try {
             let items = <any>itemsArray;
@@ -90,7 +92,9 @@ class TradeIt {
                 }
             }
         }
-        catch(err) {console.error;}
+        catch(e) {
+            console.error(e);
+        }
         return skinFound;
     }
 }

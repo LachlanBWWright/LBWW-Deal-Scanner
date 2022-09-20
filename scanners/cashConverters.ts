@@ -34,7 +34,7 @@ class CashConverters {
                             .then(channel => {
                                 if(channel) channel.send(`<@&${this.roleId}> Please know that a ${cashConvertersItem} is available at  ${item.name}`);
                             })
-                            .catch(console.error)
+                            .catch(e => console.error(e))
                         if(cashConvertersItem != undefined) {
                             item.lastItemFound = cashConvertersItem;
                             item.save();
@@ -42,12 +42,12 @@ class CashConverters {
                     }
                 }
                 catch (e) {
-                    console.error;
+                    console.error(e);
                 }
             }
         }
         catch(e) {
-            console.error;
+            console.error(e);
         }
         finally {
             await page.close();
