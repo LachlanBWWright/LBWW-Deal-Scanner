@@ -32,7 +32,6 @@ class Gumtree {
                     let foundPrice: number | undefined
                     
                     let results = await page.$$('.user-ad-collection-new-design'); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
-                    let resIndex = 0;
                     let result: puppeteer.ElementHandle<Element> | undefined;
 
                     for(let i = 0; i < results.length; i++) {

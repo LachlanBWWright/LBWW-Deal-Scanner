@@ -46,7 +46,7 @@ class Ps5Target {
                 else this.wasFound = false;
 
             })
-            .catch(err => console.log("Error: " + err));
+            .catch(err => console.error);
 
         axios.get("https://www.target.com.au/ws-api/v1/target/delivery/estimate/64226170?postalCode=2052&storeNumber=5286&mode=CC"/* "https://www.target.com.au/ws-api/v1/target/delivery/estimate/64226187?postalCode=2052&storeNumber=5286&mode=CC" */)
             .then(res => {
@@ -64,7 +64,7 @@ class Ps5Target {
                 else this.wasFound2 = false;
 
             })
-            .catch(err => console.log("Error: " + err));
+            .catch(err => console.error);
     }   
 }
 

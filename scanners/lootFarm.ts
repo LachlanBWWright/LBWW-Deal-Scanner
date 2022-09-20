@@ -28,12 +28,11 @@ class LootFarm {
                         let itemCount = Object.keys(items).length;
                         for(let skinType in items) {
                             if(item.name.includes(items[skinType].n) && items[skinType].p/100 <= item.maxPrice) {
-                                for(let instance in items[skinType].u) {  
-                                    //console.log("Instance found! " + items[skinType].u[instance][0].st); 
+                                for(let instance in items[skinType].u) {   
                                     if(parseInt(items[skinType].u[instance][0].f)/100000 >= item.minFloat && parseInt(items[skinType].u[instance][0].f)/100000 <= item.maxFloat && (!item.name.includes("StatTrak") || items[skinType].u[instance][0].st != undefined)) {
                                         if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                             item.found = true;
-                                            item.save(err => console.log(err));
+                                            item.save(err => console.error);
 
                                             this.client.channels.fetch(this.channelId)
                                             .then(channel => <TextChannel>channel)
@@ -53,7 +52,7 @@ class LootFarm {
                         }
                     }
             })
-            .catch(err => console.log(err))
+            .catch(err => console.error)
     }   
 
     async skinExists(name: string) {
@@ -68,7 +67,7 @@ class LootFarm {
                     }
                 }
             })
-            .catch(err => console.log(err))
+            .catch(err => console.error)
         return skinFound;
     }
 }

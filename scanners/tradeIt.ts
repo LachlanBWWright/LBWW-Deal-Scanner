@@ -28,7 +28,7 @@ class TradeIt {
                     itemsArray = [...itemsArray, ...res.data.items];
                     if(res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
                 })
-                .catch(err => console.log('TradeIt error'));
+                .catch(err => console.error);
         }
         try {
             let items = <any>itemsArray;
@@ -48,7 +48,7 @@ class TradeIt {
                         if(bestFloat >= item.minFloat && bestFloat <= item.maxFloat) {
                             if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                 item.found = true;
-                                item.save(err => console.log(err));
+                                item.save(err => console.error);
 
                                 this.client.channels.fetch(this.channelId)
                                 .then(channel => <TextChannel>channel)
@@ -67,7 +67,7 @@ class TradeIt {
                 }
             }
         }
-        catch(err) {console.log(err);}
+        catch(err) {console.error;}
     }   
 
     async skinExists(name: string) {
@@ -79,7 +79,7 @@ class TradeIt {
                     itemsArray = [...itemsArray, ...res.data.items];
                     if(res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
                 })
-                .catch(err => console.log('TradeIt error'));
+                .catch(err => console.error);
         }
         try {
             let items = <any>itemsArray;
@@ -90,7 +90,7 @@ class TradeIt {
                 }
             }
         }
-        catch(err) {console.log(err);}
+        catch(err) {console.error;}
         return skinFound;
     }
 }

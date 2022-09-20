@@ -41,12 +41,12 @@ class Salvos {
                     }
                 }
                 catch (e) {
-                    console.log(e);
+                    console.error;
                 }
             }
         }
         catch(e) {
-            console.log(e);
+            console.error;
         }
         finally {
             await page.close();

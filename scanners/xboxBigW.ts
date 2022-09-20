@@ -34,7 +34,7 @@ class XboxBigW {
                 }
                 else this.wasFound = false;
             })
-            .catch(err => console.log("Error: " + err));
+            .catch(err => console.error);
     }   
 }
 

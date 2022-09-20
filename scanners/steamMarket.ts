@@ -59,14 +59,15 @@ class SteamMarket {
                         }
                         if(price != item.lastPrice) {
                             item.lastPrice = price;
-                            item.save(err => console.log(err));
+                            item.save(err => console.error);
                         }
-                }).catch(err => console.log(err));
+                }).catch(err => console.error);
             }
         }
         catch(e) {
-            console.log(e);
+            console.error
         }
+        
     }   
 
     async scanCs() {
@@ -105,7 +106,7 @@ class SteamMarket {
                             else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
                             i++;
                         }
-                }).catch(err => console.log(err));
+                }).catch(err => console.error);
             }
 
             //Decrement the TTL in the map
@@ -115,7 +116,7 @@ class SteamMarket {
             }
         }
         catch(e) {
-            console.log(e);
+            console.error;
         }
     }   
 
@@ -184,8 +185,6 @@ class SteamMarket {
                 });
                 
                 await csMarketItem.save(err => console.log(err));
-                console.log("Search created test")
-                console.log(csMarketItem);
                 return search;
             }
             return "";

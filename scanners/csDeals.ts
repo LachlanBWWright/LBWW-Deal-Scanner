@@ -48,7 +48,7 @@ class CsDeals {
                         if(items[i].c === item.name && items[i].d1 < item.maxFloat && items[i].d1 > item.minFloat && items[i].i <= item.maxPrice) {
                             if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
                                 item.found = true;
-                                item.save(err => console.log(err));
+                                item.save(err => console.error);
 
                                 this.client.channels.fetch(this.channelId)
                                 .then(channel => <TextChannel>channel)
@@ -69,8 +69,7 @@ class CsDeals {
             }
         }
         catch(error) {
-            console.log("csDeals error!")
-            console.log(error);
+            console.error;
         }
         finally {
             await browser.close();

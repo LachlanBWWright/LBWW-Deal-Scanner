@@ -36,7 +36,7 @@ class Ps5BigW {
                 }
                 else this.wasFound = false;
             })
-            .catch(err => console.log("Error: " + err));
+            .catch(err => console.error);
 
         axios.get("https://api.bigw.com.au/api/products/v0/product/124626")
             .then(res => {
@@ -55,7 +55,7 @@ class Ps5BigW {
                 }
                 else this.wasFound2 = false;
             })
-            .catch(err => console.log("Error: " + err));
+            .catch(err => console.error);
     }   
 }
 
