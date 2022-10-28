@@ -112,9 +112,7 @@ class SteamMarket {
                         
                     }
                     catch (e) {
-                        console.log("ERROR TEST")
                         console.error(e);
-                        console.log("ERROR TEST")
                     }
                 await axios.get(`${item.name}`)
                     .then(async res => {

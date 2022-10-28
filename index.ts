@@ -171,31 +171,31 @@ client.once('ready', () => {
     const gumtree = new Gumtree(client, `${process.env.GUMTREE_CHANNEL_ID}`, `${process.env.GUMTREE_ROLE_ID}`)
 
     const scanFrequently = async () => {
-        if(process.env.PS5BIGW && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
-        if(process.env.XBOXBIGW && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) await xboxBigW.scan();
-        if(process.env.PS5TARGET && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5Target.scan();
+        if(process.env.PS5BIGW === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
+        if(process.env.XBOXBIGW === 'true' && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) await xboxBigW.scan();
+        if(process.env.PS5TARGET === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5Target.scan();
     }
     const scanInfrequently = async () => {
         while(true) {
-            if(process.env.STEAM_QUERY && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
+            if(process.env.CASH_CONVERTERS === 'true' && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
+            if(process.env.STEAM_QUERY === 'true' && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
                 await steamMarket.scanCs();
                 await steamMarket.scanQuery();
             }
-            if(process.env.CS_ITEMS && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
+            if(process.env.CS_ITEMS === 'true' && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
                 await csDeals.scan();
                 await csTrade.scan();
                 await tradeIt.scan();
                 await lootFarm.scan();
             }
-            if(process.env.GUMTREE && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
-            if(process.env.CASH_CONVERTERS && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
-            if(process.env.SALVOS && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
-            if(process.env.EBAY && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID) await ebay.scan();
+            if(process.env.GUMTREE === 'true' && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
+            if(process.env.SALVOS === 'true' && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
+            if(process.env.EBAY === 'true' && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID) await ebay.scan();
         }
     }
 
     scanInfrequently();
-    if(process.env.PS5BIGW || process.env.XBOXBIGW || process.env.PS5TARGET) setInterval(scanFrequently, 100000);
+    if(process.env.PS5BIGW === 'true' || process.env.XBOXBIGW === 'true' || process.env.PS5TARGET === 'true') setInterval(scanFrequently, 100000);
 });
 
 client.on("interactionCreate", async interaction => {
