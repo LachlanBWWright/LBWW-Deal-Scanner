@@ -40,7 +40,7 @@ class Salvos {
                     }
                 }
                 catch (e) {
-                    console.error(e);
+                    if(e instanceof Error && e.name !== 'TimeoutError') console.error(e);
                 }
             }
         }
