@@ -66,7 +66,8 @@ class SteamMarket {
                     }
                 }
                 catch(e) {
-                    console.error(e);
+                    if(e instanceof Error && e.name === 'Error') break;
+                    else console.error(e);
                 }
             }
         }
@@ -112,7 +113,8 @@ class SteamMarket {
                         
                     }
                     catch (e) {
-                        console.error(e);
+                        if(e instanceof Error && e.name === 'Error') break;
+                        else console.error(e); 
                     }
                 await axios.get(`${item.name}`)
                     .then(async res => {
