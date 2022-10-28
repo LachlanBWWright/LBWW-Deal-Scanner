@@ -40,29 +40,26 @@ class SteamMarket {
             let cursor = SteamQuery.find().cursor()
             for(let item = await cursor.next(); item !== null; item = await cursor.next()) {
                 try{
-                    errorCheck: for(let i = 0; i < 10; i++) {
-                        await this.sleep(15000);
-                        let res = await axios.get(`${item.name}`);
-                        if(res.status !== 200) continue errorCheck;       
-                        let price: number = res.data.results[0].sell_price;
-                        for(let instance in res.data.results) {
-                            let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
-                            if(thisPrice < price) price = thisPrice;
-                            let lastPrice = <number>item.lastPrice;
-                            if(price < item.maxPrice && price * 1.04 < (item.lastPrice)) {
-                                this.client.channels.fetch(this.queryChannelId)
-                                    .then(channel => <TextChannel>channel)
-                                    .then(channel => {
-                                        if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
-                                    })
-                                    .catch(e => console.error(e))
-                            }
+                    await this.sleep(15000);
+                    let res = await axios.get(`${item.name}`);
+                    if(res.status !== 200) continue;       
+                    let price: number = res.data.results[0].sell_price;
+                    for(let instance in res.data.results) {
+                        let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
+                        if(thisPrice < price) price = thisPrice;
+                        let lastPrice = <number>item.lastPrice;
+                        if(price < item.maxPrice && price * 1.04 < (item.lastPrice)) {
+                            this.client.channels.fetch(this.queryChannelId)
+                                .then(channel => <TextChannel>channel)
+                                .then(channel => {
+                                    if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
+                                })
+                                .catch(e => console.error(e))
                         }
-                        if(price != item.lastPrice) {
-                            item.lastPrice = price;
-                            item.save(e => console.error(e));
-                        }
-                        break errorCheck;
+                    }
+                    if(price != item.lastPrice) {
+                        item.lastPrice = price;
+                        item.save(e => console.error(e));
                     }
                 }
                 catch(e) {
