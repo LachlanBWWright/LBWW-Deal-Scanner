@@ -9,7 +9,7 @@ import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
 //For general market queries and CS Items
 
 class SteamMarket {
-    wasFound: boolean; //TODO: Consider Removing
+    wasFound: boolean;
     client: Client;
     queryChannelId: string;
     queryRoleId: string;
@@ -80,11 +80,10 @@ class SteamMarket {
         try {
             let cursor = CsMarketItem.find().cursor()
             for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                errorCheck: for(let z = 0; z < 10; z++) {
                     try {
                         await this.sleep(15000);
                         let res = await axios.get(`${item.name}`);
-                        if(res.status !== 200) continue errorCheck; 
+                        if(res.status !== 200) continue; 
                         let i = 0;
                         for(let skin in res.data.listinginfo) {
     
@@ -110,15 +109,13 @@ class SteamMarket {
                             else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
                             i++;
                         }
-                        break errorCheck;
+                        
                     }
                     catch (e) {
+                        console.log("ERROR TEST")
                         console.error(e);
+                        console.log("ERROR TEST")
                     }
-                }
-
-
-
                 await axios.get(`${item.name}`)
                     .then(async res => {
                         let i = 0;
