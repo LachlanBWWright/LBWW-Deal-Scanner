@@ -1,4 +1,4 @@
-import {Client, GuildMember, GuildMemberRoleManager, Intents} from "discord.js";
+import {Client, GuildMember, GuildMemberRoleManager, Intents, ApplicationCommandOptionChoice} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {REST} from "@discordjs/rest";
 import {Routes, APIInteractionGuildMember} from "discord-api-types/v9";
@@ -14,6 +14,7 @@ import CashConvertersQuery from "./schema/cashConvertersQuery.js";
 import SalvosQuery from "./schema/salvosQuery.js";
 import EbayQuery from "./schema/ebayQuery.js";
 import GumtreeQuery from "./schema/gumtreeQuery.js";
+import FacebookQuery from "./schema/facebookQuery.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -28,6 +29,7 @@ import SteamMarket from "./scanners/steamMarket.js";
 import Salvos from "./scanners/salvos.js"; 
 import Ebay from "./scanners/ebay.js"; 
 import Gumtree from "./scanners/gumtree.js";
+import Facebook from "./scanners/facebook.js";
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -144,6 +146,30 @@ const commands = [
             option.setName("maxprice")
             .setDescription("Enter the maximum price (in AUD) a notification.")
             .setRequired(true)
+        ),
+    new SlashCommandBuilder()
+        .setName("createfacebookquery")
+        .setDescription("Creates a search for a Facebook Marketplace Query")
+        .addStringOption(option =>
+            option.setName("query")
+            .setDescription("The URL of the query. Sort by newest first.")
+            .setRequired(true)
+        )
+        .addNumberOption(option => 
+            option.setName("maxprice")
+            .setDescription("Enter the maximum price (in AUD) a notification.")
+            .setRequired(true)
+            )
+        .addIntegerOption(option =>
+            option.setName("maxdistance")
+            .setDescription("The maximum distance from the point specified in the query")
+            .setRequired(true)
+            .addChoices(
+                    {name: "10", value: 10}, 
+                    {name: "20", value: 20}, 
+                    {name: "60", value: 60}, 
+                    {name: "100", value: 100}, 
+            )
         ),
 
     ].map(command => command.toJSON());
@@ -396,6 +422,23 @@ client.on("interactionCreate", async interaction => {
                     maxPrice: maxPrice
                 })
                 gumtreeQuery.save();
+                await interaction.editReply("Please know that the search has been created: " + search.toString());
+            }
+            else interaction.editReply("Please know that your search was invalid!")
+        }
+        else if(interaction.commandName === "createfacebookquery") {
+            let query = interaction.options.getString("query") || "placeholder";
+            let maxPrice = interaction.options.getNumber("maxprice") || 1000;
+            let maxDistance = interaction.options.getNumber("maxdistance") || 1000;
+            let search = new URL(query);
+            if(!search.toString().includes("sortBy=creation_time_descend")) interaction.editReply("Your query has to be sorted by new to be valid")
+            else if(search.toString().includes("facebook.com/marketplace")) {
+                let facebookQuery = new FacebookQuery({
+                    name: search.toString(),
+                    maxPrice: maxPrice,
+                    maxDistance: maxDistance,
+                })
+                facebookQuery.save();
                 await interaction.editReply("Please know that the search has been created: " + search.toString());
             }
             else interaction.editReply("Please know that your search was invalid!")
