@@ -160,7 +160,7 @@ const commands = [
             .setDescription("Enter the maximum price (in AUD) a notification.")
             .setRequired(true)
             )
-        .addIntegerOption(option =>
+        .addNumberOption(option =>
             option.setName("maxdistance")
             .setDescription("The maximum distance from the point specified in the query")
             .setRequired(true)
