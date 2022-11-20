@@ -29,12 +29,9 @@ class Facebook {
                     await page.goto(item.name);
                     await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
 
-                    await page.$eval('div.x9f619.x78zum5.xdt5ytf.x1qughib.x1rdy4ex.xz9dl7a.xsag5q8.xh8yej3.xp0eagm.x1nrcals',
-                    (res) => {
-                        console.log('Test' + res);
-                    })
-
-                    console.log('Test 2')
+                    let res = await page.$('div.x9f619.x78zum5.xdt5ytf.x1qughib.x1rdy4ex.xz9dl7a.xsag5q8.xh8yej3.xp0eagm.x1nrcals')
+                    res?.evaluate
+                    console.log('Test 2' + res + '!!!!!!')
                 }
                 catch (e) {
                     console.error(e);
