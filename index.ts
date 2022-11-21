@@ -433,8 +433,8 @@ client.on("interactionCreate", async interaction => {
             let maxPrice = interaction.options.getNumber("maxprice") || 1000;
             let maxDistance = interaction.options.getNumber("maxdistance") || 1000;
             query = query.concat(`&radius=${maxDistance}`);
-            if(!query.includes('minPrice')) query = query.concat(`minPrice=${minPrice}`)
-            if(!query.includes('maxPrice')) query = query.concat(`maxPrice=${maxPrice}`)
+            if(!query.includes('minPrice')) query = query.concat(`&minPrice=${minPrice}`)
+            if(!query.includes('maxPrice')) query = query.concat(`&maxPrice=${maxPrice}`)
             let search = new URL(query);
             if(!search.toString().includes("sortBy=distance_ascend")) interaction.editReply("Your query has to be sorted by distance to be valid.")
             else if(!search.toString().includes("daysSinceListed")) interaction.editReply("Your query has have a listing date restriction (one day is recommended).")
