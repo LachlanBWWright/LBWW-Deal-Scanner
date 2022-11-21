@@ -18,7 +18,7 @@ class Facebook {
     }
 
     async scan() {
-        const browser = await puppeteer.launch({headless: false, args: ['--no-sandbox']});
+        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         const page = await browser.newPage();
 
         try {
@@ -35,7 +35,7 @@ class Facebook {
                     if(!results) continue;
                     let foundPrice = parseInt(results[0]?.split('A$')[1].replace(',', '') ?? '9999999', 10); //The text starts with A$, so [0] will be nothing, while [1] will be the price, and [2] will be the original price if discounted
                     let foundName = results[1];
-                    console.log(`Price ${foundPrice}, name ${foundName}`)
+                    //console.log(`Price ${foundPrice}, name ${foundName}`)
 
                     if(foundName !== undefined && foundPrice !== undefined && foundName != item.lastItemFound) {
                         this.client.channels.fetch(this.channelId)
