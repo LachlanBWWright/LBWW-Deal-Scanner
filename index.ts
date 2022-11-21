@@ -156,6 +156,11 @@ const commands = [
             .setRequired(true)
         )
         .addNumberOption(option => 
+            option.setName("minprice")
+            .setDescription("Enter the minimum price (in AUD) a notification.")
+            .setRequired(true)
+            )
+        .addNumberOption(option => 
             option.setName("maxprice")
             .setDescription("Enter the maximum price (in AUD) a notification.")
             .setRequired(true)
@@ -164,12 +169,6 @@ const commands = [
             option.setName("maxdistance")
             .setDescription("The maximum distance from the point specified in the query")
             .setRequired(true)
-            .addChoices(
-                    {name: "10", value: 10}, 
-                    {name: "20", value: 20}, 
-                    {name: "60", value: 60}, 
-                    {name: "100", value: 100}, 
-            )
         ),
 
     ].map(command => command.toJSON());
@@ -204,7 +203,7 @@ client.once('ready', () => {
     }
     const scanInfrequently = async () => {
         while(true) {
-            //if(process.env.FACEBOOK === 'true' && process.env.FACEBOOK_CHANNEL_ID && process.env.FACEBOOK_ROLE_ID) await facebook.scan();
+            if(process.env.FACEBOOK === 'true' && process.env.FACEBOOK_CHANNEL_ID && process.env.FACEBOOK_ROLE_ID) await facebook.scan();
             if(process.env.CASH_CONVERTERS === 'true' && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
             if(process.env.GUMTREE === 'true' && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
             if(process.env.SALVOS === 'true' && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
@@ -430,10 +429,15 @@ client.on("interactionCreate", async interaction => {
         }
         else if(interaction.commandName === "createfacebookquery") {
             let query = interaction.options.getString("query") || "placeholder";
+            let minPrice = interaction.options.getNumber("minprice") || 0;
             let maxPrice = interaction.options.getNumber("maxprice") || 1000;
             let maxDistance = interaction.options.getNumber("maxdistance") || 1000;
-            let search = new URL(query.concat(`&radius=${maxDistance}`));
-            if(!search.toString().includes("sortBy=creation_time_descend")) interaction.editReply("Your query has to be sorted by new to be valid")
+            query = query.concat(`&radius=${maxDistance}`);
+            if(!query.includes('minPrice')) query = query.concat(`minPrice=${minPrice}`)
+            if(!query.includes('maxPrice')) query = query.concat(`maxPrice=${maxPrice}`)
+            let search = new URL(query);
+            if(!search.toString().includes("sortBy=distance_ascend")) interaction.editReply("Your query has to be sorted by distance to be valid.")
+            else if(!search.toString().includes("daysSinceListed")) interaction.editReply("Your query has have a listing date restriction (one day is recommended).")
             else if(search.toString().includes("facebook.com/marketplace")) {
                 
                 let facebookQuery = new FacebookQuery({
