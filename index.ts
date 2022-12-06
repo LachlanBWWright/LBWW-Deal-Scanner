@@ -4,6 +4,7 @@ import {REST} from "@discordjs/rest";
 import {Routes, APIInteractionGuildMember} from "discord-api-types/v9";
 import Dotenv from "dotenv";
 import mongoose from "mongoose";
+import puppeteer from "puppeteer";
 
 //Schema Imports
 import CsDealsItem from "./schema/csDealsItem.js";
@@ -201,18 +202,52 @@ client.once('ready', () => {
         if(process.env.XBOXBIGW === 'true' && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) await xboxBigW.scan();
         if(process.env.PS5TARGET === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5Target.scan();
     }
+
+    //TODO: Switch to round-robin instead of sequential
     const scanInfrequently = async () => {
-        while(true) {
-            if(process.env.FACEBOOK === 'true' && process.env.FACEBOOK_CHANNEL_ID && process.env.FACEBOOK_ROLE_ID) await facebook.scan();
-            if(process.env.CASH_CONVERTERS === 'true' && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID) await cashConverters.scan();
-            if(process.env.GUMTREE === 'true' && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID) await gumtree.scan();
-            if(process.env.SALVOS === 'true' && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID) await salvos.scan();
-            if(process.env.EBAY === 'true' && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID) await ebay.scan();
-            if(process.env.STEAM_QUERY === 'true' && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID) {
+        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+        const page = await browser.newPage();
+
+        let scanFacebook = process.env.FACEBOOK === 'true' && process.env.FACEBOOK_CHANNEL_ID && process.env.FACEBOOK_ROLE_ID;
+        let scanCashConverters = process.env.CASH_CONVERTERS === 'true' && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID;
+        let scanGumtree = process.env.GUMTREE === 'true' && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID;
+        let scanSalvos = process.env.SALVOS === 'true' && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID;
+        let scanEbay = process.env.EBAY === 'true' && process.env.EBAY_CHANNEL_ID && process.env.EBAY_ROLE_ID;
+        let scanSteam = process.env.STEAM_QUERY === 'true' && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID;
+        let scanCs = process.env.CS_ITEMS === 'true' && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID;
+
+        //TODO: New round-robin scanning
+        while(false) { //TODO: Pass page as param - Call scan function newScan, refactor all back to 'scan' and delete originals when done.
+            if(scanFacebook) await facebook.scan();
+            if(scanCashConverters) await cashConverters.scan();
+            if(scanGumtree) await gumtree.scan();
+            if(scanSalvos) await salvos.scan();
+            if(scanEbay) await ebay.scan();
+            if(scanSteam) {
                 await steamMarket.scanCs();
                 await steamMarket.scanQuery();
             }
-            if(process.env.CS_ITEMS === 'true' && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID) {
+            if(scanCs) {
+                await csDeals.scan();
+                await csTrade.scan();
+                await tradeIt.scan();
+                await lootFarm.scan();
+            }
+            break; //TODO: Remove
+        }
+
+        //Old scanning TODO: Remove eventually
+        while(true) {
+            if(scanFacebook) await facebook.scan();
+            if(scanCashConverters) await cashConverters.scan();
+            if(scanGumtree) await gumtree.scan();
+            if(scanSalvos) await salvos.scan();
+            if(scanEbay) await ebay.scan();
+            if(scanSteam) {
+                await steamMarket.scanCs();
+                await steamMarket.scanQuery();
+            }
+            if(scanCs) {
                 await csDeals.scan();
                 await csTrade.scan();
                 await tradeIt.scan();
@@ -221,8 +256,8 @@ client.once('ready', () => {
         }
     }
 
-    scanInfrequently();
-    if(process.env.PS5BIGW === 'true' || process.env.XBOXBIGW === 'true' || process.env.PS5TARGET === 'true') setInterval(scanFrequently, 100000);
+    scanInfrequently(); //Intermittent scans
+    if(process.env.PS5BIGW === 'true' || process.env.XBOXBIGW === 'true' || process.env.PS5TARGET === 'true') setInterval(scanFrequently, 100000); //Scans for consoles is configured to do so in dotenv.
 });
 
 client.on("interactionCreate", async interaction => {
@@ -254,16 +289,11 @@ client.on("interactionCreate", async interaction => {
             let maxPriceLootFarm = interaction.options.getNumber("maxpricelootfarm") || -1;
             let maxFloat = interaction.options.getNumber("maxfloat") || -1;
             let minFloat = interaction.options.getNumber("minfloat") || 0;
-            //console.log(`${website}` + `${skinName}` + maxPrice + maxFloat + minFloat);
-            if(minFloat > maxFloat) {
-                await interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
-            }
-            else if(maxFloat <= 0 || maxFloat >= 1) {
-                await interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
-            }
-            else if(minFloat < 0 || minFloat >= 1) {
-                await interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
-            }
+
+            if(minFloat > maxFloat) await interaction.editReply("I cannot stress enough: The minimum float cannot be higher than the maximum float value.");
+            
+            else if(maxFloat <= 0 || maxFloat >= 1) await interaction.editReply("I cannot stress enough: The maximum float must be between 0 and 1.");
+            else if(minFloat < 0 || minFloat >= 1) await interaction.editReply("I cannot stress enough: The minimum float must be between 0 and 1.");
             else { //Attempt creating new searches
                 await interaction.editReply(replyText);
                 if(maxPriceCsDeals > 0) {
