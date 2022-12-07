@@ -217,7 +217,7 @@ client.once('ready', () => {
         let scanCs = process.env.CS_ITEMS === 'true' && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID;
 
         //TODO: New round-robin scanning
-        while(false) { //TODO: Pass page as param - Call scan function newScan, refactor all back to 'scan' and delete originals when done.
+        while(true) { //TODO: Pass page as param - Call scan function newScan, refactor all back to 'scan' and delete originals when done.
             if(scanFacebook) await facebook.scan();
             if(scanCashConverters) await cashConverters.scan();
             if(scanGumtree) await gumtree.scan();
