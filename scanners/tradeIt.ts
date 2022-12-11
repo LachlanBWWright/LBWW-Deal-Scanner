@@ -9,12 +9,14 @@ class TradeIt {
     client: Client;
     channelId: string;
     roleId: string;
+    cursor: any;
 
     constructor(client: Client, channelId: string, roleId: string) {
         this.wasFound = false;
         this.client = client;
         this.channelId = channelId;
         this.roleId = roleId;
+        this.cursor = TradeItItem.find().cursor();
 
         this.scan = this.scan.bind(this);
         this.skinExists = this.skinExists.bind(this);

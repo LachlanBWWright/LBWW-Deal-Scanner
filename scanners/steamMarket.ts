@@ -5,6 +5,7 @@ import CsMarketItem from "../schema/csMarketItem.js";
 import { JSONArray } from "puppeteer";
 import { JSONEncodable } from "@discordjs/builders";
 import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
+import { CallbackError } from "mongoose";
 
 //For general market queries and CS Items
 
@@ -16,6 +17,9 @@ class SteamMarket {
     csChannelId: string;
     csRoleId: string;
     itemsFound: Map<string, number>; //<Url, TTL>
+
+    queryCursor: any;
+    csCursor: any;
     //This is to store the names of CS items found,
     
     constructor(client: Client, queryChannelId: string, queryRoleId: string, csChannelId: string, csRoleId: string) {
@@ -25,9 +29,12 @@ class SteamMarket {
         this.queryRoleId = queryRoleId;
         this.csChannelId = csChannelId;
         this.csRoleId = csRoleId;
-
+        
         this.itemsFound = new Map<string, number>();
 
+        this.queryCursor = SteamQuery.find().cursor();
+        this.csCursor = CsMarketItem.find().cursor();
+        
         this.sleep = this.sleep.bind(this);
         this.scanQuery = this.scanQuery.bind(this);
         this.scanCs = this.scanCs.bind(this);
@@ -37,35 +44,32 @@ class SteamMarket {
 
     async scanQuery() {
         try {
-            let cursor = SteamQuery.find().cursor()
-            for(let item = await cursor.next(); item !== null; item = await cursor.next()) {
-                try{
-                    await this.sleep(15000);
-                    let res = await axios.get(`${item.name}`);
-                    if(res.status !== 200) continue;       
-                    let price: number = res.data.results[0].sell_price;
-                    for(let instance in res.data.results) {
-                        let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
-                        if(thisPrice < price) price = thisPrice;
-                        let lastPrice = <number>item.lastPrice;
-                        if(price < item.maxPrice && price * 1.04 < (item.lastPrice)) {
-                            this.client.channels.fetch(this.queryChannelId)
-                                .then(channel => <TextChannel>channel)
-                                .then(channel => {
-                                    if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
-                                })
-                                .catch(e => console.error(e))
-                        }
-                    }
-                    if(price != item.lastPrice) {
-                        item.lastPrice = price;
-                        item.save(e => console.error(e));
-                    }
+            let item = await this.queryCursor.next();
+            if(item === null) {
+                this.queryCursor = SteamQuery.find().cursor();
+                item = await this.queryCursor.next();
+            }
+                
+            await this.sleep(3000);
+            let res = await axios.get(`${item.name}`);
+            if(res.status !== 200) return;       
+            let price: number = res.data.results[0].sell_price;
+            for(let instance in res.data.results) {
+                let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
+                if(thisPrice < price) price = thisPrice;
+                let lastPrice = <number>item.lastPrice;
+                if(price < item.maxPrice && price * 1.04 < (item.lastPrice)) {
+                    this.client.channels.fetch(this.queryChannelId)
+                        .then(channel => <TextChannel>channel)
+                        .then(channel => {
+                            if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
+                        })
+                        .catch(e => console.error(e))
                 }
-                catch(e) {
-                    if(e instanceof Error && e.name === 'Error') break;
-                    else console.error(e);
-                }
+            }
+            if(price != item.lastPrice) {
+                item.lastPrice = price;
+                item.save((e: CallbackError) => console.error(e));
             }
         }
         catch(e) {
@@ -76,73 +80,70 @@ class SteamMarket {
 
     async scanCs() {
         try {
-            let cursor = CsMarketItem.find().cursor()
-            for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                    try {
-                        await this.sleep(15000);
-                        let res = await axios.get(`${item.name}`);
-                        if(res.status !== 200) continue; 
-                        let i = 0;
-                        for(let skin in res.data.listinginfo) {
-    
-                            let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
-                                .replace("%listingid%", res.data.listinginfo[skin].listingid)
-                                .replace("%assetid%", res.data.listinginfo[skin].asset.id);
-              
-                            let price = (res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit)/100.0;
-                            
-                            //Only calls the API if the skin isn't in the map, and the item is in the first 10
-                            if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
-                                .then(response => {
-                                    if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
-                                        this.client.channels.fetch(this.csChannelId)
-                                            .then(channel => <TextChannel>channel)
-                                            .then(channel => {
-                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
-                                            })
-                                            .catch(e => console.error(e))
-                                    }
-                                }).catch(e => console.error(e));
-                            if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
-                            else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
-                            i++;
-                        }
-                        
-                    }
-                    catch (e) {
-                        if(e instanceof Error && e.name === 'Error') break;
-                        else console.error(e); 
-                    }
-                await axios.get(`${item.name}`)
-                    .then(async res => {
-                        let i = 0;
-                        for(let skin in res.data.listinginfo) {
-
-                            let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
-                                .replace("%listingid%", res.data.listinginfo[skin].listingid)
-                                .replace("%assetid%", res.data.listinginfo[skin].asset.id);
-              
-                            let price = (res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit)/100.0;
-                            
-                            //Only calls the API if the skin isn't in the map, and the item is in the first 10
-                            if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
-                                .then(response => {
-                                    if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
-                                        this.client.channels.fetch(this.csChannelId)
-                                            .then(channel => <TextChannel>channel)
-                                            .then(channel => {
-                                                if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
-                                            })
-                                            .catch(e => console.error(e))
-                                    }
-                                }).catch(e => console.error(e));
-                            if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
-                            else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
-                            i++;
-                        }
-                }).catch(e => console.error(e));
+            let item = await this.csCursor.next();
+            if(item === null) {
+                this.csCursor = CsMarketItem.find().cursor();
+                item = await this.csCursor.next();
             }
+  
+            await this.sleep(3000);
+            let res = await axios.get(`${item.name}`);
+            if(res.status !== 200) return; 
+            let i = 0;
+            for(let skin in res.data.listinginfo) {
+                let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
+                    .replace("%listingid%", res.data.listinginfo[skin].listingid)
+                    .replace("%assetid%", res.data.listinginfo[skin].asset.id);
+    
+                let price = (res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit)/100.0;
+                
+                //Only calls the API if the skin isn't in the map, and the item is in the first 10
+                if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
+                    .then(response => {
+                        if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
+                            this.client.channels.fetch(this.csChannelId)
+                                .then(channel => <TextChannel>channel)
+                                .then(channel => {
+                                    if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
+                                })
+                                .catch(e => console.error(e))
+                        }
+                    }).catch(e => console.error(e));
+                if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
+                else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+                i++;
+            }
+            
 
+            await axios.get(`${item.name}`)
+                .then(async res => {
+                    let i = 0;
+                    for(let skin in res.data.listinginfo) {
+
+                        let query = "https://api.csgofloat.com/?url=".concat(res.data.listinginfo[skin].asset.market_actions[0].link)
+                            .replace("%listingid%", res.data.listinginfo[skin].listingid)
+                            .replace("%assetid%", res.data.listinginfo[skin].asset.id);
+            
+                        let price = (res.data.listinginfo[skin].converted_price_per_unit + res.data.listinginfo[skin].converted_fee_per_unit)/100.0;
+                        
+                        //Only calls the API if the skin isn't in the map, and the item is in the first 10
+                        if(!this.itemsFound.has(query) && i < 10) await axios.get(query)
+                            .then(response => {
+                                if(response.data.iteminfo.floatvalue < item.maxFloat && price <= item.maxPrice) {
+                                    this.client.channels.fetch(this.csChannelId)
+                                        .then(channel => <TextChannel>channel)
+                                        .then(channel => {
+                                            if(channel) channel.send(`<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`);
+                                        })
+                                        .catch(e => console.error(e))
+                                }
+                            }).catch(e => console.error(e));
+                        if(i < 10) this.itemsFound.set(query, 20); //Puts the query into the map, or resets its TTL if the API was called for it
+                        else if(this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+                        i++;
+                    }
+            }).catch(e => console.error(e));
+            
             //Decrement the TTL in the map
             for(let [key, value] of this.itemsFound) {
                 value--;

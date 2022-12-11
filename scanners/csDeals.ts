@@ -1,6 +1,5 @@
 import {Client, TextChannel} from "discord.js";
 import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
-import mongoose from 'mongoose';
 import CsDealsItem from '../schema/csDealsItem.js';
 
 class CsDeals {
@@ -17,12 +16,9 @@ class CsDeals {
         this.skinExists = this.skinExists.bind(this);
     }
 
-    async scan() {
-        const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+    async scan(page: puppeteer.Page) {
         try {
-            const page = await browser.newPage();
             await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
-
             page.goto("https://cs.deals/trade-skins");
         
             //New eventlistener replacement
@@ -70,9 +66,6 @@ class CsDeals {
         }
         catch(e) {
             console.error(e);
-        }
-        finally {
-            await browser.close();
         }
     }
 

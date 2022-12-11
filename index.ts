@@ -203,7 +203,6 @@ client.once('ready', () => {
         if(process.env.PS5TARGET === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5Target.scan();
     }
 
-    //TODO: Switch to round-robin instead of sequential
     const scanInfrequently = async () => {
         const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         const page = await browser.newPage();
@@ -216,42 +215,25 @@ client.once('ready', () => {
         let scanSteam = process.env.STEAM_QUERY === 'true' && process.env.STEAM_QUERY_CHANNEL_ID && process.env.STEAM_QUERY_ROLE_ID && process.env.CS_MARKET_CHANNEL_ID && process.env.CS_MARKET_ROLE_ID;
         let scanCs = process.env.CS_ITEMS === 'true' && process.env.CS_CHANNEL_ID && process.env.CS_ROLE_ID;
 
-        //TODO: New round-robin scanning
-        while(true) { //TODO: Pass page as param - Call scan function newScan, refactor all back to 'scan' and delete originals when done.
-            if(scanFacebook) await facebook.newScan(page);
-            if(scanCashConverters) await cashConverters.scan();
-            if(scanGumtree) await gumtree.scan();
-            if(scanSalvos) await salvos.scan();
-            if(scanEbay) await ebay.scan();
-            if(scanSteam) {
-                await steamMarket.scanCs();
-                await steamMarket.scanQuery();
-            }
-            if(scanCs) {
-                await csDeals.scan();
-                await csTrade.scan();
-                await tradeIt.scan();
-                await lootFarm.scan();
-            }
-            break; //TODO: Remove
-        }
+        let csScanCnt = 0;
 
-        //Old scanning TODO: Remove eventually
+        //Round-robin scanning
         while(true) {
-            if(scanFacebook) await facebook.scan();
-            if(scanCashConverters) await cashConverters.scan();
-            if(scanGumtree) await gumtree.scan();
-            if(scanSalvos) await salvos.scan();
-            if(scanEbay) await ebay.scan();
+            if(scanCashConverters) await cashConverters.scan(page);
+            if(scanEbay) await ebay.scan(page);
+            if(scanFacebook) await facebook.scan(page);
+            if(scanGumtree) await gumtree.scan(page);
+            if(scanSalvos) await salvos.scan(page);
             if(scanSteam) {
-                await steamMarket.scanCs();
-                await steamMarket.scanQuery();
+                await steamMarket.scanCs(); //Non-puppeteer
+                await steamMarket.scanQuery(); //Non-puppeteer
             }
-            if(scanCs) {
-                await csDeals.scan();
-                await csTrade.scan();
-                await tradeIt.scan();
-                await lootFarm.scan();
+            if(scanCs && csScanCnt >= 100) { //All these are all at once, only done every 100 cycles
+                await csDeals.scan(page);
+                await csTrade.scan(); //Non-puppeteer
+                await lootFarm.scan(); //Non-puppeteer
+                await tradeIt.scan(); //Non-puppeteer
+                csScanCnt = 0;
             }
         }
     }

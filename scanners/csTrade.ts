@@ -25,7 +25,7 @@ class CsTrade {
                 let items = res.data.inventory; 
                 items = items.filter((item: { app_id: number; }) => item.app_id == 730);
 
-                let cursor = CsTradeItem.find().cursor()
+                let cursor = CsTradeItem.find().cursor();
                 for(let item = await cursor.next(); item != null; item = await cursor.next()) {
                     let itemWasFound = false;
                     let itemCount = items.length;
