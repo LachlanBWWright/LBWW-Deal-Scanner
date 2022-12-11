@@ -7,11 +7,13 @@ class CashConverters {
     client: Client;
     channelId: string;
     roleId: string;
+    cursor: any;
 
     constructor(client: Client, channelId: string, roleId: string) {
         this.client = client;
         this.channelId = channelId;
         this.roleId = roleId;
+        this.cursor = CashConvertersQuery.find().cursor();
 
         this.scan = this.scan.bind(this);
     }

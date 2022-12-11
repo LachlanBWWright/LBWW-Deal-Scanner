@@ -218,7 +218,7 @@ client.once('ready', () => {
 
         //TODO: New round-robin scanning
         while(true) { //TODO: Pass page as param - Call scan function newScan, refactor all back to 'scan' and delete originals when done.
-            if(scanFacebook) await facebook.scan();
+            if(scanFacebook) await facebook.newScan(page);
             if(scanCashConverters) await cashConverters.scan();
             if(scanGumtree) await gumtree.scan();
             if(scanSalvos) await salvos.scan();
