@@ -245,6 +245,8 @@ client.once('ready', () => {
                 await tradeIt.scan(); //Non-puppeteer
                 csTradeScanCnt = 0;
             }
+            steamScanCnt++;
+            csTradeScanCnt++;
         }
     }
 
