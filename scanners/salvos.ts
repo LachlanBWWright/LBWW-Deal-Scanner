@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer from 'puppeteer';
+import puppeteer, { Puppeteer } from 'puppeteer';
 import SalvosQuery from "../schema/salvosQuery.js";
 
 class Salvos {
@@ -25,7 +25,7 @@ class Salvos {
             }
              
             await page.goto(item.name);
-            await page.waitForTimeout(Math.random()*10000 + 5000); //Waits before continuing. (Trying not to get IP banned)
+            await page.waitForTimeout(Math.random()*3000); //Waits before continuing. (Trying not to get IP banned)
             let selector = await page.waitForSelector('.line-clamp-3');
             let salvosItem = await selector?.evaluate(el => el.textContent);
             if(salvosItem != item.lastItemFound) {
@@ -41,8 +41,8 @@ class Salvos {
                 }
             } 
         }
-        catch(e) {
-            console.error(e);
+        catch(e: any) {
+            if(e.constructor.name !== 'TimeoutError') console.error(e);
         }
     }   
 }
