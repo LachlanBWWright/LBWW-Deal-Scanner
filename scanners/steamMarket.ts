@@ -57,14 +57,14 @@ class SteamMarket {
             for(let instance in res.data.results) {
                 let thisPrice = parseFloat(res.data.results[instance].sell_price)/100.0;
                 if(thisPrice < price) price = thisPrice;
-                let lastPrice = <number>item.lastPrice;
                 if(price < item.maxPrice && price * 1.04 < (item.lastPrice)) {
                     this.client.channels.fetch(this.queryChannelId)
                         .then(channel => <TextChannel>channel)
                         .then(channel => {
                             if(channel) channel.send(`<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`);
                         })
-                        .catch(e => console.error(e))
+                        .catch(e => console.error(e));
+                    break;
                 }
             }
             if(price != item.lastPrice) {
