@@ -557,13 +557,12 @@ client.on("interactionCreate", async interaction => {
                     for await (const item of model.find()) {
                         console.log(item.name);
                         interaction.followUp(
-                            `Name: ${scanner === "scmquery" ? item.name : item.displayUrl} 
-                            ${item.maxPrice ? `Max Price: ${item.maxPrice} ` : "" } 
-                            ${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}
-                            ${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}
-                            ${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}
-                            ${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}
-                            `
+                            `Name: ${scanner === "scmquery" ? item.displayUrl : item.name}` + 
+                            `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
+                            `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
+                            `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
+                            `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
+                            `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
                             )
                       }
                 }
