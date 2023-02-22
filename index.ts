@@ -550,10 +550,26 @@ client.on("interactionCreate", async interaction => {
                 await interaction.editReply("No scanner found. That's not acceptable. Aborting")
                 return
             }
-            
-            
-            /*          
 
+            if(!searchName) { //Find multiple items
+                await interaction.editReply("Returning all items for the chosen scanner: ")
+
+                for await (const item of model.find()) {
+                    console.log(item.name);
+                    interaction.reply(item.name)
+                  }
+            }
+            else if(scanner === "scmquery") { //Find an item by displayUrl
+                await interaction.editReply("TODO")
+            }
+            else { //FInd an item by name
+                await interaction.editReply("TODO")
+            }
+
+
+            //TODO: SteamQuery - Only instance where 'displayUrl' is shown to user instead of 'name'
+            
+            /*
             {name: "CS Deals", value: "csdeals"}, 
             {name: "Cs.Trade", value: "cstrade"}, 
             {name: "TradeIt", value: "tradeit"}, 
@@ -565,8 +581,7 @@ client.on("interactionCreate", async interaction => {
             {name: "Ebay", value: "ebayquery"}, 
             {name: "Gumtree", value: "gumtreequery"}, 
             {name: "Facebook", value: "facebookquery"}, 
-            
-            */
+*/
             
 /*             import CsDealsItem from "./schema/csDealsItem.js";
             import CsTradeItem from "./schema/csTradeItem.js";
