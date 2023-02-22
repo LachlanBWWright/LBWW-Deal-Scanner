@@ -173,14 +173,42 @@ const commands = [
         ),
     new SlashCommandBuilder()
             .setName("viewqueries")
-            .setDescription("View the queries created for a website"),
-    new SlashCommandBuilder()
-            .setName("updatequeries")
-            .setDescription("Update the queries created for a website"),
-    new SlashCommandBuilder()
-            .setName("deletequeries")
-            .setDescription("Delete the queries created for a website"),
-
+            .setDescription("View the queries created for a website")
+            .addStringOption(
+                option => 
+                option.setName("whichscanner")
+                .setDescription("Which part of the scanner's queries are to be viewed")
+                .addChoices(
+                    {name: "CS Trade Bots", value: "multisearch"}, 
+                    {name: "SCM Query", value: "scmquery"}, 
+                    {name: "CS Market", value: "csmarket"}, 
+                    {name: "Cash Converters", value: "cashquery"}, 
+                    {name: "Salvos", value: "salvosquery"}, 
+                    {name: "Ebay", value: "ebayquery"}, 
+                    {name: "Gumtree", value: "gumtreequery"}, 
+                    {name: "Facebook", value: "facebookquery"}, 
+                )
+                .setRequired(true)
+            ),
+            new SlashCommandBuilder()
+                    .setName("deletequeries")
+                    .setDescription("Delete the queries created for a website")
+                    .addStringOption(
+                        option => 
+                        option.setName("whichscanner")
+                        .setDescription("Which part of the scanner's queries are to be viewed")
+                        .addChoices(
+                            {name: "CS Trade Bots", value: "multisearch"}, 
+                            {name: "SCM Query", value: "scmquery"}, 
+                            {name: "CS Market", value: "csmarket"}, 
+                            {name: "Cash Converters", value: "cashquery"}, 
+                            {name: "Salvos", value: "salvosquery"}, 
+                            {name: "Ebay", value: "ebayquery"}, 
+                            {name: "Gumtree", value: "gumtreequery"}, 
+                            {name: "Facebook", value: "facebookquery"}, 
+                        )
+                        .setRequired(true)
+                    ),
     ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
     rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
@@ -485,12 +513,13 @@ client.on("interactionCreate", async interaction => {
         }
         else if(interaction.commandName === "viewqueries") {
             await interaction.editReply("To be implemented!")
-        }
-        else if(interaction.commandName === "updatequeries") {
-            await interaction.editReply("To be implemented!")
+            let scanner = await interaction.options.getString("whichscanner")
+            console.log(scanner)
         }
         else if(interaction.commandName === "deletequeries") {
-            await interaction.editReply("To be implemented!")
+            await interaction.editReply("To be implemented!")            
+            let scanner = await interaction.options.getString("whichscanner")
+            console.log(scanner)
         }
     }
     catch(e) {
