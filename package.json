@@ -22,8 +22,7 @@
     "mongodb": "^4.5.0",
     "mongoose": "^6.6.1",
     "pending-xhr-puppeteer": "^2.3.3",
-    "puppeteer": "^13.6.0",
-    "puppeteer-cluster": "^0.23.0"
+    "puppeteer": "^13.6.0"
   },
   "devDependencies": {
     "typescript": "^4.9.5"

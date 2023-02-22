@@ -171,6 +171,15 @@ const commands = [
             .setDescription("The maximum distance from the point specified in the query")
             .setRequired(true)
         ),
+    new SlashCommandBuilder()
+            .setName("viewqueries")
+            .setDescription("View the queries created for a website"),
+    new SlashCommandBuilder()
+            .setName("updatequeries")
+            .setDescription("Update the queries created for a website"),
+    new SlashCommandBuilder()
+            .setName("deletequeries")
+            .setDescription("Delete the queries created for a website"),
 
     ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
@@ -473,6 +482,15 @@ client.on("interactionCreate", async interaction => {
                 await interaction.editReply("Please know that the search has been created: " + search.toString());
             }
             else interaction.editReply("Please know that your search was invalid!")
+        }
+        else if(interaction.commandName === "viewqueries") {
+            await interaction.editReply("To be implemented!")
+        }
+        else if(interaction.commandName === "updatequeries") {
+            await interaction.editReply("To be implemented!")
+        }
+        else if(interaction.commandName === "deletequeries") {
+            await interaction.editReply("To be implemented!")
         }
     }
     catch(e) {
