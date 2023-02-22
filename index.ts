@@ -544,6 +544,7 @@ client.on("interactionCreate", async interaction => {
                 else if(scanner === "csmarket") model = CsMarketItem
                 else if(scanner === "cashquery") model = CashConvertersQuery
                 else if(scanner === "ebayquery") model = EbayQuery
+                else if(scanner === "salvosquery") model = SalvosQuery
                 else if(scanner === "gumtreequery") model = GumtreeQuery
                 else if(scanner === "facebookquery") model = FacebookQuery
                 else {
