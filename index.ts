@@ -566,17 +566,31 @@ client.on("interactionCreate", async interaction => {
                             )
                       }
                 }
-                else { //FInd an item by name - TODO: remember scanner === "scmquery" case
+                else { //FInd an item by name
                     if(scanner === "scmquery") {
-                        let item = model.find({displayUrl: searchName})
-                        console.log(item)
+                        let item: any = model.findOne({displayUrl: searchName})
+
+                        interaction.editReply(
+                            `Name: ${item.displayUrl}` + " " + 
+                            `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
+                            `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
+                            `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
+                            `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
+                            `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+                            )
                     } 
                     else {
-                        let item = model.find({name: searchName})
-                        console.log(item)
+                        let item: any = model.findOne({name: searchName})
+
+                        interaction.editReply(
+                            `Name: ${item.name}` + " " + 
+                            `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
+                            `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
+                            `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
+                            `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
+                            `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+                        )
                     }
-                    
-                    await interaction.editReply("TODO")
                 }
             }
             catch(e) {
