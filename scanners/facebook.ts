@@ -36,6 +36,7 @@ class Facebook {
             let results = await res.$$eval('div.x1gslohp.xkh6y0r', nodes => nodes.map(n => n.textContent));
             //[ 'A$450', 'item name', 'Sydney, NSW' ] NOTE: 'A$290A$350' is how a discount will appear
             if(!results) return;
+            //TODO: TypeError: Cannot read properties of undefined (reading 'replace')
             let foundPrice = parseInt(results[0]?.split('A$')[1].replace(',', '') ?? '9999999', 10); //The text starts with A$, so [0] will be nothing, while [1] will be the price, and [2] will be the original price if discounted
             let foundName = results[1];
             

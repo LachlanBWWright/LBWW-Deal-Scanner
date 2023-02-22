@@ -16,6 +16,8 @@ import SalvosQuery from "./schema/salvosQuery.js";
 import EbayQuery from "./schema/ebayQuery.js";
 import GumtreeQuery from "./schema/gumtreeQuery.js";
 import FacebookQuery from "./schema/facebookQuery.js";
+import SteamQuery from './schema/steamQuery.js';
+import CsMarketItem from "./schema/csMarketItem.js";
 
 //Scanner Imports
 import Ps5BigW from "./scanners/ps5BigW.js";
@@ -179,7 +181,10 @@ const commands = [
                 option.setName("whichscanner")
                 .setDescription("Which part of the scanner's queries are to be viewed")
                 .addChoices(
-                    {name: "CS Trade Bots", value: "multisearch"}, 
+                    {name: "CS Deals", value: "csdeals"}, 
+                    {name: "Cs.Trade", value: "cstrade"}, 
+                    {name: "TradeIt", value: "tradeit"}, 
+                    {name: "Loot.Farm", value: "lootfarm"}, 
                     {name: "SCM Query", value: "scmquery"}, 
                     {name: "CS Market", value: "csmarket"}, 
                     {name: "Cash Converters", value: "cashquery"}, 
@@ -189,26 +194,39 @@ const commands = [
                     {name: "Facebook", value: "facebookquery"}, 
                 )
                 .setRequired(true)
+            )
+            .addStringOption(option => 
+                option.setName("searchname")
+                .setDescription("Find a search by name (URL for query, skin name for CS bot.)")
+                .setRequired(false)    
             ),
-            new SlashCommandBuilder()
-                    .setName("deletequeries")
-                    .setDescription("Delete the queries created for a website")
-                    .addStringOption(
-                        option => 
-                        option.setName("whichscanner")
-                        .setDescription("Which part of the scanner's queries are to be viewed")
-                        .addChoices(
-                            {name: "CS Trade Bots", value: "multisearch"}, 
-                            {name: "SCM Query", value: "scmquery"}, 
-                            {name: "CS Market", value: "csmarket"}, 
-                            {name: "Cash Converters", value: "cashquery"}, 
-                            {name: "Salvos", value: "salvosquery"}, 
-                            {name: "Ebay", value: "ebayquery"}, 
-                            {name: "Gumtree", value: "gumtreequery"}, 
-                            {name: "Facebook", value: "facebookquery"}, 
-                        )
-                        .setRequired(true)
-                    ),
+        new SlashCommandBuilder()
+                .setName("deletequery")
+                .setDescription("Delete a query created for a website")
+                .addStringOption(
+                    option => 
+                    option.setName("whichscanner")
+                    .setDescription("Which part of the scanner's queries are to be viewed")
+                    .addChoices(
+                        {name: "CS Deals", value: "csdeals"}, 
+                        {name: "Cs.Trade", value: "cstrade"}, 
+                        {name: "TradeIt", value: "tradeit"}, 
+                        {name: "Loot.Farm", value: "lootfarm"}, 
+                        {name: "SCM Query", value: "scmquery"}, 
+                        {name: "CS Market", value: "csmarket"}, 
+                        {name: "Cash Converters", value: "cashquery"}, 
+                        {name: "Salvos", value: "salvosquery"}, 
+                        {name: "Ebay", value: "ebayquery"}, 
+                        {name: "Gumtree", value: "gumtreequery"}, 
+                        {name: "Facebook", value: "facebookquery"}, 
+                    )
+                    .setRequired(true)
+                )
+                .addStringOption(option => 
+                    option.setName("searchname")
+                    .setDescription("Find a search by name (URL for query, skin name for CS bot.)")
+                    .setRequired(true)    
+                ),
     ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
     rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
@@ -513,12 +531,71 @@ client.on("interactionCreate", async interaction => {
         }
         else if(interaction.commandName === "viewqueries") {
             await interaction.editReply("To be implemented!")
-            let scanner = await interaction.options.getString("whichscanner")
-            console.log(scanner)
+            let scanner = await interaction.options.getString("whichscanner") || "csdeals"
+            let searchName = await interaction.options.getString("searchname")
+            
+            let model: mongoose.Model<any>
+            
+            if(scanner === "csdeals") model = CsDealsItem
+            else if(scanner === "cstrade") model = CsTradeItem
+            else if(scanner === "tradeit") model = TradeItItem
+            else if(scanner === "lootfarm") model = LootFarmItem
+            else if(scanner === "scmquery") model = SteamQuery
+            else if(scanner === "csmarket") model = CsMarketItem
+            else if(scanner === "cashquery") model = CashConvertersQuery
+            else if(scanner === "ebayquery") model = EbayQuery
+            else if(scanner === "gumtreequery") model = GumtreeQuery
+            else if(scanner === "facebookquery") model = FacebookQuery
+            else {
+                await interaction.editReply("No scanner found. That's not acceptable. Aborting")
+                return
+            }
+            
+            
+            /*          
+
+            {name: "CS Deals", value: "csdeals"}, 
+            {name: "Cs.Trade", value: "cstrade"}, 
+            {name: "TradeIt", value: "tradeit"}, 
+            {name: "Loot.Farm", value: "lootfarm"}, 
+            {name: "SCM Query", value: "scmquery"}, 
+            {name: "CS Market", value: "csmarket"}, 
+            {name: "Cash Converters", value: "cashquery"}, 
+            {name: "Salvos", value: "salvosquery"}, 
+            {name: "Ebay", value: "ebayquery"}, 
+            {name: "Gumtree", value: "gumtreequery"}, 
+            {name: "Facebook", value: "facebookquery"}, 
+            
+            */
+            
+/*             import CsDealsItem from "./schema/csDealsItem.js";
+            import CsTradeItem from "./schema/csTradeItem.js";
+            import TradeItItem from "./schema/tradeItItem.js";
+            import LootFarmItem from "./schema/lootFarmItem.js";
+            import CashConvertersQuery from "./schema/cashConvertersQuery.js";
+            import SalvosQuery from "./schema/salvosQuery.js";
+            import EbayQuery from "./schema/ebayQuery.js";
+            import GumtreeQuery from "./schema/gumtreeQuery.js";
+            import FacebookQuery from "./schema/facebookQuery.js"; 
+            import SteamQuery from './schema/steamQuery.js';
+            import CsMarketItem from "./schema/csMarketItem.js";
+
+            */
+
+            //TODO: Only show x results, require additional response for more?
+            
         }
-        else if(interaction.commandName === "deletequeries") {
+        else if(interaction.commandName === "deletequery") {
             await interaction.editReply("To be implemented!")            
             let scanner = await interaction.options.getString("whichscanner")
+            let searchName = await interaction.options.getString("searchname")
+
+            if(!searchName) {
+                await interaction.editReply("No search name found. That's not acceptable.")
+                return
+            }
+            
+
             console.log(scanner)
         }
     }
