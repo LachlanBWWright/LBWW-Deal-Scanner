@@ -535,35 +535,43 @@ client.on("interactionCreate", async interaction => {
             let searchName = await interaction.options.getString("searchname")
             
             let model: mongoose.Model<any>
-            
-            if(scanner === "csdeals") model = CsDealsItem
-            else if(scanner === "cstrade") model = CsTradeItem
-            else if(scanner === "tradeit") model = TradeItItem
-            else if(scanner === "lootfarm") model = LootFarmItem
-            else if(scanner === "scmquery") model = SteamQuery
-            else if(scanner === "csmarket") model = CsMarketItem
-            else if(scanner === "cashquery") model = CashConvertersQuery
-            else if(scanner === "ebayquery") model = EbayQuery
-            else if(scanner === "gumtreequery") model = GumtreeQuery
-            else if(scanner === "facebookquery") model = FacebookQuery
-            else {
-                await interaction.editReply("No scanner found. That's not acceptable. Aborting")
-                return
+            try {
+                if(scanner === "csdeals") model = CsDealsItem
+                else if(scanner === "cstrade") model = CsTradeItem
+                else if(scanner === "tradeit") model = TradeItItem
+                else if(scanner === "lootfarm") model = LootFarmItem
+                else if(scanner === "scmquery") model = SteamQuery
+                else if(scanner === "csmarket") model = CsMarketItem
+                else if(scanner === "cashquery") model = CashConvertersQuery
+                else if(scanner === "ebayquery") model = EbayQuery
+                else if(scanner === "gumtreequery") model = GumtreeQuery
+                else if(scanner === "facebookquery") model = FacebookQuery
+                else {
+                    await interaction.editReply("No scanner found. That's not acceptable. Aborting")
+                    return
+                }
+    
+                if(!searchName) { //Find multiple items
+                    await interaction.editReply("Returning all items for the chosen scanner: ")
+    
+                    for await (const item of model.find()) {
+                        console.log(item.name);
+                        interaction.reply(
+                            "Name: " + scanner === "scmquery" ? item.name : item.displayUrl + " " +
+                            item.maxPrice ? `Max Price: ${item.maxPrice} ` : "" +
+                            item.minPrice ? `Mix Price: ${item.minPrice} ` : "" +
+                            item.maxFloat ? `Max Float: ${item.maxFloat} ` : "" +
+                            item.minFloat ? `Max Float: ${item.minFloat} ` : "" +
+                            item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""
+                            )
+                      }
+                }
+                else { //FInd an item by name - TODO: remember scanner === "scmquery" case
+                    await interaction.editReply("TODO")
+                }
             }
-
-            if(!searchName) { //Find multiple items
-                await interaction.editReply("Returning all items for the chosen scanner: ")
-
-                for await (const item of model.find()) {
-                    console.log(item.name);
-                    interaction.reply(item.name)
-                  }
-            }
-            else if(scanner === "scmquery") { //Find an item by displayUrl
-                await interaction.editReply("TODO")
-            }
-            else { //FInd an item by name
-                await interaction.editReply("TODO")
+            catch(e) {
+                console.error(e)
             }
 
 
