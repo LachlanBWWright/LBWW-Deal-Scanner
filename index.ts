@@ -556,9 +556,8 @@ client.on("interactionCreate", async interaction => {
                     await interaction.editReply("Returning all items for the chosen scanner: ")
     
                     for await (const item of model.find()) {
-                        console.log(item.name);
                         interaction.followUp(
-                            `Name: ${scanner === "scmquery" ? item.displayUrl : item.name}` + 
+                            `Name: ${scanner === "scmquery" ? item.displayUrl : item.name}` + " " + 
                             `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
                             `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
                             `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
@@ -568,6 +567,15 @@ client.on("interactionCreate", async interaction => {
                       }
                 }
                 else { //FInd an item by name - TODO: remember scanner === "scmquery" case
+                    if(scanner === "scmquery") {
+                        let item = model.find({displayUrl: searchName})
+                        console.log(item)
+                    } 
+                    else {
+                        let item = model.find({name: searchName})
+                        console.log(item)
+                    }
+                    
                     await interaction.editReply("TODO")
                 }
             }
