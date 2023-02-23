@@ -201,32 +201,32 @@ const commands = [
                 .setRequired(false)    
             ),
         new SlashCommandBuilder()
-                .setName("deletequery")
-                .setDescription("Delete a query created for a website")
-                .addStringOption(
-                    option => 
-                    option.setName("whichscanner")
-                    .setDescription("Which part of the scanner's queries are to be viewed")
-                    .addChoices(
-                        {name: "CS Deals", value: "csdeals"}, 
-                        {name: "Cs.Trade", value: "cstrade"}, 
-                        {name: "TradeIt", value: "tradeit"}, 
-                        {name: "Loot.Farm", value: "lootfarm"}, 
-                        {name: "SCM Query", value: "scmquery"}, 
-                        {name: "CS Market", value: "csmarket"}, 
-                        {name: "Cash Converters", value: "cashquery"}, 
-                        {name: "Salvos", value: "salvosquery"}, 
-                        {name: "Ebay", value: "ebayquery"}, 
-                        {name: "Gumtree", value: "gumtreequery"}, 
-                        {name: "Facebook", value: "facebookquery"}, 
-                    )
-                    .setRequired(true)
+            .setName("deletequery")
+            .setDescription("Delete a query created for a website")
+            .addStringOption(
+                option => 
+                option.setName("whichscanner")
+                .setDescription("Which part of the scanner's queries are to be viewed")
+                .addChoices(
+                    {name: "CS Deals", value: "csdeals"}, 
+                    {name: "Cs.Trade", value: "cstrade"}, 
+                    {name: "TradeIt", value: "tradeit"}, 
+                    {name: "Loot.Farm", value: "lootfarm"}, 
+                    {name: "SCM Query", value: "scmquery"}, 
+                    {name: "CS Market", value: "csmarket"}, 
+                    {name: "Cash Converters", value: "cashquery"}, 
+                    {name: "Salvos", value: "salvosquery"}, 
+                    {name: "Ebay", value: "ebayquery"}, 
+                    {name: "Gumtree", value: "gumtreequery"}, 
+                    {name: "Facebook", value: "facebookquery"}, 
                 )
-                .addStringOption(option => 
-                    option.setName("searchname")
-                    .setDescription("Find a search by name (URL for query, skin name for CS bot.)")
-                    .setRequired(true)    
-                ),
+                .setRequired(true)
+            )
+            .addStringOption(option => 
+                option.setName("searchname")
+                .setDescription("Find a search by name (URL for query, skin name for CS bot.)")
+                .setRequired(true)    
+            ),
     ].map(command => command.toJSON());
     const rest = new REST({version: "9"}).setToken(`${process.env.DISCORD_TOKEN}`);
     rest.put(Routes.applicationGuildCommands(`${process.env.BOT_CLIENT_ID}`, `${process.env.DISCORD_GUILD_ID}`), {body: commands})
@@ -326,7 +326,6 @@ client.on("interactionCreate", async interaction => {
             await interaction.editReply("Please know you don't have the role needed to make commands. That's not acceptable.");
             return;
         }
-        console.log(roleFound)
         
         if(interaction.commandName === "createmultisearch") {
             let replyText = "Please know the results of your attempt to create new searches - ";
@@ -354,8 +353,7 @@ client.on("interactionCreate", async interaction => {
                             minFloat: minFloat,
                             maxFloat: maxFloat
                         })
-                        csDealsItem.save(err => console.log(err));
-                        console.log(csDealsItem);
+                        csDealsItem.save(err => console.error(err));
     
                         replyText = replyText.concat("Cs.Deals: Successful, ");
                     }
@@ -373,8 +371,7 @@ client.on("interactionCreate", async interaction => {
                             minFloat: minFloat,
                             maxFloat: maxFloat
                         })
-                        csTradeItem.save(err => console.log(err));
-                        console.log(csTradeItem);
+                        csTradeItem.save(err => console.error(err));
     
                         replyText = replyText.concat("Cs.Trade: Successful, ");
                     }
@@ -392,8 +389,7 @@ client.on("interactionCreate", async interaction => {
                             minFloat: minFloat,
                             maxFloat: maxFloat
                         })
-                        tradeItItem.save(err => console.log(err));
-                        console.log(tradeItItem);
+                        tradeItItem.save(err => console.error(err));
     
                         replyText = replyText.concat("Tradeit.gg: Successful, ");
                     }
@@ -411,8 +407,7 @@ client.on("interactionCreate", async interaction => {
                             minFloat: minFloat,
                             maxFloat: maxFloat
                         })
-                        lootFarmItem.save(err => console.log(err));
-                        console.log(lootFarmItem);
+                        lootFarmItem.save(err => console.error(err));
     
                         replyText = replyText.concat("Loot.farm: Successful, ");
                     }
@@ -530,10 +525,8 @@ client.on("interactionCreate", async interaction => {
             else interaction.editReply("Please know that your search was invalid!")
         }
         else if(interaction.commandName === "viewqueries") {
-            await interaction.editReply("To be implemented!")
             let scanner = await interaction.options.getString("whichscanner") || "csdeals"
             let searchName = await interaction.options.getString("searchname")
-            
             let model: mongoose.Model<any>
             try {
                 if(scanner === "csdeals") model = CsDealsItem
@@ -557,85 +550,93 @@ client.on("interactionCreate", async interaction => {
     
                     for await (const item of model.find()) {
                         interaction.followUp(
-                            `Name: ${scanner === "scmquery" ? item.displayUrl : item.name}` + " " + 
-                            `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
-                            `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
-                            `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
-                            `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
-                            `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+                            `Name: ${scanner === "scmquery" ? item.displayUrl : item.name}` +  
+                            `\n${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
+                            `\n${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
+                            `\n${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
+                            `\n${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
+                            `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
                             )
                       }
                 }
                 else { //Find an item by name
                     let item: any;
-                    if(scanner === "scmquery") item = model.findOne({displayUrl: searchName})
-                    else item = model.findOne({name: searchName})
+                    let isScmQuery = scanner === "scmquery"
+                    
+                    if(isScmQuery) item = await model.findOne({displayUrl: searchName})
+                    else item = await model.findOne({name: searchName})
                     
                     if(!item) {
-                        interaction.editReply("Please know that there is no search for the item you found. That's not acceptable.")
+                        interaction.editReply("Please know that there is no search for the item you entered. That's not acceptable.")
                         return
                     }
 
                     interaction.editReply(
-                        `Name: ${item.displayUrl}` + " " + 
-                        `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
-                        `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
-                        `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
-                        `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
-                        `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+                        `Name: ${isScmQuery ? item.displayUrl : item.name}` +
+                        `\n${item.maxPrice ? `Max Price: ${item.maxPrice}` : ""}` +
+                        `\n${item.minPrice ? `Mix Price: ${item.minPrice}` : ""}` +
+                        `\n${item.maxFloat ? `Max Float: ${item.maxFloat}` : ""}` +
+                        `\n${item.minFloat ? `Max Float: ${item.minFloat}` : ""}` +
+                        `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
                     )
                 }
             }
             catch(e) {
                 console.error(e)
             }
-
-
-            //TODO: SteamQuery - Only instance where 'displayUrl' is shown to user instead of 'name'
-            
-            /*
-            {name: "CS Deals", value: "csdeals"}, 
-            {name: "Cs.Trade", value: "cstrade"}, 
-            {name: "TradeIt", value: "tradeit"}, 
-            {name: "Loot.Farm", value: "lootfarm"}, 
-            {name: "SCM Query", value: "scmquery"}, 
-            {name: "CS Market", value: "csmarket"}, 
-            {name: "Cash Converters", value: "cashquery"}, 
-            {name: "Salvos", value: "salvosquery"}, 
-            {name: "Ebay", value: "ebayquery"}, 
-            {name: "Gumtree", value: "gumtreequery"}, 
-            {name: "Facebook", value: "facebookquery"}, 
-*/
-            
-/*             import CsDealsItem from "./schema/csDealsItem.js";
-            import CsTradeItem from "./schema/csTradeItem.js";
-            import TradeItItem from "./schema/tradeItItem.js";
-            import LootFarmItem from "./schema/lootFarmItem.js";
-            import CashConvertersQuery from "./schema/cashConvertersQuery.js";
-            import SalvosQuery from "./schema/salvosQuery.js";
-            import EbayQuery from "./schema/ebayQuery.js";
-            import GumtreeQuery from "./schema/gumtreeQuery.js";
-            import FacebookQuery from "./schema/facebookQuery.js"; 
-            import SteamQuery from './schema/steamQuery.js';
-            import CsMarketItem from "./schema/csMarketItem.js";
-
-            */
-
-            //TODO: Only show x results, require additional response for more?
             
         }
-        else if(interaction.commandName === "deletequery") {
-            await interaction.editReply("To be implemented!")            
+        else if(interaction.commandName === "deletequery") {          
             let scanner = await interaction.options.getString("whichscanner")
             let searchName = await interaction.options.getString("searchname")
+            let model: mongoose.Model<any>
+
+            try {
+                if(scanner === "csdeals") model = CsDealsItem
+                else if(scanner === "cstrade") model = CsTradeItem
+                else if(scanner === "tradeit") model = TradeItItem
+                else if(scanner === "lootfarm") model = LootFarmItem
+                else if(scanner === "scmquery") model = SteamQuery
+                else if(scanner === "csmarket") model = CsMarketItem
+                else if(scanner === "cashquery") model = CashConvertersQuery
+                else if(scanner === "ebayquery") model = EbayQuery
+                else if(scanner === "salvosquery") model = SalvosQuery
+                else if(scanner === "gumtreequery") model = GumtreeQuery
+                else if(scanner === "facebookquery") model = FacebookQuery
+                else {
+                    await interaction.editReply("No scanner found. That's not acceptable. Aborting")
+                    return
+                }
+
+                let item: any;
+                let isScmQuery = scanner === "scmquery"
+                
+                if(isScmQuery) item = await model.findOneAndDelete({displayUrl: searchName})
+                else item = await model.findOneAndDelete({name: searchName})
+                
+                if(!item) {
+                    interaction.editReply("Please know that the item you are searching for has already been deleted. Or didn't exist in the first place. That's not acceptable.")
+                    return
+                }
+
+                interaction.editReply(
+                    `The following item has been deleted \n Name: ${isScmQuery ? item.displayUrl : item.name}` + 
+                    `\n${item.maxPrice ? `Max Price: ${item.maxPrice}\n` : ""}` +
+                    `\n${item.minPrice ? `Mix Price: ${item.minPrice}\n` : ""}` +
+                    `\n${item.maxFloat ? `Max Float: ${item.maxFloat}\n` : ""}` +
+                    `\n${item.minFloat ? `Max Float: ${item.minFloat}\n` : ""}` +
+                    `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+                )
+            }
+            catch(e) {
+                console.error(e)
+            }
 
             if(!searchName) {
                 await interaction.editReply("No search name found. That's not acceptable.")
                 return
             }
             
-
-            console.log(scanner)
         }
     }
     catch(e) {
