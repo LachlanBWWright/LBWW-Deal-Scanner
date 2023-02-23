@@ -566,31 +566,24 @@ client.on("interactionCreate", async interaction => {
                             )
                       }
                 }
-                else { //FInd an item by name
-                    if(scanner === "scmquery") {
-                        let item: any = model.findOne({displayUrl: searchName})
-
-                        interaction.editReply(
-                            `Name: ${item.displayUrl}` + " " + 
-                            `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
-                            `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
-                            `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
-                            `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
-                            `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
-                            )
-                    } 
-                    else {
-                        let item: any = model.findOne({name: searchName})
-
-                        interaction.editReply(
-                            `Name: ${item.name}` + " " + 
-                            `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
-                            `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
-                            `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
-                            `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
-                            `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
-                        )
+                else { //Find an item by name
+                    let item: any;
+                    if(scanner === "scmquery") item = model.findOne({displayUrl: searchName})
+                    else item = model.findOne({name: searchName})
+                    
+                    if(!item) {
+                        interaction.editReply("Please know that there is no search for the item you found. That's not acceptable.")
+                        return
                     }
+
+                    interaction.editReply(
+                        `Name: ${item.displayUrl}` + " " + 
+                        `${item.maxPrice ? `Max Price: ${item.maxPrice} ` : ""}` +
+                        `${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
+                        `${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
+                        `${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
+                        `${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+                    )
                 }
             }
             catch(e) {
