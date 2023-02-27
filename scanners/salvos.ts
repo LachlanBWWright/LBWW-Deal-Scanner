@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer, { Puppeteer } from 'puppeteer';
+import puppeteer from 'puppeteer';
 import SalvosQuery from "../schema/salvosQuery.js";
 
 class Salvos {

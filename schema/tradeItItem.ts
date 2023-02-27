@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 
 interface tradeItInterface {
-    name: String,
-    maxPrice: Number,
-    minFloat: Number,
-    maxFloat: Number,
-    found: Boolean
+    name: string,
+    maxPrice: number,
+    minFloat: number,
+    maxFloat: number,
+    found: boolean
 }
 
 const TradeItItemSchema = new mongoose.Schema<tradeItInterface>({

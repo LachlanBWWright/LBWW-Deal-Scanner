@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
+import puppeteer, {HTTPResponse} from 'puppeteer';
 import CsDealsItem from '../schema/csDealsItem.js';
 
 class CsDeals {

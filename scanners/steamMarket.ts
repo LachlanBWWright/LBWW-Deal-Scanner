@@ -2,10 +2,8 @@ import {Client, TextChannel} from "discord.js";
 import axios from "axios";
 import SteamQuery from '../schema/steamQuery.js';
 import CsMarketItem from "../schema/csMarketItem.js";
-import { JSONArray } from "puppeteer";
-import { JSONEncodable } from "@discordjs/builders";
-import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
-import { CallbackError } from "mongoose";
+import puppeteer from 'puppeteer';
+import {CallbackError} from "mongoose";
 
 //For general market queries and CS Items
 

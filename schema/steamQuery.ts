@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
 interface steamQueryInterface {
-    name: String,
+    name: string,
     displayUrl: string,
-    maxPrice: Number,
-    lastPrice: Number
+    maxPrice: number,
+    lastPrice: number
 }
 
 const SteamQuerySchema = new mongoose.Schema<steamQueryInterface>({

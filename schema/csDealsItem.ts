@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 
 interface csDealsInterface {
-    name: String,
-    maxPrice: Number,
-    minFloat: Number,
-    maxFloat: Number,
-    found: Boolean
+    name: string,
+    maxPrice: number,
+    minFloat: number,
+    maxFloat: number,
+    found: boolean
 }
 
 const CsDealsItemSchema = new mongoose.Schema<csDealsInterface>({

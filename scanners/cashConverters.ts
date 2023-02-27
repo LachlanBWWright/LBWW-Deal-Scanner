@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer, { Browser, HTTPResponse, Puppeteer } from 'puppeteer';
+import puppeteer from 'puppeteer';
 import CashConvertersQuery from "../schema/cashConvertersQuery.js";
 
 class CashConverters {

@@ -1,5 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import puppeteer, { ElementHandle } from 'puppeteer';
+import puppeteer from 'puppeteer';
 import GumtreeQuery from "../schema/gumtreeQuery.js";
 
 class Gumtree {

@@ -2,7 +2,6 @@ import {Client, TextChannel} from "discord.js";
 import axios from "axios";
 import TradeItItem from '../schema/tradeItItem.js';
 import { JSONArray } from "puppeteer";
-import { JSONEncodable } from "@discordjs/builders";
 
 class TradeIt {
     wasFound: boolean;

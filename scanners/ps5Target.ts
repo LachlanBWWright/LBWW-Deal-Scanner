@@ -1,14 +1,3 @@
-//https://www.target.com.au/ws-api/v1/target/stock?baseProductCode=64226187&locations=5286&deliveryTypes=HD,CC DISC
-//https://www.target.com.au/ws-api/v1/target/stock?baseProductCode=64226170&locations=5286&deliveryTypes=HD,CC DIGITAL
-//https://www.target.com.au/p/xbox-series-s-console-digital/64445021
-//https://www.target.com.au/ws-api/v1/target/delivery/estimate/64226187?postalCode=2052&storeNumber=5286&mode=CC THIS MIGHT WORK BETTER
-
-/* fetch("https://www.target.com.au/ws-api/v1/target/stock?baseProductCode=P64445021&locations=5286&deliveryTypes=HD,ED,CC,CONSOLIDATED_STORES_SOH", {
-  "referrerPolicy": "strict-origin-when-cross-origin",
-  "body": null,
-  "method": "GET"
-}); */
-
 import {Client, TextChannel} from "discord.js";
 import axios from "axios";
 

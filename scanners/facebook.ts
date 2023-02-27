@@ -1,6 +1,5 @@
 import {Client, TextChannel} from "discord.js";
-import { Cursor } from "mongoose";
-import puppeteer, { ElementHandle } from 'puppeteer';
+import puppeteer from 'puppeteer';
 import FacebookQuery from "../schema/facebookQuery.js";
 
 class Facebook {
