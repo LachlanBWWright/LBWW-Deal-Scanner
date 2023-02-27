@@ -198,7 +198,7 @@ class SteamMarket {
         finally {
             await page.close();
             await browser.disconnect();
-            await browser.close();
+            //await browser.close();
             return response;
         }
     }
