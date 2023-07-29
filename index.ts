@@ -282,7 +282,7 @@ client.once('ready', () => {
             if(scanFacebook) await facebook.scan(page);
             if(scanGumtree) await gumtree.scan(page);
             if(scanSalvos) await salvos.scan(page);
-            if(scanSteam && steamScanCnt >= 25) {
+            if(scanSteam && steamScanCnt >= 10) {
                 if(scanSteamQuery) {
                     await steamMarket.scanQuery(); //Non-puppeteer
                     scanSteamQuery = false;
