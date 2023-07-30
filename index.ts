@@ -15,7 +15,6 @@ import CashConvertersQuery from "./schema/cashConvertersQuery.js";
 import SalvosQuery from "./schema/salvosQuery.js";
 import EbayQuery from "./schema/ebayQuery.js";
 import GumtreeQuery from "./schema/gumtreeQuery.js";
-import FacebookQuery from "./schema/facebookQuery.js";
 import SteamQuery from './schema/steamQuery.js';
 import CsMarketItem from "./schema/csMarketItem.js";
 
@@ -32,7 +31,6 @@ import SteamMarket from "./scanners/steamMarket.js";
 import Salvos from "./scanners/salvos.js"; 
 import Ebay from "./scanners/ebay.js"; 
 import Gumtree from "./scanners/gumtree.js";
-import Facebook from "./scanners/facebook.js";
 
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
@@ -151,29 +149,6 @@ const commands = [
             .setRequired(true)
         ),
     new SlashCommandBuilder()
-        .setName("createfacebookquery")
-        .setDescription("Creates a search for a Facebook Marketplace Query")
-        .addStringOption(option =>
-            option.setName("query")
-            .setDescription("The URL of the query. Sort by newest first.")
-            .setRequired(true)
-        )
-        .addNumberOption(option => 
-            option.setName("minprice")
-            .setDescription("Enter the minimum price (in AUD) a notification.")
-            .setRequired(true)
-            )
-        .addNumberOption(option => 
-            option.setName("maxprice")
-            .setDescription("Enter the maximum price (in AUD) a notification.")
-            .setRequired(true)
-            )
-        .addNumberOption(option =>
-            option.setName("maxdistance")
-            .setDescription("The maximum distance from the point specified in the query")
-            .setRequired(true)
-        ),
-    new SlashCommandBuilder()
             .setName("viewqueries")
             .setDescription("View the queries created for a website")
             .addStringOption(
@@ -191,7 +166,6 @@ const commands = [
                     {name: "Salvos", value: "salvosquery"}, 
                     {name: "Ebay", value: "ebayquery"}, 
                     {name: "Gumtree", value: "gumtreequery"}, 
-                    {name: "Facebook", value: "facebookquery"}, 
                 )
                 .setRequired(true)
             )
@@ -218,7 +192,6 @@ const commands = [
                     {name: "Salvos", value: "salvosquery"}, 
                     {name: "Ebay", value: "ebayquery"}, 
                     {name: "Gumtree", value: "gumtreequery"}, 
-                    {name: "Facebook", value: "facebookquery"}, 
                 )
                 .setRequired(true)
             )
@@ -250,7 +223,6 @@ client.once('ready', () => {
     const salvos = new Salvos(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
     const ebay = new Ebay(client, `${process.env.EBAY_CHANNEL_ID}`, `${process.env.EBAY_ROLE_ID}`);
     const gumtree = new Gumtree(client, `${process.env.GUMTREE_CHANNEL_ID}`, `${process.env.GUMTREE_ROLE_ID}`);
-    const facebook = new Facebook(client, `${process.env.FACEBOOK_CHANNEL_ID}`, `${process.env.FACEBOOK_ROLE_ID}`);
 
     const scanFrequently = async () => {
         if(process.env.PS5BIGW === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
@@ -262,7 +234,6 @@ client.once('ready', () => {
         const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
         const page = await browser.newPage();
 
-        let scanFacebook = process.env.FACEBOOK === 'true' && process.env.FACEBOOK_CHANNEL_ID && process.env.FACEBOOK_ROLE_ID;
         let scanCashConverters = process.env.CASH_CONVERTERS === 'true' && process.env.CASH_CONVERTERS_CHANNEL_ID && process.env.CASH_CONVERTERS_ROLE_ID;
         let scanGumtree = process.env.GUMTREE === 'true' && process.env.GUMTREE_CHANNEL_ID && process.env.GUMTREE_ROLE_ID;
         let scanSalvos = process.env.SALVOS === 'true' && process.env.SALVOS_CHANNEL_ID && process.env.SALVOS_ROLE_ID;
@@ -279,7 +250,6 @@ client.once('ready', () => {
         while(true) {
             if(scanCashConverters) await cashConverters.scan(page);
             if(scanEbay) await ebay.scan(page);
-            if(scanFacebook) await facebook.scan(page);
             if(scanGumtree) await gumtree.scan(page);
             if(scanSalvos) await salvos.scan(page);
             if(scanSteam && steamScanCnt >= 10) {
@@ -501,29 +471,6 @@ client.on("interactionCreate", async interaction => {
             }
             else interaction.editReply("Please know that your search was invalid!")
         }
-        else if(interaction.commandName === "createfacebookquery") {
-            let query = interaction.options.getString("query") || "placeholder";
-            let minPrice = interaction.options.getNumber("minprice") || 0;
-            let maxPrice = interaction.options.getNumber("maxprice") || 1000;
-            let maxDistance = interaction.options.getNumber("maxdistance") || 1000;
-            query = query.concat(`&radius=${maxDistance}`);
-            if(!query.includes('minPrice')) query = query.concat(`&minPrice=${minPrice}`)
-            if(!query.includes('maxPrice')) query = query.concat(`&maxPrice=${maxPrice}`)
-            let search = new URL(query);
-            if(!search.toString().includes("sortBy=distance_ascend")) interaction.editReply("Your query has to be sorted by distance to be valid.")
-            else if(!search.toString().includes("daysSinceListed")) interaction.editReply("Your query has have a listing date restriction (one day is recommended).")
-            else if(search.toString().includes("facebook.com/marketplace")) {
-                
-                let facebookQuery = new FacebookQuery({
-                    name: search.toString(),
-                    maxPrice: maxPrice,
-                    maxDistance: maxDistance,
-                })
-                facebookQuery.save();
-                await interaction.editReply("Please know that the search has been created: " + search.toString());
-            }
-            else interaction.editReply("Please know that your search was invalid!")
-        }
         else if(interaction.commandName === "viewqueries") {
             let scanner = await interaction.options.getString("whichscanner") || "csdeals"
             let searchName = await interaction.options.getString("searchname")
@@ -539,7 +486,6 @@ client.on("interactionCreate", async interaction => {
                 else if(scanner === "ebayquery") model = EbayQuery
                 else if(scanner === "salvosquery") model = SalvosQuery
                 else if(scanner === "gumtreequery") model = GumtreeQuery
-                else if(scanner === "facebookquery") model = FacebookQuery
                 else {
                     await interaction.editReply("No scanner found. That's not acceptable. Aborting")
                     return
@@ -602,9 +548,8 @@ client.on("interactionCreate", async interaction => {
                 else if(scanner === "ebayquery") model = EbayQuery
                 else if(scanner === "salvosquery") model = SalvosQuery
                 else if(scanner === "gumtreequery") model = GumtreeQuery
-                else if(scanner === "facebookquery") model = FacebookQuery
                 else {
-                    await interaction.editReply("No scanner found. That's not acceptable. Aborting")
+                    await interaction.editReply("No scanner found. That's not acceptable. Aborting.")
                     return
                 }
 
