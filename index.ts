@@ -1,7 +1,7 @@
 import {Client, GuildMember, GuildMemberRoleManager, Intents, ApplicationCommandOptionChoice} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
 import {REST} from "@discordjs/rest";
-import {Routes, APIInteractionGuildMember} from "discord-api-types/v9";
+import {Routes} from "discord-api-types/v9";
 import Dotenv from "dotenv";
 import mongoose from "mongoose";
 import puppeteer from "puppeteer";
@@ -19,9 +19,6 @@ import SteamQuery from './schema/steamQuery.js';
 import CsMarketItem from "./schema/csMarketItem.js";
 
 //Scanner Imports
-import Ps5BigW from "./scanners/ps5BigW.js";
-import Ps5Target from "./scanners/ps5Target.js";
-import XboxBigW from "./scanners/xboxBigW.js";
 import CsDeals from "./scanners/csDeals.js";
 import CsTrade from "./scanners/csTrade.js";
 import TradeIt from "./scanners/tradeIt.js";
@@ -211,9 +208,6 @@ const client = new Client({ intents: [Intents.FLAGS.GUILDS]});
 client.once('ready', () => {
     console.log("Discord client is ready.")
 
-    const ps5BigW = new Ps5BigW(client, `${process.env.PS5_CHANNEL_ID}`, `${process.env.PS5_ROLE_ID}`);
-    const xboxBigW = new XboxBigW(client, `${process.env.XBOX_CHANNEL_ID}`, `${process.env.XBOX_ROLE_ID}`);
-    const ps5Target = new Ps5Target(client, `${process.env.PS5_CHANNEL_ID}`, `${process.env.PS5_ROLE_ID}`);
     const csDeals = new CsDeals(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
     const csTrade = new CsTrade(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
     const tradeIt = new TradeIt(client, `${process.env.CS_CHANNEL_ID}`, `${process.env.CS_ROLE_ID}`);
@@ -223,12 +217,6 @@ client.once('ready', () => {
     const salvos = new Salvos(client, `${process.env.SALVOS_CHANNEL_ID}`, `${process.env.SALVOS_ROLE_ID}`);
     const ebay = new Ebay(client, `${process.env.EBAY_CHANNEL_ID}`, `${process.env.EBAY_ROLE_ID}`);
     const gumtree = new Gumtree(client, `${process.env.GUMTREE_CHANNEL_ID}`, `${process.env.GUMTREE_ROLE_ID}`);
-
-    const scanFrequently = async () => {
-        if(process.env.PS5BIGW === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5BigW.scan();
-        if(process.env.XBOXBIGW === 'true' && process.env.XBOX_CHANNEL_ID && process.env.XBOX_ROLE_ID) await xboxBigW.scan();
-        if(process.env.PS5TARGET === 'true' && process.env.PS5_CHANNEL_ID && process.env.PS5_ROLE_ID) await ps5Target.scan();
-    }
 
     const scanInfrequently = async () => {
         const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
@@ -274,9 +262,7 @@ client.once('ready', () => {
             csTradeScanCnt++;
         }
     }
-
-    scanInfrequently(); //Intermittent scans
-    if(process.env.PS5BIGW === 'true' || process.env.XBOXBIGW === 'true' || process.env.PS5TARGET === 'true') setInterval(scanFrequently, 100000); //Scans for consoles is configured to do so in dotenv.
+    scanInfrequently();
 });
 
 client.on("interactionCreate", async interaction => {
