@@ -236,6 +236,7 @@ client.once('ready', () => {
 
         //Round-robin scanning
         while(true) {
+            console.time("Cycle Time")
             if(scanCashConverters) await cashConverters.scan(page);
             if(scanEbay) await ebay.scan(page);
             if(scanGumtree) await gumtree.scan(page);
@@ -260,6 +261,7 @@ client.once('ready', () => {
             }
             steamScanCnt++;
             csTradeScanCnt++;
+            console.timeEnd("Cycle Time")
         }
     }
     scanInfrequently();
