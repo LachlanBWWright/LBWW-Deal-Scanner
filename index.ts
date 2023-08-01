@@ -231,7 +231,7 @@ client.once('ready', () => {
 
         //For Restricting how often certain scans are peformed to avoid rate-limiting
         let steamScanCnt = 0;
-        let scanSteamQuery = false;
+        
         let csTradeScanCnt = 0;
 
         //Round-robin scanning
@@ -241,16 +241,9 @@ client.once('ready', () => {
             if(scanEbay) await ebay.scan(page);
             if(scanGumtree) await gumtree.scan(page);
             if(scanSalvos) await salvos.scan(page);
-            if(scanSteam && steamScanCnt >= 40) {
-                if(scanSteamQuery) {
-                    await steamMarket.scanQuery(); //Non-puppeteer
-                    scanSteamQuery = false;
-                }
-                else {
-                    await steamMarket.scanCs(); //Non-puppeteer
-                    scanSteamQuery = true;
-                }
-                steamScanCnt = 0
+            if(scanSteam && steamScanCnt >= 55) {
+                await steamMarket.scanQuery(); //Non-puppeteer
+                steamScanCnt = 0;
             }
             if(scanCs && csTradeScanCnt >= 100) { //All these are all at once, only done every 100 cycles
                 await csDeals.scan(page);
