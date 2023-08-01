@@ -241,7 +241,7 @@ client.once('ready', () => {
             if(scanEbay) await ebay.scan(page);
             if(scanGumtree) await gumtree.scan(page);
             if(scanSalvos) await salvos.scan(page);
-            if(scanSteam && steamScanCnt >= 10) {
+            if(scanSteam && steamScanCnt >= 40) {
                 if(scanSteamQuery) {
                     await steamMarket.scanQuery(); //Non-puppeteer
                     scanSteamQuery = false;
