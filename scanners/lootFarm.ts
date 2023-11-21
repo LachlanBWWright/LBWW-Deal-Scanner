@@ -1,75 +1,103 @@
-import {Client, TextChannel} from "discord.js";
+import { Client, TextChannel } from "discord.js";
 import axios from "axios";
-import LootFarmItem from '../schema/lootFarmItem.js';
+import LootFarmItem from "../schema/lootFarmItem.js";
 
 class LootFarm {
-    wasFound: boolean;
-    client: Client;
-    channelId: string;
-    roleId: string;
+  wasFound: boolean;
+  client: Client;
+  channelId: string;
+  roleId: string;
 
-    constructor(client: Client, channelId: string, roleId: string) {
-        this.wasFound = false;
-        this.client = client;
-        this.channelId = channelId;
-        this.roleId = roleId;
+  constructor(client: Client, channelId: string, roleId: string) {
+    this.wasFound = false;
+    this.client = client;
+    this.channelId = channelId;
+    this.roleId = roleId;
 
-        this.scan = this.scan.bind(this);
-        this.skinExists = this.skinExists.bind(this);
-    }
+    this.scan = this.scan.bind(this);
+    this.skinExists = this.skinExists.bind(this);
+  }
 
-    async scan() {
-        axios.get("https://loot.farm/botsInventory_730.json")
-            .then(async res => {
-                let items: any = res.data.result;
-                let cursor = LootFarmItem.find().cursor()
-                    for(let item = await cursor.next(); item != null; item = await cursor.next()) {
-                        let itemWasFound = false;
-                        let itemCount = Object.keys(items).length;
-                        for(let skinType in items) {
-                            if(item.name.includes(items[skinType].n) && items[skinType].p/100 <= item.maxPrice) {
-                                for(let instance in items[skinType].u) {   
-                                    if(parseInt(items[skinType].u[instance][0].f)/100000 >= item.minFloat && parseInt(items[skinType].u[instance][0].f)/100000 <= item.maxFloat && (!item.name.includes("StatTrak") || items[skinType].u[instance][0].st != undefined)) {
-                                        if(!item.found) { //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-                                            item.found = true;
-                                            item.save(e => console.error(e));
+  async scan() {
+    axios
+      .get("https://loot.farm/botsInventory_730.json")
+      .then(async (res) => {
+        let items: any = res.data.result;
+        let cursor = LootFarmItem.find().cursor();
+        for (
+          let item = await cursor.next();
+          item != null;
+          item = await cursor.next()
+        ) {
+          let itemWasFound = false;
+          let itemCount = Object.keys(items).length;
+          for (let skinType in items) {
+            if (
+              item.name.includes(items[skinType].n) &&
+              items[skinType].p / 100 <= item.maxPrice
+            ) {
+              for (let instance in items[skinType].u) {
+                if (
+                  parseInt(items[skinType].u[instance][0].f) / 100000 >=
+                    item.minFloat &&
+                  parseInt(items[skinType].u[instance][0].f) / 100000 <=
+                    item.maxFloat &&
+                  (!item.name.includes("StatTrak") ||
+                    items[skinType].u[instance][0].st != undefined)
+                ) {
+                  if (!item.found) {
+                    //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
+                    item.found = true;
+                    item.save((e) => console.error(e));
 
-                                            this.client.channels.fetch(this.channelId)
-                                            .then(channel => <TextChannel>channel)
-                                            .then(channel => {
-                                                if(channel) channel.send(`<@&${this.roleId}> Please know that a ${items[skinType].n} with a float of ${parseInt(items[skinType].u[instance][0].f)/100000} is available for $${items[skinType].p/100} USD at: https://loot.farm/`);
-                                            })
-                                            .catch(e => console.error(e))
-                                        }
-                                        itemWasFound = true;
-                                    }
-                                }
-                            }
-                        }
-                        if(!itemWasFound) {
-                            item.found = false;
-                            item.save();
-                        }
-                    }
-            })
-            .catch(e => console.error(e))
-    }   
-
-    async skinExists(name: string) {
-        let skinFound = false;
-        await axios.get("https://loot.farm/botsInventory_730.json")
-            .then(async res => {
-                let items = res.data.result; 
-
-                for(let skinType in items) {
-                    if(name.includes(items[skinType].n)) {
-                        skinFound = true;
-                    }
+                    this.client.channels
+                      .fetch(this.channelId)
+                      .then((channel) => <TextChannel>channel)
+                      .then((channel) => {
+                        if (channel)
+                          channel.send(
+                            `<@&${this.roleId}> Please know that a ${
+                              items[skinType].n
+                            } with a float of ${
+                              parseInt(items[skinType].u[instance][0].f) /
+                              100000
+                            } is available for $${
+                              items[skinType].p / 100
+                            } USD at: https://loot.farm/`,
+                          );
+                      })
+                      .catch((e) => console.error(e));
+                  }
+                  itemWasFound = true;
                 }
-            })
-            .catch(e => console.error(e))
-        return skinFound;
-    }
+              }
+            }
+          }
+          if (!itemWasFound) {
+            item.found = false;
+            item.save();
+          }
+        }
+      })
+      .catch((e) => console.error(e));
+  }
+
+  async skinExists(name: string) {
+    let skinFound = false;
+    await axios
+      .get("https://loot.farm/botsInventory_730.json")
+      .then(async (res) => {
+        let items = res.data.result;
+
+        for (let skinType in items) {
+          if (name.includes(items[skinType].n)) {
+            skinFound = true;
+          }
+        }
+      })
+      .catch((e) => console.error(e));
+    return skinFound;
+  }
 }
 
 export default LootFarm;
