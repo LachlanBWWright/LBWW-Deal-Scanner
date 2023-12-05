@@ -130,11 +130,8 @@ class SteamMarket {
               }
             })
             .catch((e) => console.error(e));
-        if (i < 10)
-          this.itemsFound.set(
-            query,
-            20,
-          ); //Puts the query into the map, or resets its TTL if the API was called for it
+        if (i < 10) this.itemsFound.set(query, 20);
+        //Puts the query into the map, or resets its TTL if the API was called for it
         else if (this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
         i++;
       }
@@ -176,11 +173,8 @@ class SteamMarket {
                   }
                 })
                 .catch((e) => console.error(e));
-            if (i < 10)
-              this.itemsFound.set(
-                query,
-                20,
-              ); //Puts the query into the map, or resets its TTL if the API was called for it
+            if (i < 10) this.itemsFound.set(query, 20);
+            //Puts the query into the map, or resets its TTL if the API was called for it
             else if (this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
             i++;
           }
