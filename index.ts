@@ -1,13 +1,13 @@
 import {
   Client,
   GuildMember,
-  GuildMemberRoleManager,
-  Intents,
-  ApplicationCommandOptionChoice,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
 } from "discord.js";
-import { SlashCommandBuilder } from "@discordjs/builders";
-import { REST } from "@discordjs/rest";
-import { Routes } from "discord-api-types/v9";
+//import { SlashCommandBuilder } from 'discord.js/builders';
+
 import Dotenv from "dotenv";
 import mongoose from "mongoose";
 import puppeteer from "puppeteer";
@@ -257,7 +257,7 @@ rest
   .catch(console.error);
 
 //Discord Client Setup
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once("ready", () => {
   console.log("Discord client is ready.");
 
