@@ -35,223 +35,23 @@ import Salvos from "./scanners/salvos.js";
 import Ebay from "./scanners/ebay.js";
 import Gumtree from "./scanners/gumtree.js";
 
+import { commandList } from "./commandManager/index.js";
+
 Dotenv.config();
 mongoose.connect(`${process.env.MONGO_URI}`);
 
 //Creates the bot's /commands
-const commands = [
-  new SlashCommandBuilder()
-    .setName("createmultisearch")
-    .setDescription("Creates a search for a CS:GO item on multiple trade bots")
-    .addStringOption((option) =>
-      option
-        .setName("skinname")
-        .setDescription(
-          'Copy and paste from the SCM, E.G. "StatTrak™ XM1014 | Seasons (Minimal Wear)".',
-        )
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("minfloat")
-        .setDescription(
-          "Enter the minimum acceptable float value for the skin.",
-        )
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxfloat")
-        .setDescription(
-          "Enter the maximum acceptable float value for the skin.",
-        )
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxpricecsdeals")
-        .setDescription(
-          "Enter the max price for the skin on cs.deals, no search will be created if it's $0.",
-        )
-        .setRequired(false),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxpricecstrade")
-        .setDescription(
-          "Enter the max price for the skin on cs.trade, no search will be created if it's $0.",
-        )
-        .setRequired(false),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxpricetradeit")
-        .setDescription(
-          "Enter the max price for the skin on tradeit.gg, no search will be created if it's $0.",
-        )
-        .setRequired(false),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxpricelootfarm")
-        .setDescription(
-          "Enter the max price for the skin on loot.farm, no search will be created if it's $0.",
-        )
-        .setRequired(false),
-    ),
-  new SlashCommandBuilder()
-    .setName("createscmquery")
-    .setDescription("Creates a search for a SCM Query")
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The URL of the query. Sort by ascending price.")
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxprice")
-        .setDescription("Enter the maximum price for a notification.")
-        .setRequired(true),
-    ),
-  new SlashCommandBuilder()
-    .setName("createcsmarket")
-    .setDescription("Creates a search for a CS item on the SCM.")
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The URL of the query.")
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxfloat")
-        .setDescription("Enter the max float value for a notification.")
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxprice")
-        .setDescription("Enter the maximum price for a notification.")
-        .setRequired(true),
-    ),
-  new SlashCommandBuilder()
-    .setName("createcashquery")
-    .setDescription("Creates a search for a Cash Converters Query")
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The URL of the query. Sort by price or newness.")
-        .setRequired(true),
-    ),
-  new SlashCommandBuilder()
-    .setName("createsalvosquery")
-    .setDescription("Creates a search for a Salvos Query")
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The URL of the query. Sort by newest first.")
-        .setRequired(true),
-    ),
-  new SlashCommandBuilder()
-    .setName("createebayquery")
-    .setDescription("Creates a search for an eBay Query")
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The URL of the query. Sort by newest first.")
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxprice")
-        .setDescription("Enter the maximum price (in AUD) a notification.")
-        .setRequired(true),
-    ),
-  new SlashCommandBuilder()
-    .setName("creategumtreequery")
-    .setDescription("Creates a search for a Gumtree Query")
-    .addStringOption((option) =>
-      option
-        .setName("query")
-        .setDescription("The URL of the query. Sort by newest first.")
-        .setRequired(true),
-    )
-    .addNumberOption((option) =>
-      option
-        .setName("maxprice")
-        .setDescription("Enter the maximum price (in AUD) a notification.")
-        .setRequired(true),
-    ),
-  new SlashCommandBuilder()
-    .setName("viewqueries")
-    .setDescription("View the queries created for a website")
-    .addStringOption((option) =>
-      option
-        .setName("whichscanner")
-        .setDescription("Which part of the scanner's queries are to be viewed")
-        .addChoices(
-          { name: "CS Deals", value: "csdeals" },
-          { name: "Cs.Trade", value: "cstrade" },
-          { name: "TradeIt", value: "tradeit" },
-          { name: "Loot.Farm", value: "lootfarm" },
-          { name: "SCM Query", value: "scmquery" },
-          { name: "CS Market", value: "csmarket" },
-          { name: "Cash Converters", value: "cashquery" },
-          { name: "Salvos", value: "salvosquery" },
-          { name: "Ebay", value: "ebayquery" },
-          { name: "Gumtree", value: "gumtreequery" },
-        )
-        .setRequired(true),
-    )
-    .addStringOption((option) =>
-      option
-        .setName("searchname")
-        .setDescription(
-          "Find a search by name (URL for query, skin name for CS bot.)",
-        )
-        .setRequired(false),
-    ),
-  new SlashCommandBuilder()
-    .setName("deletequery")
-    .setDescription("Delete a query created for a website")
-    .addStringOption((option) =>
-      option
-        .setName("whichscanner")
-        .setDescription("Which part of the scanner's queries are to be viewed")
-        .addChoices(
-          { name: "CS Deals", value: "csdeals" },
-          { name: "Cs.Trade", value: "cstrade" },
-          { name: "TradeIt", value: "tradeit" },
-          { name: "Loot.Farm", value: "lootfarm" },
-          { name: "SCM Query", value: "scmquery" },
-          { name: "CS Market", value: "csmarket" },
-          { name: "Cash Converters", value: "cashquery" },
-          { name: "Salvos", value: "salvosquery" },
-          { name: "Ebay", value: "ebayquery" },
-          { name: "Gumtree", value: "gumtreequery" },
-        )
-        .setRequired(true),
-    )
-    .addStringOption((option) =>
-      option
-        .setName("searchname")
-        .setDescription(
-          "Find a search by name (URL for query, skin name for CS bot.)",
-        )
-        .setRequired(true),
-    ),
-].map((command) => command.toJSON());
+const commands = [...commandList].map((command) => command.toJSON());
 const rest = new REST({ version: "9" }).setToken(
-  `${process.env.DISCORD_TOKEN}`,
+  `${process.env.DISCORD_TOKEN}`
 );
 rest
   .put(
     Routes.applicationGuildCommands(
       `${process.env.BOT_CLIENT_ID}`,
-      `${process.env.DISCORD_GUILD_ID}`,
+      `${process.env.DISCORD_GUILD_ID}`
     ),
-    { body: commands },
+    { body: commands }
   )
   .then(() => console.log("Registered the bot's commands successfully"))
   .catch(console.error);
@@ -264,49 +64,49 @@ client.once("ready", () => {
   const csDeals = new CsDeals(
     client,
     `${process.env.CS_CHANNEL_ID}`,
-    `${process.env.CS_ROLE_ID}`,
+    `${process.env.CS_ROLE_ID}`
   );
   const csTrade = new CsTrade(
     client,
     `${process.env.CS_CHANNEL_ID}`,
-    `${process.env.CS_ROLE_ID}`,
+    `${process.env.CS_ROLE_ID}`
   );
   const tradeIt = new TradeIt(
     client,
     `${process.env.CS_CHANNEL_ID}`,
-    `${process.env.CS_ROLE_ID}`,
+    `${process.env.CS_ROLE_ID}`
   );
   const lootFarm = new LootFarm(
     client,
     `${process.env.CS_CHANNEL_ID}`,
-    `${process.env.CS_ROLE_ID}`,
+    `${process.env.CS_ROLE_ID}`
   );
   const steamMarket = new SteamMarket(
     client,
     `${process.env.STEAM_QUERY_CHANNEL_ID}`,
     `${process.env.STEAM_QUERY_ROLE_ID}`,
     `${process.env.CS_MARKET_CHANNEL_ID}`,
-    `${process.env.CS_MARKET_ROLE_ID}`,
+    `${process.env.CS_MARKET_ROLE_ID}`
   );
   const cashConverters = new CashConverters(
     client,
     `${process.env.CASH_CONVERTERS_CHANNEL_ID}`,
-    `${process.env.CASH_CONVERTERS_ROLE_ID}`,
+    `${process.env.CASH_CONVERTERS_ROLE_ID}`
   );
   const salvos = new Salvos(
     client,
     `${process.env.SALVOS_CHANNEL_ID}`,
-    `${process.env.SALVOS_ROLE_ID}`,
+    `${process.env.SALVOS_ROLE_ID}`
   );
   const ebay = new Ebay(
     client,
     `${process.env.EBAY_CHANNEL_ID}`,
-    `${process.env.EBAY_ROLE_ID}`,
+    `${process.env.EBAY_ROLE_ID}`
   );
   const gumtree = new Gumtree(
     client,
     `${process.env.GUMTREE_CHANNEL_ID}`,
-    `${process.env.GUMTREE_ROLE_ID}`,
+    `${process.env.GUMTREE_ROLE_ID}`
   );
 
   const scanInfrequently = async () => {
@@ -390,7 +190,7 @@ client.on("interactionCreate", async (interaction) => {
     });
     if (!roleFound) {
       await interaction.editReply(
-        "Please know you don't have the role needed to make commands. That's not acceptable.",
+        "Please know you don't have the role needed to make commands. That's not acceptable."
       );
       return;
     }
@@ -398,30 +198,30 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "createmultisearch") {
       let replyText =
         "Please know the results of your attempt to create new searches - ";
-      let website = interaction.options.getString("website") || "csdeals";
-      let skinName = interaction.options.getString("skinname") || "placeholder";
+      let website = interaction.options.getString("website") ?? "csdeals";
+      let skinName = interaction.options.getString("skinname") ?? "placeholder";
       let maxPriceCsDeals =
-        interaction.options.getNumber("maxpricecsdeals") || -1;
+        interaction.options.getNumber("maxpricecsdeals") ?? -1;
       let maxPriceCsTrade =
-        interaction.options.getNumber("maxpricecstrade") || -1;
+        interaction.options.getNumber("maxpricecstrade") ?? -1;
       let maxPriceTradeIt =
-        interaction.options.getNumber("maxpricetradeit") || -1;
+        interaction.options.getNumber("maxpricetradeit") ?? -1;
       let maxPriceLootFarm =
-        interaction.options.getNumber("maxpricelootfarm") || -1;
-      let maxFloat = interaction.options.getNumber("maxfloat") || -1;
-      let minFloat = interaction.options.getNumber("minfloat") || 0;
+        interaction.options.getNumber("maxpricelootfarm") ?? -1;
+      let maxFloat = interaction.options.getNumber("maxfloat") ?? -1;
+      let minFloat = interaction.options.getNumber("minfloat") ?? 0;
 
       if (minFloat > maxFloat)
         await interaction.editReply(
-          "I cannot stress enough: The minimum float cannot be higher than the maximum float value.",
+          "I cannot stress enough: The minimum float cannot be higher than the maximum float value."
         );
       else if (maxFloat <= 0 || maxFloat >= 1)
         await interaction.editReply(
-          "I cannot stress enough: The maximum float must be between 0 and 1.",
+          "I cannot stress enough: The maximum float must be between 0 and 1."
         );
       else if (minFloat < 0 || minFloat >= 1)
         await interaction.editReply(
-          "I cannot stress enough: The minimum float must be between 0 and 1.",
+          "I cannot stress enough: The minimum float must be between 0 and 1."
         );
       else {
         //Attempt creating new searches
@@ -430,7 +230,7 @@ client.on("interactionCreate", async (interaction) => {
           const csDeals = new CsDeals(
             client,
             `${process.env.CS_CHANNEL_ID}`,
-            `${process.env.CS_ROLE_ID}`,
+            `${process.env.CS_ROLE_ID}`
           );
           if (await csDeals.skinExists(skinName)) {
             const csDealsItem = new CsDealsItem({
@@ -451,7 +251,7 @@ client.on("interactionCreate", async (interaction) => {
           const csTrade = new CsTrade(
             client,
             `${process.env.CS_CHANNEL_ID}`,
-            `${process.env.CS_ROLE_ID}`,
+            `${process.env.CS_ROLE_ID}`
           );
           if (await csTrade.skinExists(skinName)) {
             const csTradeItem = new CsTradeItem({
@@ -472,7 +272,7 @@ client.on("interactionCreate", async (interaction) => {
           const tradeIt = new TradeIt(
             client,
             `${process.env.CS_CHANNEL_ID}`,
-            `${process.env.CS_ROLE_ID}`,
+            `${process.env.CS_ROLE_ID}`
           );
           if (await tradeIt.skinExists(skinName)) {
             const tradeItItem = new TradeItItem({
@@ -486,7 +286,7 @@ client.on("interactionCreate", async (interaction) => {
             replyText = replyText.concat("Tradeit.gg: Successful, ");
           } else {
             replyText = replyText.concat(
-              "Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), ",
+              "Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), "
             );
           }
           await interaction.editReply(replyText);
@@ -495,7 +295,7 @@ client.on("interactionCreate", async (interaction) => {
           const lootFarm = new LootFarm(
             client,
             `${process.env.CS_CHANNEL_ID}`,
-            `${process.env.CS_ROLE_ID}`,
+            `${process.env.CS_ROLE_ID}`
           );
           if (await lootFarm.skinExists(skinName)) {
             const lootFarmItem = new LootFarmItem({
@@ -525,12 +325,12 @@ client.on("interactionCreate", async (interaction) => {
           `${process.env.STEAM_QUERY_CHANNEL_ID}`,
           `${process.env.STEAM_QUERY_ROLE_ID}`,
           `${process.env.CS_MARKET_CHANNEL_ID}`,
-          `${process.env.CS_MARKET_ROLE_ID}`,
+          `${process.env.CS_MARKET_ROLE_ID}`
         );
         let response = await steamMarket.createQuery(query, maxPrice);
         if (response[0])
           await interaction.editReply(
-            "Item added successfully! URL generated: " + response[1],
+            "Item added successfully! URL generated: " + response[1]
           );
         else await interaction.editReply("The URL is invalid!");
       } catch (e) {
@@ -547,12 +347,12 @@ client.on("interactionCreate", async (interaction) => {
           `${process.env.STEAM_QUERY_CHANNEL_ID}`,
           `${process.env.STEAM_QUERY_ROLE_ID}`,
           `${process.env.CS_MARKET_CHANNEL_ID}`,
-          `${process.env.CS_MARKET_ROLE_ID}`,
+          `${process.env.CS_MARKET_ROLE_ID}`
         );
         let response = await steamMarket.createCs(query, maxPrice, maxFloat);
         if (response != "")
           await interaction.editReply(
-            "Please know a search has been created with the URL: " + response,
+            "Please know a search has been created with the URL: " + response
           );
         else
           await interaction.editReply("Please know that the url was invalid!");
@@ -568,7 +368,7 @@ client.on("interactionCreate", async (interaction) => {
         });
         cashQuery.save();
         await interaction.editReply(
-          "Please know that the search has been created: " + search.toString(),
+          "Please know that the search has been created: " + search.toString()
         );
       } else interaction.editReply("Please know that your search was invalid!");
     } else if (interaction.commandName === "createsalvosquery") {
@@ -584,7 +384,7 @@ client.on("interactionCreate", async (interaction) => {
         });
         salvosQuery.save();
         await interaction.editReply(
-          "Please know that the search has been created: " + search.toString(),
+          "Please know that the search has been created: " + search.toString()
         );
       } else interaction.editReply("Please know that your search was invalid!");
     } else if (interaction.commandName === "createebayquery") {
@@ -598,7 +398,7 @@ client.on("interactionCreate", async (interaction) => {
         });
         ebayQuery.save();
         await interaction.editReply(
-          "Please know that the search has been created: " + search.toString(),
+          "Please know that the search has been created: " + search.toString()
         );
       } else interaction.editReply("Please know that your search was invalid!");
     } else if (interaction.commandName === "creategumtreequery") {
@@ -612,7 +412,7 @@ client.on("interactionCreate", async (interaction) => {
         });
         gumtreeQuery.save();
         await interaction.editReply(
-          "Please know that the search has been created: " + search.toString(),
+          "Please know that the search has been created: " + search.toString()
         );
       } else interaction.editReply("Please know that your search was invalid!");
     } else if (interaction.commandName === "viewqueries") {
@@ -633,7 +433,7 @@ client.on("interactionCreate", async (interaction) => {
         else if (scanner === "gumtreequery") model = GumtreeQuery;
         else {
           await interaction.editReply(
-            "No scanner found. That's not acceptable. Aborting",
+            "No scanner found. That's not acceptable. Aborting"
           );
           return;
         }
@@ -641,7 +441,7 @@ client.on("interactionCreate", async (interaction) => {
         if (!searchName) {
           //Find multiple items
           await interaction.editReply(
-            "Returning all items for the chosen scanner: ",
+            "Returning all items for the chosen scanner: "
           );
 
           for await (const item of model.find()) {
@@ -653,7 +453,7 @@ client.on("interactionCreate", async (interaction) => {
                 `\n${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
                 `\n${
                   item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""
-                }`,
+                }`
             );
           }
         } else {
@@ -667,7 +467,7 @@ client.on("interactionCreate", async (interaction) => {
 
           if (!item) {
             interaction.editReply(
-              "Please know that there is no search for the item you entered. That's not acceptable.",
+              "Please know that there is no search for the item you entered. That's not acceptable."
             );
             return;
           }
@@ -678,9 +478,7 @@ client.on("interactionCreate", async (interaction) => {
               `\n${item.minPrice ? `Mix Price: ${item.minPrice}` : ""}` +
               `\n${item.maxFloat ? `Max Float: ${item.maxFloat}` : ""}` +
               `\n${item.minFloat ? `Max Float: ${item.minFloat}` : ""}` +
-              `\n${
-                item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""
-              }`,
+              `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
           );
         }
       } catch (e) {
@@ -704,7 +502,7 @@ client.on("interactionCreate", async (interaction) => {
         else if (scanner === "gumtreequery") model = GumtreeQuery;
         else {
           await interaction.editReply(
-            "No scanner found. That's not acceptable. Aborting.",
+            "No scanner found. That's not acceptable. Aborting."
           );
           return;
         }
@@ -718,7 +516,7 @@ client.on("interactionCreate", async (interaction) => {
 
         if (!item) {
           interaction.editReply(
-            "Please know that the item you are searching for has already been deleted. Or didn't exist in the first place. That's not acceptable.",
+            "Please know that the item you are searching for has already been deleted. Or didn't exist in the first place. That's not acceptable."
           );
           return;
         }
@@ -731,7 +529,7 @@ client.on("interactionCreate", async (interaction) => {
             `\n${item.minPrice ? `Mix Price: ${item.minPrice}\n` : ""}` +
             `\n${item.maxFloat ? `Max Float: ${item.maxFloat}\n` : ""}` +
             `\n${item.minFloat ? `Max Float: ${item.minFloat}\n` : ""}` +
-            `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`,
+            `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
         );
       } catch (e) {
         console.error(e);
@@ -739,13 +537,16 @@ client.on("interactionCreate", async (interaction) => {
 
       if (!searchName) {
         await interaction.editReply(
-          "No search name found. That's not acceptable.",
+          "No search name found. That's not acceptable."
         );
         return;
       }
     }
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
+    await interaction.editReply(
+      `Please know that an error has occurred: ${err}`
+    );
   }
 });
 
