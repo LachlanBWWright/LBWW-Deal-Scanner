@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import puppeteer, { HTTPResponse } from "puppeteer";
-import CsDealsItem from "../schema/csDealsItem.js";
+import CsDealsItem from "../../schema/csDealsItem.js";
 
 class CsDeals {
   client: Client;
@@ -62,7 +62,7 @@ class CsDeals {
                   .then((channel) => {
                     if (channel)
                       channel.send(
-                        `<@&${this.roleId}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`,
+                        `<@&${this.roleId}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`
                       );
                   })
                   .catch((e) => console.error(e));

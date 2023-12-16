@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import axios from "axios";
-import CsTradeItem from "../schema/csTradeItem.js";
+import CsTradeItem from "../../schema/csTradeItem.js";
 
 class CsTrade {
   wasFound: boolean;
@@ -22,7 +22,7 @@ class CsTrade {
     //https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463
     axios
       .get(
-        "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
+        "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
       )
       .then(async (res) => {
         let items = res.data.inventory;
@@ -54,7 +54,7 @@ class CsTrade {
                   .then((channel) => {
                     if (channel)
                       channel.send(
-                        `<@&${this.roleId}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`,
+                        `<@&${this.roleId}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
                       );
                   })
                   .catch((e) => console.error(e));
@@ -75,7 +75,7 @@ class CsTrade {
     let skinFound = false;
     await axios
       .get(
-        "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
+        "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
       )
       .then(async (res) => {
         let items = res.data.inventory;

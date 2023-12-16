@@ -4,9 +4,8 @@ import {
   GatewayIntentBits,
   REST,
   Routes,
-  SlashCommandBuilder,
+  Events,
 } from "discord.js";
-//import { SlashCommandBuilder } from 'discord.js/builders';
 
 import Dotenv from "dotenv";
 import mongoose from "mongoose";
@@ -25,15 +24,15 @@ import SteamQuery from "./schema/steamQuery.js";
 import CsMarketItem from "./schema/csMarketItem.js";
 
 //Scanner Imports
-import CsDeals from "./scanners/csDeals.js";
-import CsTrade from "./scanners/csTrade.js";
-import TradeIt from "./scanners/tradeIt.js";
-import LootFarm from "./scanners/lootFarm.js";
-import CashConverters from "./scanners/cashConverters.js";
-import SteamMarket from "./scanners/steamMarket.js";
-import Salvos from "./scanners/salvos.js";
-import Ebay from "./scanners/ebay.js";
-import Gumtree from "./scanners/gumtree.js";
+import CsDeals from "./scanners/siteScanners/csDeals.js";
+import CsTrade from "./scanners/siteScanners/csTrade.js";
+import TradeIt from "./scanners/siteScanners/tradeIt.js";
+import LootFarm from "./scanners/siteScanners/lootFarm.js";
+import CashConverters from "./scanners/siteScanners/cashConverters.js";
+import SteamMarket from "./scanners/siteScanners/steamMarket.js";
+import Salvos from "./scanners/siteScanners/salvos.js";
+import Ebay from "./scanners/siteScanners/ebay.js";
+import Gumtree from "./scanners/siteScanners/gumtree.js";
 
 import { commandList } from "./commandManager/index.js";
 
@@ -175,9 +174,10 @@ client.once("ready", () => {
   scanInfrequently();
 });
 
-client.on("interactionCreate", async (interaction) => {
+//Runs upon a user creating a command
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return; //Cancels if not a command
   try {
-    if (!interaction.isCommand()) return; //Cancels if not a command
     await interaction.deferReply(); //Creates the loading '...'
 
     let roleFound = false;
@@ -198,7 +198,6 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "createmultisearch") {
       let replyText =
         "Please know the results of your attempt to create new searches - ";
-      let website = interaction.options.getString("website") ?? "csdeals";
       let skinName = interaction.options.getString("skinname") ?? "placeholder";
       let maxPriceCsDeals =
         interaction.options.getNumber("maxpricecsdeals") ?? -1;

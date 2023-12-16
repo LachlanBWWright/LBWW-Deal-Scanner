@@ -1,7 +1,7 @@
 import { Client, TextChannel } from "discord.js";
 import axios from "axios";
-import SteamQuery from "../schema/steamQuery.js";
-import CsMarketItem from "../schema/csMarketItem.js";
+import SteamQuery from "../../schema/steamQuery.js";
+import CsMarketItem from "../../schema/csMarketItem.js";
 import puppeteer from "puppeteer";
 import { CallbackError } from "mongoose";
 
@@ -25,7 +25,7 @@ class SteamMarket {
     queryChannelId: string,
     queryRoleId: string,
     csChannelId: string,
-    csRoleId: string,
+    csRoleId: string
   ) {
     this.wasFound = false;
     this.client = client;
@@ -69,7 +69,7 @@ class SteamMarket {
             .then((channel) => {
               if (channel)
                 channel.send(
-                  `<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`,
+                  `<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
                 );
             })
             .catch((e) => console.error(e));
@@ -123,7 +123,7 @@ class SteamMarket {
                   .then((channel) => {
                     if (channel)
                       channel.send(
-                        `<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`,
+                        `<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
                       );
                   })
                   .catch((e) => console.error(e));
@@ -166,7 +166,7 @@ class SteamMarket {
                       .then((channel) => {
                         if (channel)
                           channel.send(
-                            `<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`,
+                            `<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
                           );
                       })
                       .catch((e) => console.error(e));
@@ -197,7 +197,7 @@ class SteamMarket {
 
   async createQuery(
     oldQuery: string,
-    maxPrice: number,
+    maxPrice: number
   ): Promise<[boolean, string]> {
     let browser = await puppeteer.launch({
       headless: true,
@@ -255,9 +255,9 @@ class SteamMarket {
         let search = new URL(
           oldQuery
             .concat(
-              "/render/?query=&start=0&count=20&country=AU&language=english&currency=1",
+              "/render/?query=&start=0&count=20&country=AU&language=english&currency=1"
             )
-            .trim(),
+            .trim()
         ).toString();
         let csMarketItem = new CsMarketItem({
           name: search,

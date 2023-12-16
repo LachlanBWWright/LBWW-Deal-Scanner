@@ -2,7 +2,7 @@ import createCashQuery from "./commandList/createCashQuery";
 import createCSMarket from "./commandList/createCSMarket";
 import createEbayQuery from "./commandList/createEbayQuery";
 import createGumtreeQuery from "./commandList/createGumtreeQuery";
-import createMultiSearch from "./commandList/createMultiSearch";
+import createMultiSearch from "./commandList/createMultiSearchQuery";
 import createSalvosQuery from "./commandList/createSalvosQuery";
 import createSCMQuery from "./commandList/createSCMQuery";
 import deleteQueryQuery from "./commandList/deleteQueryQuery";
@@ -20,3 +20,7 @@ export const commandList = [
   deleteQueryQuery,
   viewQueriesQuery,
 ];
+
+export async function commandHandler() {
+  console.log("TEST");
+}

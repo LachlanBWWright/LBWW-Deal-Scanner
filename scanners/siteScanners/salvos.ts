@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
-import SalvosQuery from "../schema/salvosQuery.js";
+import SalvosQuery from "../../schema/salvosQuery.js";
 
 class Salvos {
   client: Client;
@@ -35,7 +35,7 @@ class Salvos {
           .then((channel) => {
             if (channel)
               channel.send(
-                `<@&${this.roleId}> Please know that a ${salvosItem} is available at  ${item.name}`,
+                `<@&${this.roleId}> Please know that a ${salvosItem} is available at  ${item.name}`
               );
           })
           .catch((e) => console.error(e));

@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
-import CashConvertersQuery from "../schema/cashConvertersQuery.js";
+import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
 
 class CashConverters {
   client: Client;
@@ -28,7 +28,7 @@ class CashConverters {
       await page.goto(item.name);
       await page.waitForTimeout(Math.random() * 3000); //Waits before continuing. (Trying not to get IP banned)
       let selector = await page.waitForSelector(
-        ".product-item__title__description",
+        ".product-item__title__description"
       );
       let cashConvertersItem = await selector?.evaluate((el) => el.textContent);
       if (cashConvertersItem != item.lastItemFound) {
@@ -38,7 +38,7 @@ class CashConverters {
           .then((channel) => {
             if (channel)
               channel.send(
-                `<@&${this.roleId}> Please know that a ${cashConvertersItem} is available at  ${item.name}`,
+                `<@&${this.roleId}> Please know that a ${cashConvertersItem} is available at  ${item.name}`
               );
           })
           .catch((e) => console.error(e));

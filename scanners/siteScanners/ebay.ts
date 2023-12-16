@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
-import EbayQuery from "../schema/ebayQuery.js";
+import EbayQuery from "../../schema/ebayQuery.js";
 
 class Ebay {
   client: Client;
@@ -35,12 +35,12 @@ class Ebay {
       if (result) {
         let resName = await result.$eval(
           "span[role='heading']",
-          (res) => res.textContent,
+          (res) => res.textContent
         );
         if (resName) foundName = resName;
         let resPrice = await result.$eval(
           "span[class='s-item__price']",
-          (res) => res.textContent,
+          (res) => res.textContent
         );
         if (resPrice)
           foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
@@ -58,7 +58,7 @@ class Ebay {
           .then((channel) => {
             if (channel)
               channel.send(
-                `<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`,
+                `<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
               );
           })
           .catch((e) => console.error(e));

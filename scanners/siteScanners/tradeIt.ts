@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import axios from "axios";
-import TradeItItem from "../schema/tradeItItem.js";
+import TradeItItem from "../../schema/tradeItItem.js";
 import { JSONArray } from "puppeteer";
 
 class TradeIt {
@@ -35,7 +35,7 @@ class TradeIt {
               "User-Agent":
                 "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
             },
-          },
+          }
         )
         .then((res) => {
           itemsArray = [...itemsArray, ...res.data.items];
@@ -82,7 +82,7 @@ class TradeIt {
                           items[i].name
                         } with a float of ${bestFloat} is available for $${
                           items[i].price / 100.0
-                        } USD at: https://tradeit.gg/csgo/trade`,
+                        } USD at: https://tradeit.gg/csgo/trade`
                       );
                   })
                   .catch((e) => console.error(e));
@@ -116,7 +116,7 @@ class TradeIt {
               "User-Agent":
                 "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
             },
-          },
+          }
         )
         .then((res) => {
           itemsArray = [...itemsArray, ...res.data.items];

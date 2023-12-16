@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
-import GumtreeQuery from "../schema/gumtreeQuery.js";
+import GumtreeQuery from "../../schema/gumtreeQuery.js";
 
 class Gumtree {
   client: Client;
@@ -41,7 +41,7 @@ class Gumtree {
         //#user-ad-1296285847 > div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top
         if (
           !(await tempRes.$(
-            "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top",
+            "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top"
           ))
         ) {
           result = tempRes;
@@ -52,13 +52,13 @@ class Gumtree {
       if (result) {
         let resName = await result.$eval(
           "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span",
-          (res) => res.textContent,
+          (res) => res.textContent
         );
         if (resName) foundName = resName;
 
         let resPrice = await result.$eval(
           "div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price",
-          (res) => res.textContent,
+          (res) => res.textContent
         );
         if (resPrice)
           foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
@@ -101,7 +101,7 @@ class Gumtree {
           .then((channel) => {
             if (channel)
               channel.send(
-                `<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`,
+                `<@&${this.roleId}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
               );
           })
           .catch((e) => console.error(e));

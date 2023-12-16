@@ -1,6 +1,6 @@
 import { Client, TextChannel } from "discord.js";
 import axios from "axios";
-import LootFarmItem from "../schema/lootFarmItem.js";
+import LootFarmItem from "../../schema/lootFarmItem.js";
 
 class LootFarm {
   wasFound: boolean;
@@ -63,7 +63,7 @@ class LootFarm {
                               100000
                             } is available for $${
                               items[skinType].p / 100
-                            } USD at: https://loot.farm/`,
+                            } USD at: https://loot.farm/`
                           );
                       })
                       .catch((e) => console.error(e));
