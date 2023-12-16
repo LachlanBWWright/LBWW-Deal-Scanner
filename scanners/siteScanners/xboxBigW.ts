@@ -31,7 +31,7 @@ class XboxBigW {
               .then((channel) => {
                 if (channel)
                   channel.send(
-                    `<@&${this.roleId}> Please know that an XBox Series X is available at: https://www.bigw.com.au/product/xbox-series-x-1tb-console/p/124385`,
+                    `<@&${this.roleId}> Please know that an XBox Series X is available at: https://www.bigw.com.au/product/xbox-series-x-1tb-console/p/124385`
                   );
               })
               .catch((e) => console.error(e));

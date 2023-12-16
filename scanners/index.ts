@@ -1,17 +1,15 @@
-import CsDeals from "./siteScanners/csDeals";
-import CsTrade from "./siteScanners/csTrade";
-import TradeIt from "./siteScanners/tradeIt";
-import LootFarm from "./siteScanners/lootFarm";
-import SteamMarket from "./siteScanners/steamMarket";
-import CashConverters from "./siteScanners/cashConverters";
-import Salvos from "./siteScanners/salvos";
-import Ebay from "./siteScanners/ebay";
-import Gumtree from "./siteScanners/gumtree";
+import CsDeals from "./siteScanners/csDeals.js";
+import CsTrade from "./siteScanners/csTrade.js";
+import TradeIt from "./siteScanners/tradeIt.js";
+import LootFarm from "./siteScanners/lootFarm.js";
+import SteamMarket from "./siteScanners/steamMarket.js";
+import CashConverters from "./siteScanners/cashConverters.js";
+import Salvos from "./siteScanners/salvos.js";
+import Ebay from "./siteScanners/ebay.js";
+import Gumtree from "./siteScanners/gumtree.js";
 
 import { Client } from "discord.js";
 import puppeteer from "puppeteer";
-import Dotenv from "dotenv";
-Dotenv.config();
 
 export default async function (client: Client) {
   console.log("Discord client is ready.");
