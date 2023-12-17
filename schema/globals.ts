@@ -37,7 +37,7 @@ export interface globalsInterface {
   XBOX_ROLE_ID: number | null;
 }
 
-const GlobalsSchema: Schema<globalsInterface> = new Schema<globalsInterface>({
+const GlobalsSchema = new Schema<globalsInterface>({
   BOT_CLIENT_ID: { type: Number, required: true },
   CASH_CONVERTERS: { type: Boolean, required: true },
   CASH_CONVERTERS_CHANNEL_ID: { type: Number, default: null },

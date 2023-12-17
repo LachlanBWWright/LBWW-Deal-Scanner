@@ -10,8 +10,13 @@ import Gumtree from "./siteScanners/gumtree.js";
 
 import { Client } from "discord.js";
 import puppeteer from "puppeteer";
+import mongoose from "mongoose";
+import { globalsInterface } from "../schema/globals.js";
 
-export default async function (client: Client) {
+export default async function (
+  client: Client,
+  globals: mongoose.Document<globalsInterface>
+) {
   console.log("Discord client is ready.");
 
   const csDeals = new CsDeals(
