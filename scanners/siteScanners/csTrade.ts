@@ -60,43 +60,25 @@ export async function scanCSTrade() {
   }
 }
 
-class CsTrade {
-  wasFound: boolean;
-  client: Client;
-  channelId: string;
-  roleId: string;
-
-  constructor(client: Client, channelId: string, roleId: string) {
-    this.wasFound = false;
-    this.client = client;
-    this.channelId = channelId;
-    this.roleId = roleId;
-
-    this.skinExists = this.skinExists.bind(this);
-  }
-
-  async skinExists(name: string) {
-    let skinFound = false;
-    await axios
-      .get(
-        "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
-      )
-      .then(async (res) => {
-        let items = res.data.inventory;
-        items = items.filter((item: { app_id: number }) => item.app_id == 730);
-        for (let i = 0; i < items.length; i++) {
-          if (items[i].market_hash_name == name) {
-            skinFound = true;
-            break;
-          }
+export async function csTradeSkinExists(name: string) {
+  let skinFound = false;
+  await axios
+    .get(
+      "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
+    )
+    .then(async (res) => {
+      let items = res.data.inventory;
+      items = items.filter((item: { app_id: number }) => item.app_id == 730);
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].market_hash_name == name) {
+          skinFound = true;
+          break;
         }
-      })
-      .catch((e) => console.error(e));
-    return skinFound;
-  }
+      }
+    })
+    .catch((e) => console.error(e));
+  return skinFound;
 }
-
-export default CsTrade;
 
 /* {
     id: '25477418560_730',

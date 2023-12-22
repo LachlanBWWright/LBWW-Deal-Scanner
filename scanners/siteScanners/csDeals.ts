@@ -72,7 +72,52 @@ export async function scanCSDeals(page: puppeteer.Page) {
   }
 }
 
-class CsDeals {
+export async function csDealsSkinExists(name: string) {
+  const browser = await puppeteer.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto("https://cs.deals/trade-skins");
+
+    let skinWasFound = false;
+    let foundResponse;
+
+    await page.waitForResponse((response) => {
+      if (response.url().endsWith("botsinventory?appid=0")) {
+        foundResponse = response;
+        return true;
+      } else {
+        return false;
+      }
+    });
+
+    if (foundResponse != undefined) {
+      foundResponse = <HTTPResponse>foundResponse;
+      let items = await foundResponse.json();
+      let csgoItemCount = items.response.items[730].length;
+      items = items.response.items[730];
+
+      for (let i = 0; i < csgoItemCount; i++) {
+        //Iterates through every item on the website
+        //Checks if a match is found, and sends a message if it is | .c = Name
+        if (items[i].c === name) {
+          skinWasFound = true;
+          break;
+        }
+      }
+    } else {
+      await browser.close();
+      return false;
+    }
+    await browser.close();
+    //Returns true if a skin with the matching name was found
+    if (skinWasFound) return true;
+    else return false;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+/* class CsDeals {
   client: Client;
   channelId: string;
   roleId: string;
@@ -131,7 +176,7 @@ class CsDeals {
   }
 }
 
-export default CsDeals;
+export default CsDeals; */
 
 /* 
 JSON Example

@@ -160,131 +160,89 @@ export async function scanCs() {
   }
 }
 
+export async function createQuery(
+  oldQuery: string,
+  maxPrice: number
+): Promise<[boolean, string]> {
+  let browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox"],
+  });
+  const page = await browser.newPage();
+  let response: [boolean, string];
+  response = [false, ""];
+  try {
+    if (!oldQuery.includes("https://steamcommunity.com/market/search")) {
+      response = [false, ""];
+    }
+
+    let responseUrl = "";
+    let query = new URL(oldQuery);
+    page.goto(query.toString());
+
+    //New eventlistener replacement
+    await page.waitForResponse((response) => {
+      if (
+        response
+          .url()
+          .includes("https://steamcommunity.com/market/search/render/?query")
+      ) {
+        new URL(query);
+        let steamQuery = new SteamQuery({
+          name: response.url().toString().concat("&norender=1"),
+          displayUrl: oldQuery,
+          maxPrice: maxPrice,
+        });
+        steamQuery.save((e) => console.error(e));
+        responseUrl = response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
+        return true;
+      }
+      return false;
+    });
+    response = [true, responseUrl];
+  } catch (e) {
+    console.error(e);
+    response = [false, ""];
+  } finally {
+    await page.close();
+    await browser.disconnect();
+    //await browser.close();
+    return response;
+  }
+}
+export async function createCs(
+  oldQuery: string,
+  maxPrice: number,
+  maxFloat: number
+) {
+  //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
+  //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
+  try {
+    if (oldQuery.includes("https://steamcommunity.com/market/listings/730/")) {
+      let search = new URL(
+        oldQuery
+          .concat(
+            "/render/?query=&start=0&count=20&country=AU&language=english&currency=1"
+          )
+          .trim()
+      ).toString();
+      let csMarketItem = new CsMarketItem({
+        name: search,
+        displayUrl: oldQuery,
+        maxPrice: maxPrice,
+        maxFloat: maxFloat,
+      });
+
+      await csMarketItem.save((e) => console.error(e));
+      return search;
+    }
+    return "";
+  } catch (e) {
+    console.error(e);
+    return "";
+  }
+}
+
 function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
-
-class SteamMarket {
-  wasFound: boolean;
-  client: Client;
-  queryChannelId: string;
-  queryRoleId: string;
-  csChannelId: string;
-  csRoleId: string;
-  itemsFound: Map<string, number>; //<Url, TTL>
-
-  queryCursor: any;
-  csCursor: any;
-  //This is to store the names of CS items found,
-
-  constructor(
-    client: Client,
-    queryChannelId: string,
-    queryRoleId: string,
-    csChannelId: string,
-    csRoleId: string
-  ) {
-    this.wasFound = false;
-    this.client = client;
-    this.queryChannelId = queryChannelId;
-    this.queryRoleId = queryRoleId;
-    this.csChannelId = csChannelId;
-    this.csRoleId = csRoleId;
-
-    this.itemsFound = new Map<string, number>();
-
-    this.queryCursor = SteamQuery.find().cursor();
-    this.csCursor = CsMarketItem.find().cursor();
-
-    this.sleep = this.sleep.bind(this);
-    this.createQuery = this.createQuery.bind(this);
-    this.createCs = this.createCs.bind(this);
-  }
-
-  sleep(ms: number) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
-
-  async createQuery(
-    oldQuery: string,
-    maxPrice: number
-  ): Promise<[boolean, string]> {
-    let browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox"],
-    });
-    const page = await browser.newPage();
-    let response: [boolean, string];
-    response = [false, ""];
-    try {
-      if (!oldQuery.includes("https://steamcommunity.com/market/search")) {
-        response = [false, ""];
-      }
-
-      let responseUrl = "";
-      let query = new URL(oldQuery);
-      page.goto(query.toString());
-
-      //New eventlistener replacement
-      await page.waitForResponse((response) => {
-        if (
-          response
-            .url()
-            .includes("https://steamcommunity.com/market/search/render/?query")
-        ) {
-          new URL(query);
-          let steamQuery = new SteamQuery({
-            name: response.url().toString().concat("&norender=1"),
-            displayUrl: oldQuery,
-            maxPrice: maxPrice,
-          });
-          steamQuery.save((e) => console.error(e));
-          responseUrl = response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
-          return true;
-        }
-        return false;
-      });
-      response = [true, responseUrl];
-    } catch (e) {
-      console.error(e);
-      response = [false, ""];
-    } finally {
-      await page.close();
-      await browser.disconnect();
-      //await browser.close();
-      return response;
-    }
-  }
-  async createCs(oldQuery: string, maxPrice: number, maxFloat: number) {
-    //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
-    //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
-    try {
-      if (
-        oldQuery.includes("https://steamcommunity.com/market/listings/730/")
-      ) {
-        let search = new URL(
-          oldQuery
-            .concat(
-              "/render/?query=&start=0&count=20&country=AU&language=english&currency=1"
-            )
-            .trim()
-        ).toString();
-        let csMarketItem = new CsMarketItem({
-          name: search,
-          displayUrl: oldQuery,
-          maxPrice: maxPrice,
-          maxFloat: maxFloat,
-        });
-
-        await csMarketItem.save((e) => console.error(e));
-        return search;
-      }
-      return "";
-    } catch (e) {
-      console.error(e);
-      return "";
-    }
-  }
-}
-
-export default SteamMarket;

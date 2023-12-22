@@ -88,62 +88,42 @@ export async function scanTradeIt() {
   }
 }
 
-class TradeIt {
-  wasFound: boolean;
-  client: Client;
-  channelId: string;
-  roleId: string;
-  cursor: any;
-
-  constructor(client: Client, channelId: string, roleId: string) {
-    this.wasFound = false;
-    this.client = client;
-    this.channelId = channelId;
-    this.roleId = roleId;
-    this.cursor = TradeItItem.find().cursor();
-
-    this.skinExists = this.skinExists.bind(this);
-  }
-
-  async skinExists(name: string) {
-    let itemsArray: JSONArray = [];
-    let skinFound = false;
-    for (let i = 0; i < 20; i++) {
-      //Has to make multiple searches due to a size limit.
-      await axios
-        .get(
-          `https://tradeit.gg/api/v2/inventory/data?gameId=730&offset=${
-            i * 1000
-          }&limit=1000&sortType=(CSGO)+Best+Float&searchValue=&minPrice=0&maxPrice=100000&minFloat=0&maxFloat=1&hideTradeLock=false&fresh=true`,
-          {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
-            },
-          }
-        )
-        .then((res) => {
-          itemsArray = [...itemsArray, ...res.data.items];
-          if (res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
-        })
-        .catch((e) => console.error(e));
-    }
-    try {
-      let items = <any>itemsArray;
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].name == name) {
-          skinFound = true;
-          break;
+export async function tradeItSkinExists(name: string) {
+  let itemsArray: JSONArray = [];
+  let skinFound = false;
+  for (let i = 0; i < 20; i++) {
+    //Has to make multiple searches due to a size limit.
+    await axios
+      .get(
+        `https://tradeit.gg/api/v2/inventory/data?gameId=730&offset=${
+          i * 1000
+        }&limit=1000&sortType=(CSGO)+Best+Float&searchValue=&minPrice=0&maxPrice=100000&minFloat=0&maxFloat=1&hideTradeLock=false&fresh=true`,
+        {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
+          },
         }
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return skinFound;
+      )
+      .then((res) => {
+        itemsArray = [...itemsArray, ...res.data.items];
+        if (res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
+      })
+      .catch((e) => console.error(e));
   }
+  try {
+    let items = <any>itemsArray;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].name == name) {
+        skinFound = true;
+        break;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  return skinFound;
 }
-
-export default TradeIt;
 
 /* {
     "id":"23712770392",

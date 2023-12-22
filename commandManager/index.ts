@@ -35,10 +35,7 @@ export const commandList = [
   viewQueriesQueryDefinition,
 ];
 
-export async function commandHandler(
-  interaction: Interaction<CacheType>,
-  client: Client
-) {
+export async function commandHandler(interaction: Interaction<CacheType>) {
   if (!interaction.isChatInputCommand()) return; //Cancels if not a command
   try {
     await interaction.deferReply(); //Creates the loading '...'
@@ -61,17 +58,17 @@ export async function commandHandler(
     if (interaction.commandName === "createcashquery")
       await createCashQuery(interaction);
     else if (interaction.commandName === "createcsmarket")
-      await createCSMarket(client, interaction);
+      await createCSMarket(interaction);
     else if (interaction.commandName === "createebayquery")
       await createEbayQuery(interaction);
     else if (interaction.commandName === "creategumtreequery")
       await createGumtreeQuery(interaction);
     else if (interaction.commandName === "createmultisearch")
-      await createMultiSearch(client, interaction);
+      await createMultiSearch(interaction);
     else if (interaction.commandName === "createsalvosquery")
       await createSalvosQuery(interaction);
     else if (interaction.commandName === "createscmquery")
-      await createSCMQuery(client, interaction);
+      await createSCMQuery(interaction);
     else if (interaction.commandName === "deletequery")
       await deleteQueryQuery(interaction);
     else if (interaction.commandName === "viewqueries")

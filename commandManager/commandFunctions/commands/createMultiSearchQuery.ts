@@ -1,17 +1,14 @@
 import { Client, ChatInputCommandInteraction } from "discord.js";
-import CsDeals from "../../../scanners/siteScanners/csDeals.js";
+import { csDealsSkinExists } from "../../../scanners/siteScanners/csDeals.js";
 import CsDealsItem from "../../../schema/csDealsItem.js";
-import TradeIt from "../../../scanners/siteScanners/tradeIt.js";
+import { tradeItSkinExists } from "../../../scanners/siteScanners/tradeIt.js";
 import TradeItItem from "../../../schema/tradeItItem.js";
-import CsTrade from "../../../scanners/siteScanners/csTrade.js";
+import { csTradeSkinExists } from "../../../scanners/siteScanners/csTrade.js";
 import CsTradeItem from "../../../schema/csTradeItem.js";
-import LootFarm from "../../../scanners/siteScanners/lootFarm.js";
+import { lootFarmSkinExists } from "../../../scanners/siteScanners/lootFarm.js";
 import LootFarmItem from "../../../schema/lootFarmItem.js";
 
-export default async function (
-  client: Client,
-  interaction: ChatInputCommandInteraction
-) {
+export default async function (interaction: ChatInputCommandInteraction) {
   let replyText =
     "Please know the results of your attempt to create new searches - ";
   let skinName = interaction.options.getString("skinname") ?? "placeholder";
@@ -39,12 +36,7 @@ export default async function (
     //Attempt creating new searches
     await interaction.editReply(replyText);
     if (maxPriceCsDeals > 0) {
-      const csDeals = new CsDeals(
-        client,
-        `${process.env.CS_CHANNEL_ID}`,
-        `${process.env.CS_ROLE_ID}`
-      );
-      if (await csDeals.skinExists(skinName)) {
+      if (await csDealsSkinExists(skinName)) {
         const csDealsItem = new CsDealsItem({
           name: skinName,
           maxPrice: maxPriceCsDeals,
@@ -60,12 +52,7 @@ export default async function (
       await interaction.editReply(replyText);
     }
     if (maxPriceCsTrade > 0) {
-      const csTrade = new CsTrade(
-        client,
-        `${process.env.CS_CHANNEL_ID}`,
-        `${process.env.CS_ROLE_ID}`
-      );
-      if (await csTrade.skinExists(skinName)) {
+      if (await csTradeSkinExists(skinName)) {
         const csTradeItem = new CsTradeItem({
           name: skinName,
           maxPrice: maxPriceCsTrade,
@@ -73,7 +60,6 @@ export default async function (
           maxFloat: maxFloat,
         });
         csTradeItem.save((err) => console.error(err));
-
         replyText = replyText.concat("Cs.Trade: Successful, ");
       } else {
         replyText = replyText.concat("Cs.Trade: Skin not found on site, ");
@@ -81,12 +67,7 @@ export default async function (
       await interaction.editReply(replyText);
     }
     if (maxPriceTradeIt > 0) {
-      const tradeIt = new TradeIt(
-        client,
-        `${process.env.CS_CHANNEL_ID}`,
-        `${process.env.CS_ROLE_ID}`
-      );
-      if (await tradeIt.skinExists(skinName)) {
+      if (await tradeItSkinExists(skinName)) {
         const tradeItItem = new TradeItItem({
           name: skinName,
           maxPrice: maxPriceTradeIt,
@@ -104,12 +85,7 @@ export default async function (
       await interaction.editReply(replyText);
     }
     if (maxPriceLootFarm > 0) {
-      const lootFarm = new LootFarm(
-        client,
-        `${process.env.CS_CHANNEL_ID}`,
-        `${process.env.CS_ROLE_ID}`
-      );
-      if (await lootFarm.skinExists(skinName)) {
+      if (await lootFarmSkinExists(skinName)) {
         const lootFarmItem = new LootFarmItem({
           name: skinName,
           maxPrice: maxPriceLootFarm,

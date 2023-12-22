@@ -26,10 +26,9 @@ async function run() {
   client.once("ready", runScan);
 
   //Runs upon a user creating a command
-  client.on(Events.InteractionCreate, async (interaction) => {
-    await commandHandler(interaction, client);
-  });
+  client.on(Events.InteractionCreate, commandHandler);
 
+  //Starts DiscordJS server
   client.login(globals.DISCORD_TOKEN);
 }
 

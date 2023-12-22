@@ -69,40 +69,22 @@ export async function scanLootFarm() {
   }
 }
 
-class LootFarm {
-  wasFound: boolean;
-  client: Client;
-  channelId: string;
-  roleId: string;
+export async function lootFarmSkinExists(name: string) {
+  let skinFound = false;
+  await axios
+    .get("https://loot.farm/botsInventory_730.json")
+    .then(async (res) => {
+      let items = res.data.result;
 
-  constructor(client: Client, channelId: string, roleId: string) {
-    this.wasFound = false;
-    this.client = client;
-    this.channelId = channelId;
-    this.roleId = roleId;
-
-    this.skinExists = this.skinExists.bind(this);
-  }
-
-  async skinExists(name: string) {
-    let skinFound = false;
-    await axios
-      .get("https://loot.farm/botsInventory_730.json")
-      .then(async (res) => {
-        let items = res.data.result;
-
-        for (let skinType in items) {
-          if (name.includes(items[skinType].n)) {
-            skinFound = true;
-          }
+      for (let skinType in items) {
+        if (name.includes(items[skinType].n)) {
+          skinFound = true;
         }
-      })
-      .catch((e) => console.error(e));
-    return skinFound;
-  }
+      }
+    })
+    .catch((e) => console.error(e));
+  return skinFound;
 }
-
-export default LootFarm;
 
 /* "27623861":{
     "n":"AUG | Sweeper",

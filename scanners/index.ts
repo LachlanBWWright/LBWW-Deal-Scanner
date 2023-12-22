@@ -1,8 +1,8 @@
 import { scanCSDeals } from "./siteScanners/csDeals.js";
 import { scanCSTrade } from "./siteScanners/csTrade.js";
-import TradeIt, { scanTradeIt } from "./siteScanners/tradeIt.js";
+import { scanTradeIt } from "./siteScanners/tradeIt.js";
 import { scanLootFarm } from "./siteScanners/lootFarm.js";
-import SteamMarket, { scanSteamQuery } from "./siteScanners/steamMarket.js";
+import { scanSteamQuery } from "./siteScanners/steamMarket.js";
 import { scanCashConverters } from "./siteScanners/cashConverters.js";
 import { scanSalvos } from "./siteScanners/salvos.js";
 import { scanEbay } from "./siteScanners/ebay.js";
