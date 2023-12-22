@@ -2,16 +2,16 @@ import GlobalsQuery, { globalsInterface } from "../schema/globals.js";
 import Dotenv from "dotenv";
 Dotenv.config();
 
-if (process.env.BOT_CLIENT_ID) {
+if (!process.env.BOT_CLIENT_ID) {
   throw new Error("BOT_CLIENT_ID is not defined in .env");
 }
-if (process.env.DISCORD_GUILD_ID) {
+if (!process.env.DISCORD_GUILD_ID) {
   throw new Error("DISCORD_GUILD_ID is not defined in .env");
 }
-if (process.env.DISCORD_TOKEN) {
+if (!process.env.DISCORD_TOKEN) {
   throw new Error("DISCORD_TOKEN is not defined in .env");
 }
-if (process.env.MONGO_URI) {
+if (!process.env.MONGO_URI) {
   throw new Error("MONGO_URI is not defined in .env");
 }
 

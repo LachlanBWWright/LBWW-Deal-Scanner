@@ -4,8 +4,165 @@ import SteamQuery from "../../schema/steamQuery.js";
 import CsMarketItem from "../../schema/csMarketItem.js";
 import puppeteer from "puppeteer";
 import { CallbackError } from "mongoose";
+import globals from "../../globals/Globals.js";
+import client from "../../globals/DiscordJSClient.js";
 
 //For general market queries and CS Items
+let itemsFound = new Map<string, number>();
+let queryCursor = SteamQuery.find().cursor();
+let csCursor = CsMarketItem.find().cursor();
+
+export async function scanSteamQuery() {
+  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
+    return;
+  try {
+    let item = await queryCursor.next();
+    if (item === null) {
+      queryCursor = SteamQuery.find().cursor();
+      item = await queryCursor.next();
+    }
+
+    await sleep(3000);
+    let res = await axios.get(`${item.name}`);
+    if (res.status !== 200) return;
+    let price: number = res.data.results[0].sell_price;
+    for (let instance in res.data.results) {
+      let thisPrice = parseFloat(res.data.results[instance].sell_price) / 100.0;
+      if (thisPrice < price) price = thisPrice;
+      if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
+        client.channels
+          .fetch(globals.CS_CHANNEL_ID)
+          .then((channel) => <TextChannel>channel)
+          .then((channel) => {
+            if (channel)
+              channel.send(
+                `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
+              );
+          })
+          .catch((e) => console.error(e));
+        break;
+      }
+    }
+    if (price != item.lastPrice) {
+      item.lastPrice = price;
+      item.save((e: CallbackError) => console.error(e));
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+//NOTE: This is depreciated currently due to increased ratelimits
+export async function scanCs() {
+  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
+    return;
+
+  try {
+    let item = await csCursor.next();
+    if (item === null) {
+      csCursor = CsMarketItem.find().cursor();
+      item = await csCursor.next();
+    }
+
+    await sleep(3000);
+    let res = await axios.get(`${item.name}`);
+    if (res.status !== 200) return;
+    let i = 0;
+    for (let skin in res.data.listinginfo) {
+      let query = "https://api.csgofloat.com/?url="
+        .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
+        .replace("%listingid%", res.data.listinginfo[skin].listingid)
+        .replace("%assetid%", res.data.listinginfo[skin].asset.id);
+
+      let price =
+        (res.data.listinginfo[skin].converted_price_per_unit +
+          res.data.listinginfo[skin].converted_fee_per_unit) /
+        100.0;
+
+      //Only calls the API if the skin isn't in the map, and the item is in the first 10
+      if (!itemsFound.has(query) && i < 10) res = await axios.get(query);
+
+      if (
+        res.data.iteminfo.floatvalue < item.maxFloat &&
+        price <= item.maxPrice
+      ) {
+        client.channels
+          .fetch(globals.CS_CHANNEL_ID)
+          .then((channel) => <TextChannel>channel)
+          .then((channel) => {
+            if (channel)
+              channel.send(
+                `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+              );
+          })
+          .catch((e) => console.error(e));
+      }
+
+      if (i < 10) itemsFound.set(query, 20);
+      //Puts the query into the map, or resets its TTL if the API was called for it
+      else if (itemsFound.has(query)) itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+      i++;
+    }
+
+    //TODO: Refactor callback
+    await axios
+      .get(`${item.name}`)
+      .then(async (res) => {
+        let i = 0;
+        for (let skin in res.data.listinginfo) {
+          let query = "https://api.csgofloat.com/?url="
+            .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
+            .replace("%listingid%", res.data.listinginfo[skin].listingid)
+            .replace("%assetid%", res.data.listinginfo[skin].asset.id);
+
+          let price =
+            (res.data.listinginfo[skin].converted_price_per_unit +
+              res.data.listinginfo[skin].converted_fee_per_unit) /
+            100.0;
+
+          //Only calls the API if the skin isn't in the map, and the item is in the first 10
+          if (!itemsFound.has(query) && i < 10)
+            await axios
+              .get(query)
+              .then((res) => {
+                if (
+                  res.data.iteminfo.floatvalue < item.maxFloat &&
+                  price <= item.maxPrice
+                ) {
+                  client.channels
+                    .fetch(globals.CS_CHANNEL_ID ?? "")
+                    .then((channel) => <TextChannel>channel)
+                    .then((channel) => {
+                      if (channel)
+                        channel.send(
+                          `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+                        );
+                    })
+                    .catch((e) => console.error(e));
+                }
+              })
+              .catch((e) => console.error(e));
+          if (i < 10) itemsFound.set(query, 20);
+          //Puts the query into the map, or resets its TTL if the API was called for it
+          else if (itemsFound.has(query)) itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+          i++;
+        }
+      })
+      .catch((e) => console.error(e));
+
+    //Decrement the TTL in the map
+    for (let [key, value] of itemsFound) {
+      value--;
+      if (value <= 0) itemsFound.delete(key);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 
 class SteamMarket {
   wasFound: boolean;
@@ -40,155 +197,8 @@ class SteamMarket {
     this.csCursor = CsMarketItem.find().cursor();
 
     this.sleep = this.sleep.bind(this);
-    this.scanQuery = this.scanQuery.bind(this);
-    this.scanCs = this.scanCs.bind(this);
     this.createQuery = this.createQuery.bind(this);
     this.createCs = this.createCs.bind(this);
-  }
-
-  async scanQuery() {
-    try {
-      let item = await this.queryCursor.next();
-      if (item === null) {
-        this.queryCursor = SteamQuery.find().cursor();
-        item = await this.queryCursor.next();
-      }
-
-      await this.sleep(3000);
-      let res = await axios.get(`${item.name}`);
-      if (res.status !== 200) return;
-      let price: number = res.data.results[0].sell_price;
-      for (let instance in res.data.results) {
-        let thisPrice =
-          parseFloat(res.data.results[instance].sell_price) / 100.0;
-        if (thisPrice < price) price = thisPrice;
-        if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
-          this.client.channels
-            .fetch(this.queryChannelId)
-            .then((channel) => <TextChannel>channel)
-            .then((channel) => {
-              if (channel)
-                channel.send(
-                  `<@&${this.queryRoleId}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
-                );
-            })
-            .catch((e) => console.error(e));
-          break;
-        }
-      }
-      if (price != item.lastPrice) {
-        item.lastPrice = price;
-        item.save((e: CallbackError) => console.error(e));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async scanCs() {
-    try {
-      let item = await this.csCursor.next();
-      if (item === null) {
-        this.csCursor = CsMarketItem.find().cursor();
-        item = await this.csCursor.next();
-      }
-
-      await this.sleep(3000);
-      let res = await axios.get(`${item.name}`);
-      if (res.status !== 200) return;
-      let i = 0;
-      for (let skin in res.data.listinginfo) {
-        let query = "https://api.csgofloat.com/?url="
-          .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
-          .replace("%listingid%", res.data.listinginfo[skin].listingid)
-          .replace("%assetid%", res.data.listinginfo[skin].asset.id);
-
-        let price =
-          (res.data.listinginfo[skin].converted_price_per_unit +
-            res.data.listinginfo[skin].converted_fee_per_unit) /
-          100.0;
-
-        //Only calls the API if the skin isn't in the map, and the item is in the first 10
-        if (!this.itemsFound.has(query) && i < 10)
-          await axios
-            .get(query)
-            .then((response) => {
-              if (
-                response.data.iteminfo.floatvalue < item.maxFloat &&
-                price <= item.maxPrice
-              ) {
-                this.client.channels
-                  .fetch(this.csChannelId)
-                  .then((channel) => <TextChannel>channel)
-                  .then((channel) => {
-                    if (channel)
-                      channel.send(
-                        `<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
-                      );
-                  })
-                  .catch((e) => console.error(e));
-              }
-            })
-            .catch((e) => console.error(e));
-        if (i < 10) this.itemsFound.set(query, 20);
-        //Puts the query into the map, or resets its TTL if the API was called for it
-        else if (this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
-        i++;
-      }
-
-      await axios
-        .get(`${item.name}`)
-        .then(async (res) => {
-          let i = 0;
-          for (let skin in res.data.listinginfo) {
-            let query = "https://api.csgofloat.com/?url="
-              .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
-              .replace("%listingid%", res.data.listinginfo[skin].listingid)
-              .replace("%assetid%", res.data.listinginfo[skin].asset.id);
-
-            let price =
-              (res.data.listinginfo[skin].converted_price_per_unit +
-                res.data.listinginfo[skin].converted_fee_per_unit) /
-              100.0;
-
-            //Only calls the API if the skin isn't in the map, and the item is in the first 10
-            if (!this.itemsFound.has(query) && i < 10)
-              await axios
-                .get(query)
-                .then((response) => {
-                  if (
-                    response.data.iteminfo.floatvalue < item.maxFloat &&
-                    price <= item.maxPrice
-                  ) {
-                    this.client.channels
-                      .fetch(this.csChannelId)
-                      .then((channel) => <TextChannel>channel)
-                      .then((channel) => {
-                        if (channel)
-                          channel.send(
-                            `<@&${this.csRoleId}> Please know that a ${response.data.iteminfo.full_item_name} with float ${response.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
-                          );
-                      })
-                      .catch((e) => console.error(e));
-                  }
-                })
-                .catch((e) => console.error(e));
-            if (i < 10) this.itemsFound.set(query, 20);
-            //Puts the query into the map, or resets its TTL if the API was called for it
-            else if (this.itemsFound.has(query)) this.itemsFound.set(query, 20); //Resets its TTL if it's already been called once
-            i++;
-          }
-        })
-        .catch((e) => console.error(e));
-
-      //Decrement the TTL in the map
-      for (let [key, value] of this.itemsFound) {
-        value--;
-        if (value <= 0) this.itemsFound.delete(key);
-      }
-    } catch (e) {
-      console.error(e);
-    }
   }
 
   sleep(ms: number) {

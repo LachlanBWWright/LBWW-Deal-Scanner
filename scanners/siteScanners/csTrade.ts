@@ -1,6 +1,64 @@
 import { Client, TextChannel } from "discord.js";
 import axios from "axios";
 import CsTradeItem from "../../schema/csTradeItem.js";
+import globals from "../../globals/Globals.js";
+import client from "../../globals/DiscordJSClient.js";
+
+export async function scanCSTrade() {
+  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
+    return;
+
+  try {
+    const res = await axios.get(
+      "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
+    );
+
+    let items = res.data.inventory;
+    items = items.filter((item: { app_id: number }) => item.app_id == 730);
+
+    let cursor = CsTradeItem.find().cursor();
+    for (
+      let item = await cursor.next();
+      item != null;
+      item = await cursor.next()
+    ) {
+      let itemWasFound = false;
+      let itemCount = items.length;
+      for (let i = 0; i < itemCount; i++) {
+        if (
+          items[i].price <= item.maxPrice &&
+          items[i].wear >= item.minFloat &&
+          items[i].wear <= item.maxFloat &&
+          items[i].market_hash_name === item.name
+        ) {
+          if (!item.found) {
+            //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
+            item.found = true;
+            item.save((e) => console.error(e));
+
+            client.channels
+              .fetch(globals.CS_CHANNEL_ID)
+              .then((channel) => <TextChannel>channel)
+              .then((channel) => {
+                if (channel)
+                  channel.send(
+                    `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
+                  );
+              })
+              .catch((e) => console.error(e));
+          }
+          itemWasFound = true;
+        }
+      }
+      if (!itemWasFound) {
+        item.found = false;
+        item.save();
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 class CsTrade {
   wasFound: boolean;
@@ -14,61 +72,7 @@ class CsTrade {
     this.channelId = channelId;
     this.roleId = roleId;
 
-    this.scan = this.scan.bind(this);
     this.skinExists = this.skinExists.bind(this);
-  }
-
-  async scan() {
-    //https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463
-    axios
-      .get(
-        "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
-      )
-      .then(async (res) => {
-        let items = res.data.inventory;
-        items = items.filter((item: { app_id: number }) => item.app_id == 730);
-
-        let cursor = CsTradeItem.find().cursor();
-        for (
-          let item = await cursor.next();
-          item != null;
-          item = await cursor.next()
-        ) {
-          let itemWasFound = false;
-          let itemCount = items.length;
-          for (let i = 0; i < itemCount; i++) {
-            if (
-              items[i].price <= item.maxPrice &&
-              items[i].wear >= item.minFloat &&
-              items[i].wear <= item.maxFloat &&
-              items[i].market_hash_name === item.name
-            ) {
-              if (!item.found) {
-                //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-                item.found = true;
-                item.save((e) => console.error(e));
-
-                this.client.channels
-                  .fetch(this.channelId)
-                  .then((channel) => <TextChannel>channel)
-                  .then((channel) => {
-                    if (channel)
-                      channel.send(
-                        `<@&${this.roleId}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
-                      );
-                  })
-                  .catch((e) => console.error(e));
-              }
-              itemWasFound = true;
-            }
-          }
-          if (!itemWasFound) {
-            item.found = false;
-            item.save();
-          }
-        }
-      })
-      .catch((e) => console.error(e));
   }
 
   async skinExists(name: string) {
