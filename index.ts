@@ -1,47 +1,37 @@
-import { Client, GatewayIntentBits, REST, Routes, Events } from "discord.js";
-import Dotenv from "dotenv";
+import { REST, Routes, Events } from "discord.js";
 import mongoose from "mongoose";
-import GlobalsQuery, { globalsInterface } from "./schema/globals.js";
+import globals, { initGlobals, MONGO_URI } from "./globals/Globals.js";
 import runScan from "./scanners/index.js";
 import { commandHandler, commandList } from "./commandManager/index.js";
 
+import client from "./globals/DiscordJSClient.js";
+
 //Main function
 async function run() {
-  Dotenv.config();
-  mongoose.connect(`${process.env.MONGO_URI}`);
+  await mongoose.connect(MONGO_URI ?? "");
+  await initGlobals();
   //Creates the bot's /commands
   const commands = [...commandList].map((command) => command.toJSON());
-  const rest = new REST({ version: "9" }).setToken(
-    `${process.env.DISCORD_TOKEN}`
-  );
+  const rest = new REST({ version: "9" }).setToken(`${globals.DISCORD_TOKEN}`);
   rest
     .put(
       Routes.applicationGuildCommands(
-        `${process.env.BOT_CLIENT_ID}`,
-        `${process.env.DISCORD_GUILD_ID}`
+        `${globals.BOT_CLIENT_ID}`,
+        `${globals.DISCORD_GUILD_ID}`
       ),
       { body: commands }
     )
     .then(() => console.log("Registered the bot's commands successfully"))
     .catch(console.error);
 
-  //TODO: Consider revisiting type assertion
-  const globals =
-    (await GlobalsQuery.findOne()) as mongoose.Document<globalsInterface>;
-
-  //Discord Client Setup
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-  client.once("ready", (client: Client) => {
-    runScan(client, globals);
-  });
+  client.once("ready", runScan);
 
   //Runs upon a user creating a command
   client.on(Events.InteractionCreate, async (interaction) => {
     await commandHandler(interaction, client);
   });
 
-  client.login(process.env.DISCORD_TOKEN);
+  client.login(globals.DISCORD_TOKEN);
 }
 
 run();

@@ -7,16 +7,13 @@ import CashConverters from "./siteScanners/cashConverters.js";
 import Salvos from "./siteScanners/salvos.js";
 import Ebay from "./siteScanners/ebay.js";
 import Gumtree from "./siteScanners/gumtree.js";
-
-import { Client } from "discord.js";
 import puppeteer from "puppeteer";
 import mongoose from "mongoose";
 import { globalsInterface } from "../schema/globals.js";
 
-export default async function (
-  client: Client,
-  globals: mongoose.Document<globalsInterface>
-) {
+import client from "../globals/DiscordJSClient.js";
+
+export default async function () {
   console.log("Discord client is ready.");
 
   const csDeals = new CsDeals(

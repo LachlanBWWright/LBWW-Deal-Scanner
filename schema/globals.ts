@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 
 export interface globalsInterface {
-  BOT_CLIENT_ID: number;
+  BOT_CLIENT_ID: string;
   CASH_CONVERTERS: boolean;
   CASH_CONVERTERS_CHANNEL_ID: number | null;
   CASH_CONVERTERS_ROLE_ID: number | null;
@@ -11,8 +11,8 @@ export interface globalsInterface {
   CS_MARKET_CHANNEL_ID: number | null;
   CS_MARKET_ROLE_ID: number | null;
   CS_ROLE_ID: number | null;
-  DISCORD_GUILD_ID: number | null;
-  DISCORD_TOKEN: string | null;
+  DISCORD_GUILD_ID: string;
+  DISCORD_TOKEN: string;
   EBAY: boolean;
   EBAY_CHANNEL_ID: number | null;
   EBAY_ROLE_ID: number | null;
@@ -22,7 +22,6 @@ export interface globalsInterface {
   GUMTREE: boolean;
   GUMTREE_CHANNEL_ID: number | null;
   GUMTREE_ROLE_ID: number | null;
-  MONGO_URI: string | null;
   PS5BIGW: boolean;
   PS5_CHANNEL_ID: number | null;
   PS5_ROLE_ID: number | null;
@@ -38,7 +37,7 @@ export interface globalsInterface {
 }
 
 const GlobalsSchema = new Schema<globalsInterface>({
-  BOT_CLIENT_ID: { type: Number, required: true },
+  BOT_CLIENT_ID: { type: String, required: true },
   CASH_CONVERTERS: { type: Boolean, required: true },
   CASH_CONVERTERS_CHANNEL_ID: { type: Number, default: null },
   CASH_CONVERTERS_ROLE_ID: { type: Number, default: null },
@@ -48,8 +47,8 @@ const GlobalsSchema = new Schema<globalsInterface>({
   CS_MARKET_CHANNEL_ID: { type: Number, default: null },
   CS_MARKET_ROLE_ID: { type: Number, default: null },
   CS_ROLE_ID: { type: Number, default: null },
-  DISCORD_GUILD_ID: { type: Number, default: null },
-  DISCORD_TOKEN: { type: String, default: null },
+  DISCORD_GUILD_ID: { type: String, required: true },
+  DISCORD_TOKEN: { type: String, required: true },
   EBAY: { type: Boolean, required: true },
   EBAY_CHANNEL_ID: { type: Number, default: null },
   EBAY_ROLE_ID: { type: Number, default: null },
@@ -59,7 +58,6 @@ const GlobalsSchema = new Schema<globalsInterface>({
   GUMTREE: { type: Boolean, required: true },
   GUMTREE_CHANNEL_ID: { type: Number, default: null },
   GUMTREE_ROLE_ID: { type: Number, default: null },
-  MONGO_URI: { type: String, default: null },
   PS5BIGW: { type: Boolean, required: true },
   PS5_CHANNEL_ID: { type: Number, default: null },
   PS5_ROLE_ID: { type: Number, default: null },
