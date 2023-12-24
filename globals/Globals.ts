@@ -64,7 +64,6 @@ export async function initGlobals() {
       globals[key as keyof typeof defaultGlobals] !== null &&
       globals[key as keyof typeof defaultGlobals] !== undefined
     ) {
-      console.log(key);
       (defaultGlobals as any)[key as keyof typeof defaultGlobals] =
         globals[key as keyof typeof defaultGlobals];
     }

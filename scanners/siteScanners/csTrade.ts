@@ -8,55 +8,51 @@ export async function scanCSTrade() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
 
-  try {
-    const res = await axios.get(
-      "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
-    );
+  const res = await axios.get(
+    "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
+  );
 
-    let items = res.data.inventory;
-    items = items.filter((item: { app_id: number }) => item.app_id == 730);
+  let items = res.data.inventory;
+  items = items.filter((item: { app_id: number }) => item.app_id == 730);
 
-    let cursor = CsTradeItem.find().cursor();
-    for (
-      let item = await cursor.next();
-      item != null;
-      item = await cursor.next()
-    ) {
-      let itemWasFound = false;
-      let itemCount = items.length;
-      for (let i = 0; i < itemCount; i++) {
-        if (
-          items[i].price <= item.maxPrice &&
-          items[i].wear >= item.minFloat &&
-          items[i].wear <= item.maxFloat &&
-          items[i].market_hash_name === item.name
-        ) {
-          if (!item.found) {
-            //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-            item.found = true;
-            item.save((e) => console.error(e));
+  let cursor = CsTradeItem.find().cursor();
+  for (
+    let item = await cursor.next();
+    item != null;
+    item = await cursor.next()
+  ) {
+    let itemWasFound = false;
+    let itemCount = items.length;
+    for (let i = 0; i < itemCount; i++) {
+      if (
+        items[i].price <= item.maxPrice &&
+        items[i].wear >= item.minFloat &&
+        items[i].wear <= item.maxFloat &&
+        items[i].market_hash_name === item.name
+      ) {
+        if (!item.found) {
+          //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
+          item.found = true;
+          item.save((e) => console.error(e));
 
-            client.channels
-              .fetch(globals.CS_CHANNEL_ID)
-              .then((channel) => <TextChannel>channel)
-              .then((channel) => {
-                if (channel)
-                  channel.send(
-                    `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
-                  );
-              })
-              .catch((e) => console.error(e));
-          }
-          itemWasFound = true;
+          client.channels
+            .fetch(globals.CS_CHANNEL_ID)
+            .then((channel) => <TextChannel>channel)
+            .then((channel) => {
+              if (channel)
+                channel.send(
+                  `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
+                );
+            })
+            .catch((e) => console.error(e));
         }
-      }
-      if (!itemWasFound) {
-        item.found = false;
-        item.save();
+        itemWasFound = true;
       }
     }
-  } catch (err) {
-    console.error(err);
+    if (!itemWasFound) {
+      item.found = false;
+      item.save();
+    }
   }
 }
 
