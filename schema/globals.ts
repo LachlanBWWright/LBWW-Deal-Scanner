@@ -54,9 +54,6 @@ const GlobalsSchema = new Schema<globalsInterface>({
   STEAM_QUERY_ROLE_ID: { type: String, default: null },
 });
 
-const GlobalsQuery = mongoose.model<globalsInterface>(
-  "GlobalsQuery",
-  GlobalsSchema
-);
+const Globals = mongoose.model<globalsInterface>("Globals", GlobalsSchema);
 
-export default GlobalsQuery;
+export default Globals;

@@ -8,8 +8,7 @@ import client from "./globals/DiscordJSClient.js";
 //Main function
 async function run() {
   await mongoose.connect(MONGO_URI ?? "");
-  await initGlobals();
-  //Creates the bot's /commands
+  await initGlobals(); //Creates the bot's /commands
   const commands = [...commandList].map((command) => command.toJSON());
   const rest = new REST({ version: "9" }).setToken(`${globals.DISCORD_TOKEN}`);
   rest

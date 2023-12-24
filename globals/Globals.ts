@@ -61,13 +61,11 @@ export async function initGlobals() {
   // Copy every non-null and non-undefined value from globals to defaultGlobals
   for (const key in defaultGlobals) {
     if (
-      globals.hasOwnProperty(key) &&
-      defaultGlobals.hasOwnProperty(key) &&
       globals[key as keyof typeof defaultGlobals] !== null &&
       globals[key as keyof typeof defaultGlobals] !== undefined
     ) {
       console.log(key);
-      (globals as any)[key as keyof typeof defaultGlobals] =
+      (defaultGlobals as any)[key as keyof typeof defaultGlobals] =
         globals[key as keyof typeof defaultGlobals];
     }
   }
