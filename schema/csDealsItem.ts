@@ -18,7 +18,7 @@ const CsDealsItemSchema = new mongoose.Schema<csDealsInterface>({
 
 const CsDealsItem = mongoose.model<csDealsInterface>(
   "CsDealsItem",
-  CsDealsItemSchema,
+  CsDealsItemSchema
 );
 
 export default CsDealsItem;
