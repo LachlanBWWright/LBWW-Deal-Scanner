@@ -3,10 +3,12 @@ import axios from "axios";
 import CsTradeItem from "../../schema/csTradeItem.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 export async function scanCSTrade() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
+  setStatus("Scanning CS.Trade");
 
   const res = await axios.get(
     "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"

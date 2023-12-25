@@ -7,7 +7,7 @@ import { scanCashConverters } from "./siteScanners/cashConverters.js";
 import { scanSalvos } from "./siteScanners/salvos.js";
 import { scanEbay } from "./siteScanners/ebay.js";
 import { scanGumtree } from "./siteScanners/gumtree.js";
-import handleError from "../globals/ErrorHandler.js";
+import handleError from "../functions/handleError.js";
 import puppeteer from "puppeteer";
 
 export default async function () {

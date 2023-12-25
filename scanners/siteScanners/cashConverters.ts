@@ -3,6 +3,7 @@ import puppeteer from "puppeteer";
 import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 let cursor = CashConvertersQuery.find().cursor();
 
@@ -13,6 +14,7 @@ export async function scanCashConverters(page: puppeteer.Page) {
     !globals.CASH_CONVERTERS_ROLE_ID
   )
     return;
+  setStatus("Scanning Cash Converters");
 
   let item = await cursor.next();
   if (item === null) {

@@ -4,10 +4,12 @@ import TradeItItem from "../../schema/tradeItItem.js";
 import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 export async function scanTradeIt() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
+  setStatus("Scanning tradeit.gg");
 
   let itemsArray: JSONArray = [];
   for (let i = 0; i < 20; i++) {

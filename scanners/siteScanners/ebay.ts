@@ -1,13 +1,16 @@
-import { Client, TextChannel } from "discord.js";
+import { TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
 import EbayQuery from "../../schema/ebayQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 let cursor = EbayQuery.find().cursor();
 export async function scanEbay(page: puppeteer.Page) {
   if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
     return;
+  setStatus("Scanning eBay");
+
   let item = await cursor.next();
   if (item === null) {
     cursor = EbayQuery.find().cursor();

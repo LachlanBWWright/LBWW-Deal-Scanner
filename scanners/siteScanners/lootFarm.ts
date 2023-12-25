@@ -3,10 +3,13 @@ import axios from "axios";
 import LootFarmItem from "../../schema/lootFarmItem.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 export async function scanLootFarm() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
+  setStatus("Scanning loot.farm");
+
   const res = await axios.get("https://loot.farm/botsInventory_730.json");
   let items: any = res.data.result;
   let cursor = LootFarmItem.find().cursor();

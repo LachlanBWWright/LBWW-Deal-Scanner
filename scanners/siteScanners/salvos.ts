@@ -3,12 +3,15 @@ import puppeteer from "puppeteer";
 import SalvosQuery from "../../schema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 let cursor = SalvosQuery.find().cursor();
 
 export async function scanSalvos(page: puppeteer.Page) {
   if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
     return;
+  setStatus("Scanning Salvos");
+
   let item = await cursor.next();
   if (item === null) {
     cursor = SalvosQuery.find().cursor();

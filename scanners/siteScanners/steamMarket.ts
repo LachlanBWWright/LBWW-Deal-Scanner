@@ -6,6 +6,7 @@ import puppeteer from "puppeteer";
 import { CallbackError } from "mongoose";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 //For general market queries and CS Items
 let itemsFound = new Map<string, number>();
@@ -15,6 +16,8 @@ let csCursor = CsMarketItem.find().cursor();
 export async function scanSteamQuery() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
+  setStatus("Scanning the Steam Community Market");
+
   try {
     let item = await queryCursor.next();
     if (item === null) {

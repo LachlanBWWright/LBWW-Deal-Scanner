@@ -3,10 +3,12 @@ import puppeteer, { HTTPResponse } from "puppeteer";
 import CsDealsItem from "../../schema/csDealsItem.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 export async function scanCSDeals(page: puppeteer.Page) {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
+  setStatus("Scanning CS Deals");
 
   await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
   page.goto("https://cs.deals/trade-skins");

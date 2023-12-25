@@ -3,6 +3,7 @@ import puppeteer from "puppeteer";
 import GumtreeQuery from "../../schema/gumtreeQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
+import setStatus from "../../functions/setStatus.js";
 
 let cursor = GumtreeQuery.find().cursor();
 let recentlyFound = new Map<string, Map<string, number>>();
@@ -14,6 +15,7 @@ export async function scanGumtree(page: puppeteer.Page) {
     !globals.GUMTREE_ROLE_ID
   )
     return;
+  setStatus("Scanning Gumtree");
 
   let item = await cursor.next();
   if (item === null) {
