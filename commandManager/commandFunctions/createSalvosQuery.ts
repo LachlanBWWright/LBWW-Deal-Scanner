@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import SalvosQuery from "../../../schema/salvosQuery.js";
+import SalvosQuery from "../../schema/salvosQuery.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";

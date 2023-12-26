@@ -1,9 +1,10 @@
-import { TextChannel } from "discord.js";
+import { ChannelType, TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
 import EbayQuery from "../../schema/ebayQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import selectorRace from "../../functions/selectorRace.js";
 
 let cursor = EbayQuery.find().cursor();
 export async function scanEbay(page: puppeteer.Page) {
@@ -16,46 +17,41 @@ export async function scanEbay(page: puppeteer.Page) {
     cursor = EbayQuery.find().cursor();
     item = await cursor.next();
   }
-
   await page.goto(item.name);
-  await page.waitForTimeout(Math.random() * 3000); //Waits before continuing. (Avoding IP ban)
 
-  let foundName: string | undefined;
-  let foundPrice: number | undefined;
+  const selector = await selectorRace(
+    page,
+    "div[class='srp-river-results clearfix']",
+    ".srp-save-null-search__heading"
+  );
+  if (!selector) return;
 
-  let result = await page.$("div[class='srp-river-results clearfix']"); //#s-item__wrapper
-  if (result) {
-    let resName = await result.$eval(
-      "span[role='heading']",
-      (res) => res.textContent
-    );
-    if (resName) foundName = resName;
-    let resPrice = await result.$eval(
-      "span[class='s-item__price']",
-      (res) => res.textContent
-    );
-    if (resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
-  }
+  const foundName = await selector.$eval(
+    'span[role="heading"]',
+    (res) => res.textContent
+  );
+  const foundPrice = await selector.$eval(
+    "span[class='s-item__price']",
+    (res) =>
+      res.textContent
+        ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
+        : null
+  );
+  if (!foundName || !foundPrice)
+    throw new Error("Could not find name or price");
+  if (foundName === item.lastItemFound || foundPrice > item.maxPrice) return;
 
-  if (
-    foundName !== undefined &&
-    foundPrice !== undefined &&
-    foundName != item.lastItemFound &&
-    foundPrice <= item.maxPrice
-  ) {
-    client.channels
-      .fetch(globals.EBAY_CHANNEL_ID)
-      .then((channel) => <TextChannel>channel)
-      .then((channel) => {
-        if (channel)
-          channel.send(
-            `<@&${globals.EBAY_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
-          );
-      })
-      .catch((e) => console.error(e));
-    if (foundName != undefined) {
-      item.lastItemFound = foundName;
-      item.save();
-    }
+  client.channels
+    .fetch(globals.EBAY_CHANNEL_ID)
+    .then((channel) => {
+      if (channel && channel.type == ChannelType.GuildText)
+        channel.send(
+          `<@&${globals.EBAY_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+        );
+    })
+    .catch((e) => console.error(e));
+  if (foundName != undefined) {
+    item.lastItemFound = foundName;
+    await item.save();
   }
 }

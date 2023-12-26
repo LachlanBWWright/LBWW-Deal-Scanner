@@ -12,15 +12,15 @@ import deleteQueryQueryDefinition from "./commandList/deleteQueryQuery.js";
 import viewQueriesQueryDefinition from "./commandList/viewQueriesQuery.js";
 
 //Functions that run after a slash command is sent
-import createCashQuery from "./commandFunctions/commands/createCashQuery.js";
-import createCSMarket from "./commandFunctions/commands/createCSMarket.js";
-import createEbayQuery from "./commandFunctions/commands/createEbayQuery.js";
-import createGumtreeQuery from "./commandFunctions/commands/createGumtreeQuery.js";
-import createMultiSearch from "./commandFunctions/commands/createMultiSearchQuery.js";
-import createSalvosQuery from "./commandFunctions/commands/createSalvosQuery.js";
-import createSCMQuery from "./commandFunctions/commands/createSCMQuery.js";
-import deleteQueryQuery from "./commandFunctions/commands/deleteQueryQuery.js";
-import viewQueriesQuery from "./commandFunctions/commands/viewQueriesQuery.js";
+import createCashQuery from "./commandFunctions/createCashQuery.js";
+import createCSMarket from "./commandFunctions/createCSMarket.js";
+import createEbayQuery from "./commandFunctions/createEbayQuery.js";
+import createGumtreeQuery from "./commandFunctions/createGumtreeQuery.js";
+import createMultiSearch from "./commandFunctions/createMultiSearchQuery.js";
+import createSalvosQuery from "./commandFunctions/createSalvosQuery.js";
+import createSCMQuery from "./commandFunctions/createSCMQuery.js";
+import deleteQueryQuery from "./commandFunctions/deleteQueryQuery.js";
+import viewQueriesQuery from "./commandFunctions/viewQueriesQuery.js";
 
 //Command handler code
 export const commandList = [

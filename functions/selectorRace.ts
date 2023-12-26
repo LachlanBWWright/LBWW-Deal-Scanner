@@ -7,11 +7,18 @@ export default async function selectorRace(
   foundSelector: string,
   noItemSelector: string
 ) {
-  return await Promise.race([
-    async () => await page.waitForSelector(foundSelector),
-    async () => {
-      await page.waitForSelector(noItemSelector);
-      return null;
-    },
+  return await Promise.race<puppeteer.ElementHandle<Element> | null>([
+    new Promise((res) => {
+      page
+        .waitForSelector(foundSelector)
+        .then((selector) => res(selector))
+        .catch(() => res(null));
+    }),
+    new Promise((res) => {
+      page
+        .waitForSelector(noItemSelector)
+        .then(() => res(null))
+        .catch(() => res(null));
+    }),
   ]);
 }

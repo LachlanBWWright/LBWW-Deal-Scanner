@@ -1,14 +1,16 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import CashConvertersQuery from "../../../schema/cashConvertersQuery.js";
+import GumtreeQuery from "../../schema/gumtreeQuery.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
+  let maxPrice = interaction.options.getNumber("maxprice") || 1000;
   let search = new URL(query);
-  if (search.toString().includes("https://www.cashconverters.com.au/")) {
-    let cashQuery = new CashConvertersQuery({
+  if (search.toString().includes("https://www.gumtree.com.au/")) {
+    let gumtreeQuery = new GumtreeQuery({
       name: search.toString(),
+      maxPrice: maxPrice,
     });
-    cashQuery.save();
+    gumtreeQuery.save();
     await interaction.editReply(
       "Please know that the search has been created: " + search.toString()
     );

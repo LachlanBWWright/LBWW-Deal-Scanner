@@ -4,6 +4,7 @@ import SalvosQuery from "../../schema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import selectorRace from "../../functions/selectorRace.js";
 
 let cursor = SalvosQuery.find().cursor();
 
@@ -19,8 +20,15 @@ export async function scanSalvos(page: puppeteer.Page) {
   }
 
   await page.goto(item.name);
-  await page.waitForTimeout(Math.random() * 3000); //Waits before continuing. (Avoiding IP ban)
-  let selector = await page.waitForSelector(".line-clamp-3");
+
+  const selector = await selectorRace(
+    page,
+    ".line-clamp-3",
+    ".py-16.flex.flex-col.items-center.justify-center.text-center.text-gray-500"
+  );
+
+  if (!selector) return;
+
   let salvosItem = await selector?.evaluate((el) => el.textContent);
   if (salvosItem != item.lastItemFound) {
     client.channels

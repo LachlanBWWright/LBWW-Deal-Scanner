@@ -25,19 +25,14 @@ export default async function () {
 
   //Round-robin scanning
   while (true) {
-    console.log("Cycle Start");
     console.time("Cycle Time");
 
     //Scans performed every iteration
-    console.log("Cash Converters");
     await scanCashConverters(page).catch((err) =>
       handleError(err, "Cash Converters")
     );
-    console.log("Ebay");
     await scanEbay(page).catch((err) => handleError(err, "Ebay"));
-    console.log("Gumtree");
     await scanGumtree(page).catch((err) => handleError(err, "Gumtree"));
-    console.log("Salvos");
     await scanSalvos(page).catch((err) => handleError(err, "Salvos"));
 
     //Scans performed at limited intervals
@@ -57,6 +52,5 @@ export default async function () {
     steamScanCnt++;
     csTradeScanCnt++;
     console.timeEnd("Cycle Time");
-    console.log("Cycle End");
   }
 }
