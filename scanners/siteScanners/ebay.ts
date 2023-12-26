@@ -5,6 +5,7 @@ import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 let cursor = EbayQuery.find().cursor();
 export async function scanEbay(page: puppeteer.Page) {
@@ -41,15 +42,11 @@ export async function scanEbay(page: puppeteer.Page) {
     throw new Error("Could not find name or price");
   if (foundName === item.lastItemFound || foundPrice > item.maxPrice) return;
 
-  client.channels
-    .fetch(globals.EBAY_CHANNEL_ID)
-    .then((channel) => {
-      if (channel && channel.type == ChannelType.GuildText)
-        channel.send(
-          `<@&${globals.EBAY_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
-        );
-    })
-    .catch((e) => console.error(e));
+  sendToChannel(
+    globals.EBAY_CHANNEL_ID,
+    `Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+  );
+
   if (foundName != undefined) {
     item.lastItemFound = foundName;
     await item.save();

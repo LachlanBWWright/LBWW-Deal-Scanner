@@ -4,6 +4,7 @@ import CsTradeItem from "../../schema/csTradeItem.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 export async function scanCSTrade() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -37,16 +38,10 @@ export async function scanCSTrade() {
           item.found = true;
           item.save((e) => console.error(e));
 
-          client.channels
-            .fetch(globals.CS_CHANNEL_ID)
-            .then((channel) => <TextChannel>channel)
-            .then((channel) => {
-              if (channel)
-                channel.send(
-                  `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
-                );
-            })
-            .catch((e) => console.error(e));
+          sendToChannel(
+            globals.CS_CHANNEL_ID,
+            `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
+          );
         }
         itemWasFound = true;
       }
