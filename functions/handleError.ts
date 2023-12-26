@@ -7,7 +7,14 @@ export default function handleError(error: Error, name: string) {
 
   if (globals.ERROR_CHANNEL_ID) {
     //An option of emitting the error to a discord channel may be added in future
-    sendToChannel("errorChannelId", "An error has occurred in " + name + ":");
-    sendToChannel("errorChannelId", error.message);
+    sendToChannel(
+      globals.ERROR_CHANNEL_ID,
+      "An error has occurred in " +
+        name +
+        ":\n\n" +
+        error.message +
+        "\n\n" +
+        error.stack
+    );
   }
 }
