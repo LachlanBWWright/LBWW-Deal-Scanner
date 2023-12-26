@@ -24,17 +24,14 @@ export async function scanGumtree(page: puppeteer.Page) {
   }
 
   await page.goto(item.name);
-  await page.waitForTimeout(Math.random() * 3000); //Waits before continuing. (Trying not to get IP banned)
-
-  let foundName: string | undefined;
-  let foundPrice: number | undefined;
 
   let results = await page.$$(".user-ad-collection-new-design"); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
-  let result: puppeteer.ElementHandle<Element> | undefined;
 
+  //This uses a discrete solution instead of a selector race
+  //Gumtree has rows of different categories (e.g. ads, out of area, ETC. This finds actual results, if it exists)
+  let result;
   for (let i = 0; i < results.length; i++) {
     let tempRes = results[i];
-    //#user-ad-1296285847 > div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top
     if (
       !(await tempRes.$(
         "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top"
@@ -44,21 +41,22 @@ export async function scanGumtree(page: puppeteer.Page) {
       break;
     }
   }
+  if (!result) return;
 
-  if (result) {
-    let resName = await result.$eval(
-      "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span",
-      (res) => res.textContent
-    );
-    if (resName) foundName = resName;
+  const foundName = await result.$eval(
+    "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span",
+    (res) => res.textContent
+  );
+  if (!foundName) return;
 
-    let resPrice = await result.$eval(
-      "div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price",
-      (res) => res.textContent
-    );
-    if (resPrice) foundPrice = parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
-    if (resPrice && resPrice.includes("Free")) foundPrice = 0;
-  }
+  let resPrice = await result.$eval(
+    "div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price",
+    (res) => res.textContent
+  );
+  if (!resPrice) return;
+  const foundPrice = resPrice.includes("Free")
+    ? 0
+    : parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
 
   //Map stuff
   let foundRecently = true;
@@ -84,25 +82,24 @@ export async function scanGumtree(page: puppeteer.Page) {
   }
 
   if (
-    foundName !== undefined &&
-    foundPrice !== undefined &&
-    foundName != item.lastItemFound &&
-    foundPrice <= item.maxPrice &&
-    !foundRecently
-  ) {
-    client.channels
-      .fetch(globals.GUMTREE_CHANNEL_ID)
-      .then((channel) => <TextChannel>channel)
-      .then((channel) => {
-        if (channel)
-          channel.send(
-            `<@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
-          );
-      })
-      .catch((e) => console.error(e));
-    if (foundName != undefined) {
-      item.lastItemFound = foundName;
-      item.save();
-    }
+    foundName === item.lastItemFound ||
+    foundPrice > item.maxPrice ||
+    foundRecently
+  )
+    return;
+
+  client.channels
+    .fetch(globals.GUMTREE_CHANNEL_ID)
+    .then((channel) => <TextChannel>channel)
+    .then((channel) => {
+      if (channel)
+        channel.send(
+          `<@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+        );
+    })
+    .catch((e) => console.error(e));
+  if (foundName != undefined) {
+    item.lastItemFound = foundName;
+    item.save();
   }
 }

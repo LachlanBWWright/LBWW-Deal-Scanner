@@ -1,9 +1,10 @@
-import { Client, TextChannel } from "discord.js";
+import { TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
 import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import selectorRace from "../../functions/selectorRace.js";
 
 let cursor = CashConvertersQuery.find().cursor();
 
@@ -21,13 +22,16 @@ export async function scanCashConverters(page: puppeteer.Page) {
     cursor = CashConvertersQuery.find().cursor();
     item = await cursor.next();
   }
-
   await page.goto(item.name);
-  await page.waitForTimeout(Math.random() * 3000); //Waits before continuing. (Trying not to get IP banned)
-  let selector = await page.waitForSelector(
-    ".product-item__title__description"
+  let selector = await selectorRace(
+    page,
+    ".product-item__title__description",
+    ".no-search-results__text"
   );
-  let cashConvertersItem = await selector?.evaluate((el) => el.textContent);
+
+  if (!selector) return;
+  let cashConvertersItem = await selector.evaluate((el) => el.textContent);
+
   if (cashConvertersItem != item.lastItemFound) {
     client.channels
       .fetch(globals.CASH_CONVERTERS_CHANNEL_ID)

@@ -1,12 +1,12 @@
 import { Client, ChatInputCommandInteraction } from "discord.js";
-import { csDealsSkinExists } from "../../../scanners/siteScanners/csDeals.js";
-import CsDealsItem from "../../../schema/csDealsItem.js";
-import { tradeItSkinExists } from "../../../scanners/siteScanners/tradeIt.js";
-import TradeItItem from "../../../schema/tradeItItem.js";
-import { csTradeSkinExists } from "../../../scanners/siteScanners/csTrade.js";
-import CsTradeItem from "../../../schema/csTradeItem.js";
-import { lootFarmSkinExists } from "../../../scanners/siteScanners/lootFarm.js";
-import LootFarmItem from "../../../schema/lootFarmItem.js";
+import { csDealsSkinExists } from "../../scanners/siteScanners/csDeals.js";
+import CsDealsItem from "../../schema/csDealsItem.js";
+import { tradeItSkinExists } from "../../scanners/siteScanners/tradeIt.js";
+import TradeItItem from "../../schema/tradeItItem.js";
+import { csTradeSkinExists } from "../../scanners/siteScanners/csTrade.js";
+import CsTradeItem from "../../schema/csTradeItem.js";
+import { lootFarmSkinExists } from "../../scanners/siteScanners/lootFarm.js";
+import LootFarmItem from "../../schema/lootFarmItem.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let replyText =

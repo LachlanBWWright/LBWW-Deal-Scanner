@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import EbayQuery from "../../../schema/ebayQuery.js";
+import EbayQuery from "../../schema/ebayQuery.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";

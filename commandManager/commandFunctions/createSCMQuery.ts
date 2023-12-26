@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import { createQuery } from "../../../scanners/siteScanners/steamMarket.js";
+import { createQuery } from "../../scanners/siteScanners/steamMarket.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";

@@ -22,50 +22,50 @@ export async function scanCSDeals(page: puppeteer.Page) {
     } else return false;
   });
 
-  if (foundResponse != undefined) {
-    foundResponse = <HTTPResponse>foundResponse;
-    let items = await foundResponse.json();
-    let csgoItemCount = items.response.items[730].length;
-    items = items.response.items[730];
-    let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
-    for (
-      let item = await cursor.next();
-      item != null;
-      item = await cursor.next()
-    ) {
-      let itemWasFound = false;
-      for (let i = 0; i < csgoItemCount; i++) {
-        //Iterates through every item on the website
-        //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
-        if (
-          items[i].c === item.name &&
-          items[i].d1 < item.maxFloat &&
-          items[i].d1 > item.minFloat &&
-          items[i].i <= item.maxPrice
-        ) {
-          if (!item.found) {
-            //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-            item.found = true;
-            item.save((e) => console.error(e));
+  if (!foundResponse) return;
 
-            client.channels
-              .fetch(globals.CS_CHANNEL_ID)
-              .then((channel) => <TextChannel>channel)
-              .then((channel) => {
-                if (channel)
-                  channel.send(
-                    `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`
-                  );
-              })
-              .catch((e) => console.error(e));
-          }
-          itemWasFound = true;
+  foundResponse = <HTTPResponse>foundResponse;
+  let items = await foundResponse.json();
+  let csgoItemCount = items.response.items[730].length;
+  items = items.response.items[730];
+  let cursor = CsDealsItem.find().cursor(); //Iterates through every DB item
+  for (
+    let item = await cursor.next();
+    item != null;
+    item = await cursor.next()
+  ) {
+    let itemWasFound = false;
+    for (let i = 0; i < csgoItemCount; i++) {
+      //Iterates through every item on the website
+      //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
+      if (
+        items[i].c === item.name &&
+        items[i].d1 < item.maxFloat &&
+        items[i].d1 > item.minFloat &&
+        items[i].i <= item.maxPrice
+      ) {
+        if (!item.found) {
+          //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
+          item.found = true;
+          item.save((e) => console.error(e));
+
+          client.channels
+            .fetch(globals.CS_CHANNEL_ID)
+            .then((channel) => <TextChannel>channel)
+            .then((channel) => {
+              if (channel)
+                channel.send(
+                  `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`
+                );
+            })
+            .catch((e) => console.error(e));
         }
+        itemWasFound = true;
       }
-      if (!itemWasFound) {
-        item.found = false;
-        item.save();
-      }
+    }
+    if (!itemWasFound) {
+      item.found = false;
+      item.save();
     }
   }
 }
