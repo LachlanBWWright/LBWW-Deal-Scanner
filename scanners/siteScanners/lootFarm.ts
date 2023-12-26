@@ -4,6 +4,7 @@ import LootFarmItem from "../../schema/lootFarmItem.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 export async function scanLootFarm() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -39,22 +40,16 @@ export async function scanLootFarm() {
               item.found = true;
               item.save((e) => console.error(e));
 
-              client.channels
-                .fetch(globals.CS_CHANNEL_ID)
-                .then((channel) => <TextChannel>channel)
-                .then((channel) => {
-                  if (channel)
-                    channel.send(
-                      `<@&${globals.CS_ROLE_ID}> Please know that a ${
-                        items[skinType].n
-                      } with a float of ${
-                        parseInt(items[skinType].u[instance][0].f) / 100000
-                      } is available for $${
-                        items[skinType].p / 100
-                      } USD at: https://loot.farm/`
-                    );
-                })
-                .catch((e) => console.error(e));
+              sendToChannel(
+                globals.CS_CHANNEL_ID,
+                `<@&${globals.CS_ROLE_ID}> Please know that a ${
+                  items[skinType].n
+                } with a float of ${
+                  parseInt(items[skinType].u[instance][0].f) / 100000
+                } is available for $${
+                  items[skinType].p / 100
+                } USD at: https://loot.farm/`
+              );
             }
             itemWasFound = true;
           }

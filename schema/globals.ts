@@ -16,6 +16,7 @@ export interface globalsInterface {
   EBAY: boolean;
   EBAY_CHANNEL_ID: string | null;
   EBAY_ROLE_ID: string | null;
+  ERROR_CHANNEL_ID: string | null;
   GUMTREE: boolean;
   GUMTREE_CHANNEL_ID: string | null;
   GUMTREE_ROLE_ID: string | null;
@@ -43,6 +44,7 @@ const GlobalsSchema = new Schema<globalsInterface>({
   EBAY: { type: Boolean, required: true },
   EBAY_CHANNEL_ID: { type: String, default: null },
   EBAY_ROLE_ID: { type: String, default: null },
+  ERROR_CHANNEL_ID: { type: String, default: null },
   GUMTREE: { type: Boolean, required: true },
   GUMTREE_CHANNEL_ID: { type: String, default: null },
   GUMTREE_ROLE_ID: { type: String, default: null },

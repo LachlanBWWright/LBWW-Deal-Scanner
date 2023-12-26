@@ -31,6 +31,7 @@ const defaultGlobals = {
   EBAY: false,
   EBAY_CHANNEL_ID: null,
   EBAY_ROLE_ID: null,
+  ERROR_CHANNEL_ID: null,
   FACEBOOK: false,
   FACEBOOK_CHANNEL_ID: null,
   FACEBOOK_ROLE_ID: null,

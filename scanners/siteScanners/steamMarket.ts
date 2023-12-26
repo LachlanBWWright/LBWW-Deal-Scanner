@@ -7,6 +7,7 @@ import { CallbackError } from "mongoose";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 //For general market queries and CS Items
 let itemsFound = new Map<string, number>();
@@ -33,16 +34,10 @@ export async function scanSteamQuery() {
       let thisPrice = parseFloat(res.data.results[instance].sell_price) / 100.0;
       if (thisPrice < price) price = thisPrice;
       if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
-        client.channels
-          .fetch(globals.CS_CHANNEL_ID)
-          .then((channel) => <TextChannel>channel)
-          .then((channel) => {
-            if (channel)
-              channel.send(
-                `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
-              );
-          })
-          .catch((e) => console.error(e));
+        sendToChannel(
+          globals.CS_CHANNEL_ID,
+          `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
+        );
         break;
       }
     }
@@ -89,16 +84,10 @@ export async function scanCs() {
         res.data.iteminfo.floatvalue < item.maxFloat &&
         price <= item.maxPrice
       ) {
-        client.channels
-          .fetch(globals.CS_CHANNEL_ID)
-          .then((channel) => <TextChannel>channel)
-          .then((channel) => {
-            if (channel)
-              channel.send(
-                `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
-              );
-          })
-          .catch((e) => console.error(e));
+        sendToChannel(
+          globals.CS_CHANNEL_ID,
+          `Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+        );
       }
 
       if (i < 10) itemsFound.set(query, 20);
@@ -132,16 +121,11 @@ export async function scanCs() {
                   res.data.iteminfo.floatvalue < item.maxFloat &&
                   price <= item.maxPrice
                 ) {
-                  client.channels
-                    .fetch(globals.CS_CHANNEL_ID ?? "")
-                    .then((channel) => <TextChannel>channel)
-                    .then((channel) => {
-                      if (channel)
-                        channel.send(
-                          `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
-                        );
-                    })
-                    .catch((e) => console.error(e));
+                  //TODO: Fix ??
+                  sendToChannel(
+                    globals.CS_CHANNEL_ID ?? "",
+                    `Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+                  );
                 }
               })
               .catch((e) => console.error(e));

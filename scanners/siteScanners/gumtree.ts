@@ -4,6 +4,7 @@ import GumtreeQuery from "../../schema/gumtreeQuery.js";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 let cursor = GumtreeQuery.find().cursor();
 let recentlyFound = new Map<string, Map<string, number>>();
@@ -88,16 +89,11 @@ export async function scanGumtree(page: puppeteer.Page) {
   )
     return;
 
-  client.channels
-    .fetch(globals.GUMTREE_CHANNEL_ID)
-    .then((channel) => <TextChannel>channel)
-    .then((channel) => {
-      if (channel)
-        channel.send(
-          `<@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
-        );
-    })
-    .catch((e) => console.error(e));
+  sendToChannel(
+    globals.GUMTREE_CHANNEL_ID,
+    `Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+  );
+
   if (foundName != undefined) {
     item.lastItemFound = foundName;
     item.save();

@@ -5,6 +5,7 @@ import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 export async function scanTradeIt() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -61,20 +62,14 @@ export async function scanTradeIt() {
               item.found = true;
               item.save((e) => console.error(e));
 
-              client.channels
-                .fetch(globals.CS_CHANNEL_ID)
-                .then((channel) => <TextChannel>channel)
-                .then((channel) => {
-                  if (channel)
-                    channel.send(
-                      `<@&${globals.CS_ROLE_ID}> Please know that a ${
-                        items[i].name
-                      } with a float of ${bestFloat} is available for $${
-                        items[i].price / 100.0
-                      } USD at: https://tradeit.gg/csgo/trade`
-                    );
-                })
-                .catch((e) => console.error(e));
+              sendToChannel(
+                globals.CS_CHANNEL_ID,
+                `<@&${globals.CS_ROLE_ID}> Please know that a ${
+                  items[i].name
+                } with a float of ${bestFloat} is available for $${
+                  items[i].price / 100.0
+                } USD at: https://tradeit.gg/csgo/trade`
+              );
             }
             itemWasFound = true;
           }

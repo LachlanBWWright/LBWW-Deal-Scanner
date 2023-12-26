@@ -5,6 +5,7 @@ import globals from "../../globals/Globals.js";
 import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
+import sendToChannel from "../../functions/sendToChannel.js";
 
 let cursor = SalvosQuery.find().cursor();
 
@@ -31,16 +32,11 @@ export async function scanSalvos(page: puppeteer.Page) {
 
   let salvosItem = await selector?.evaluate((el) => el.textContent);
   if (salvosItem != item.lastItemFound) {
-    client.channels
-      .fetch(globals.SALVOS_CHANNEL_ID)
-      .then((channel) => <TextChannel>channel)
-      .then((channel) => {
-        if (channel)
-          channel.send(
-            `<@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available at  ${item.name}`
-          );
-      })
-      .catch((e) => console.error(e));
+    sendToChannel(
+      globals.SALVOS_CHANNEL_ID,
+      `Please know that a ${salvosItem} is available at ${item.name}`
+    );
+
     if (salvosItem != undefined) {
       item.lastItemFound = salvosItem;
       item.save();
