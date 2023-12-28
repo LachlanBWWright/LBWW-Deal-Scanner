@@ -48,7 +48,7 @@ export async function scanCashConverters(page: puppeteer.Page) {
   if (cashConvertersItem != item.lastItemFound) {
     sendToChannel(
       globals.CASH_CONVERTERS_CHANNEL_ID,
-      `@&${globals.CASH_CONVERTERS_ROLE_ID}> Please know that a ${cashConvertersItem} for $${totalPrice} is available at ${item.name}`
+      `<@&${globals.CASH_CONVERTERS_ROLE_ID}> Please know that a ${cashConvertersItem} for $${totalPrice} is available at ${item.name}`
     );
     if (cashConvertersItem != undefined) {
       item.lastItemFound = cashConvertersItem;

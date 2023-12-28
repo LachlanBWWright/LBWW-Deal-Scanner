@@ -89,7 +89,7 @@ export async function scanGumtree(page: puppeteer.Page) {
 
   sendToChannel(
     globals.GUMTREE_CHANNEL_ID,
-    `@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+    `<@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
   );
 
   if (foundName != undefined) {
