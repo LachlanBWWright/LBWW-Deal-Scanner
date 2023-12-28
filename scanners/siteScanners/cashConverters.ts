@@ -1,8 +1,6 @@
-import { TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
 import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
 import globals from "../../globals/Globals.js";
-import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -36,7 +34,7 @@ export async function scanCashConverters(page: puppeteer.Page) {
   if (cashConvertersItem != item.lastItemFound) {
     sendToChannel(
       globals.CASH_CONVERTERS_CHANNEL_ID,
-      `Please know that a ${cashConvertersItem} is available at ${item.name}`
+      `@&${globals.CASH_CONVERTERS_ROLE_ID}> Please know that a ${cashConvertersItem} is available at ${item.name}`
     );
     if (cashConvertersItem != undefined) {
       item.lastItemFound = cashConvertersItem;

@@ -1,8 +1,6 @@
-import { Client, TextChannel } from "discord.js";
 import axios from "axios";
 import CsTradeItem from "../../schema/csTradeItem.js";
 import globals from "../../globals/Globals.js";
-import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 

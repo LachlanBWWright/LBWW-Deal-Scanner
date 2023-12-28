@@ -1,11 +1,9 @@
-import { Client, TextChannel } from "discord.js";
 import axios from "axios";
 import SteamQuery from "../../schema/steamQuery.js";
 import CsMarketItem from "../../schema/csMarketItem.js";
 import puppeteer from "puppeteer";
 import { CallbackError } from "mongoose";
 import globals from "../../globals/Globals.js";
-import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 
@@ -86,7 +84,7 @@ export async function scanCs() {
       ) {
         sendToChannel(
           globals.CS_CHANNEL_ID,
-          `Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+          `@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
         );
       }
 

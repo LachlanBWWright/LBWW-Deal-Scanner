@@ -1,8 +1,6 @@
-import { TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
 import SalvosQuery from "../../schema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
-import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -34,7 +32,7 @@ export async function scanSalvos(page: puppeteer.Page) {
   if (salvosItem != item.lastItemFound) {
     sendToChannel(
       globals.SALVOS_CHANNEL_ID,
-      `Please know that a ${salvosItem} is available at ${item.name}`
+      `@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available at ${item.name}`
     );
 
     if (salvosItem != undefined) {

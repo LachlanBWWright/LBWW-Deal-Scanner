@@ -1,9 +1,7 @@
-import { Client, TextChannel } from "discord.js";
 import axios from "axios";
 import TradeItItem from "../../schema/tradeItItem.js";
 import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
-import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 

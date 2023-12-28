@@ -1,8 +1,6 @@
-import { Client, TextChannel } from "discord.js";
 import puppeteer from "puppeteer";
 import GumtreeQuery from "../../schema/gumtreeQuery.js";
 import globals from "../../globals/Globals.js";
-import client from "../../globals/DiscordJSClient.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 
@@ -91,7 +89,7 @@ export async function scanGumtree(page: puppeteer.Page) {
 
   sendToChannel(
     globals.GUMTREE_CHANNEL_ID,
-    `Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+    `@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
   );
 
   if (foundName != undefined) {
