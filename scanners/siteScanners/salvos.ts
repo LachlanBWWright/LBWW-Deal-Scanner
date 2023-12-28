@@ -28,11 +28,21 @@ export async function scanSalvos(page: puppeteer.Page) {
 
   if (!selector) return;
 
+  const price = await page.$eval(".product-price", (item) =>
+    item.textContent ? parseFloat(item.textContent.slice(1)) : null
+  );
+  if (price === null) return;
+
+  const imageURL = await page.$eval(
+    `img[class="absolute top-0 left-0 w-full h-full object-cover object-center"]`,
+    (image) => image.getAttribute("src")
+  );
+
   let salvosItem = await selector?.evaluate((el) => el.textContent);
   if (salvosItem != item.lastItemFound) {
     sendToChannel(
       globals.SALVOS_CHANNEL_ID,
-      `@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available at ${item.name}`
+      `<@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available for $${price} at ${item.name} \n\n${imageURL}`
     );
 
     if (salvosItem != undefined) {

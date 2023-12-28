@@ -13,7 +13,11 @@ let queryCursor = SteamQuery.find().cursor();
 let csCursor = CsMarketItem.find().cursor();
 
 export async function scanSteamQuery() {
-  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
+  if (
+    !globals.STEAM_QUERY ||
+    !globals.STEAM_QUERY_CHANNEL_ID ||
+    !globals.STEAM_QUERY_ROLE_ID
+  )
     return;
   setStatus("Scanning the Steam Community Market");
 
@@ -33,8 +37,8 @@ export async function scanSteamQuery() {
       if (thisPrice < price) price = thisPrice;
       if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
         sendToChannel(
-          globals.CS_CHANNEL_ID,
-          `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
+          globals.STEAM_QUERY_CHANNEL_ID,
+          `<@&${globals.STEAM_QUERY_ROLE_ID}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
         );
         break;
       }
@@ -84,7 +88,7 @@ export async function scanCs() {
       ) {
         sendToChannel(
           globals.CS_CHANNEL_ID,
-          `@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+          `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
         );
       }
 

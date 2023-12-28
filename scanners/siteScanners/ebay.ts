@@ -42,7 +42,7 @@ export async function scanEbay(page: puppeteer.Page) {
 
   sendToChannel(
     globals.EBAY_CHANNEL_ID,
-    `@&${globals.EBAY_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+    `<@&${globals.EBAY_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
   );
 
   if (foundName != undefined) {

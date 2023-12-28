@@ -31,10 +31,24 @@ export async function scanCashConverters(page: puppeteer.Page) {
   if (!selector) return;
   let cashConvertersItem = await selector.evaluate((el) => el.textContent);
 
+  const price = await page.$eval(".product-item__price", (selector) =>
+    //Slice removes the '$'
+    selector.textContent ? parseFloat(selector.textContent.slice(1)) : null
+  );
+  if (!price) return;
+
+  const shipping = await page.$eval(".product-item__postage", (selector) =>
+    //Slice removes the '+ $'
+    selector.textContent ? parseFloat(selector.textContent.slice(3)) : null
+  );
+  if (shipping === null) return;
+
+  const totalPrice = price + (isNaN(shipping) ? 0 : shipping);
+
   if (cashConvertersItem != item.lastItemFound) {
     sendToChannel(
       globals.CASH_CONVERTERS_CHANNEL_ID,
-      `@&${globals.CASH_CONVERTERS_ROLE_ID}> Please know that a ${cashConvertersItem} is available at ${item.name}`
+      `<@&${globals.CASH_CONVERTERS_ROLE_ID}> Please know that a ${cashConvertersItem} for $${totalPrice} is available at ${item.name}`
     );
     if (cashConvertersItem != undefined) {
       item.lastItemFound = cashConvertersItem;
