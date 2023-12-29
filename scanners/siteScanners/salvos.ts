@@ -37,12 +37,14 @@ export async function scanSalvos(page: puppeteer.Page) {
     `img[class="absolute top-0 left-0 w-full h-full object-cover object-center"]`,
     (image) => image.getAttribute("src")
   );
+  if (!imageURL) return;
 
   let salvosItem = await selector?.evaluate((el) => el.textContent);
   if (salvosItem != item.lastItemFound) {
     sendToChannel(
       globals.SALVOS_CHANNEL_ID,
-      `<@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available for $${price} at ${item.name} \n\n${imageURL}`
+      `<@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available for $${price} at ${item.name}`,
+      { files: [imageURL] }
     );
 
     if (salvosItem != undefined) {
