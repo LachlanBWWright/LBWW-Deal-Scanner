@@ -1,4 +1,4 @@
-import { CacheType, Interaction, GuildMember, Client } from "discord.js";
+import { CacheType, Interaction, GuildMember } from "discord.js";
 
 //Definitions for slash command parameters
 import createCashQueryDefinition from "./commandList/createCashQuery.js";
