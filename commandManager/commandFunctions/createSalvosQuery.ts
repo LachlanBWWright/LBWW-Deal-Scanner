@@ -3,7 +3,8 @@ import SalvosQuery from "../../schema/salvosQuery.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
-  let search = new URL(query + "&sorting=newestFirst");
+  let search = new URL(query);
+  search.searchParams.set("sorting", "newestFirst");
   const searchString = search.toString();
   if (
     searchString.includes("https://www.salvosstores.com.au/shop?search=") ||
