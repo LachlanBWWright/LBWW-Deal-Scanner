@@ -4,8 +4,10 @@ import SalvosQuery from "../../schema/salvosQuery.js";
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
   let search = new URL(query);
+  const searchString = search.toString();
   if (
-    search.toString().includes("https://www.salvosstores.com.au/shop?search=")
+    searchString.includes("https://www.salvosstores.com.au/shop?search=") ||
+    "https://www.salvosstores.com.au/search?search="
   ) {
     let salvosQuery = new SalvosQuery({
       name: search.toString(),
