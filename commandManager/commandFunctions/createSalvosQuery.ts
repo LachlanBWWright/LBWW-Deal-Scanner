@@ -7,7 +7,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
   const searchString = search.toString();
   if (
     searchString.includes("https://www.salvosstores.com.au/shop?search=") ||
-    "https://www.salvosstores.com.au/search?search="
+    searchString.includes("https://www.salvosstores.com.au/search?search=")
   ) {
     let salvosQuery = new SalvosQuery({
       name: search.toString(),
