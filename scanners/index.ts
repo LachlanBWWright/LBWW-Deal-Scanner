@@ -1,4 +1,3 @@
-import { scanCSDeals } from "./siteScanners/csDeals.js";
 import { scanCSTrade } from "./siteScanners/csTrade.js";
 import { scanTradeIt } from "./siteScanners/tradeIt.js";
 import { scanLootFarm } from "./siteScanners/lootFarm.js";
@@ -42,7 +41,6 @@ export default async function () {
     }
     if (csTradeScanCnt >= 100) {
       //All these are all at once, only done every 100 cycles
-      await scanCSDeals(page).catch((err) => handleError(err, "CS Deals"));
       await scanCSTrade().catch((err) => handleError(err, "CS Trade"));
       await scanLootFarm().catch((err) => handleError(err, "Loot Farm"));
       await scanTradeIt().catch((err) => handleError(err, "Trade It"));
