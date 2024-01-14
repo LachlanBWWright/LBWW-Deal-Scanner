@@ -3,12 +3,11 @@ import axios from "axios";
 import SalvosQuery from "../../schema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 
 let cursor = SalvosQuery.find().cursor();
 
-export async function scanSalvos(page: puppeteer.Page) {
+export async function scanSalvos() {
   if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
     return;
   setStatus("Scanning Salvos");
@@ -48,9 +47,13 @@ export async function scanSalvos(page: puppeteer.Page) {
     }
   );
 
-  if (typeof res.data.searchResponse.results[0] === "undefined") return;
+  //Cancel if nothing found
+  if (
+    typeof res.data.searchResponse.results === "undefined" ||
+    res.data.searchResponse.results.length <= 0
+  )
+    return;
   const data = res.data.searchResponse.results[0];
-  console.log(data);
   const name = data.values.name.single;
   const image = data.values.image.single;
   const id = data.values.id.single;
@@ -74,8 +77,6 @@ export async function scanSalvos(page: puppeteer.Page) {
   }
 }
 
-/* const i = L("UHJvZHVjdDo4MzAyNjY=");
-console.log(i); */
 function getUrlCode(e: string) {
   const t = "Product";
   if (!e) return "";
@@ -98,39 +99,3 @@ function M(e: string) {
 function m(e: string) {
   return e.replace(/[^A-Za-z0-9\+\/]/g, "");
 }
-
-//REMOVE THIS
-/*   await page.goto(item.name);
-
-const selector = await selectorRace(
-  page,
-  ".line-clamp-3",
-  ".py-16.flex.flex-col.items-center.justify-center.text-center.text-gray-500"
-);
-
-if (!selector) return;
-
-const price = await page.$eval(".product-price", (item) =>
-  item.textContent ? parseFloat(item.textContent.slice(1)) : null
-);
-if (price === null) return;
-
-const imageURL = await page.$eval(
-  `img[class="absolute top-0 left-0 w-full h-full object-cover object-center"]`,
-  (image) => image.getAttribute("src")
-);
-if (!imageURL) return;
-
-let salvosItem = await selector?.evaluate((el) => el.textContent);
-if (salvosItem != item.lastItemFound) {
-  sendToChannel(
-    globals.SALVOS_CHANNEL_ID,
-    `<@&${globals.SALVOS_ROLE_ID}> Please know that a ${salvosItem} is available for $${price} at ${item.name}`,
-    { files: [imageURL] }
-  );
-
-  if (salvosItem != undefined) {
-    item.lastItemFound = salvosItem;
-    item.save();
-  }
-} */

@@ -22,7 +22,9 @@ export default async function (interaction: ChatInputCommandInteraction) {
     });
     await salvosQuery.save();
     await interaction.editReply(
-      `Please know that the search has been created: https://www.salvosstores.com.au/search?search=${query}`
+      `Please know that the search has been created: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
+        query
+      )}`
     );
   } catch (e) {
     if (e instanceof Error) {
