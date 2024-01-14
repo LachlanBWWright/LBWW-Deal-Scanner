@@ -32,7 +32,7 @@ export async function scanSalvos(page: puppeteer.Page) {
         },
         tracking: {},
         values: {
-          q: "xbox",
+          q: item.name,
           resultsPerPage: "1",
           filter: `(price >= ${item.minPrice ?? "0"} AND price <= ${
             item.maxPrice ?? "99999"
