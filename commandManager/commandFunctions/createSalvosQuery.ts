@@ -2,20 +2,37 @@ import { ChatInputCommandInteraction } from "discord.js";
 import SalvosQuery from "../../schema/salvosQuery.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
-  let query = interaction.options.getString("query") || "placeholder";
-  let search = new URL(query);
-  search.searchParams.set("sorting", "newestFirst");
-  const searchString = search.toString();
-  if (
-    searchString.includes("https://www.salvosstores.com.au/shop?search=") ||
-    searchString.includes("https://www.salvosstores.com.au/search?search=")
-  ) {
-    let salvosQuery = new SalvosQuery({
-      name: search.toString(),
+  try {
+    const query = interaction.options.getString("query");
+    const minPrice = interaction.options.getNumber("minPrice");
+    const maxPrice = interaction.options.getNumber("maxprice");
+    if (!query) {
+      throw new Error("Invalid query paramaters.");
+    }
+    if (URL.canParse(query)) {
+      throw new Error(
+        "Do not enter a URL, set the content to what you would enter in the search box."
+      );
+    }
+
+    const salvosQuery = new SalvosQuery({
+      name: query.toString(),
+      minPrice: minPrice,
+      maxPrice: maxPrice,
     });
-    salvosQuery.save();
+    await salvosQuery.save();
     await interaction.editReply(
-      "Please know that the search has been created: " + search.toString()
+      `Please know that the search has been created: https://www.salvosstores.com.au/search?search=${query}`
     );
-  } else interaction.editReply("Please know that your search was invalid!");
+  } catch (e) {
+    if (e instanceof Error) {
+      interaction.editReply(
+        `Please know that your search was invalid! \n\n${e.message}`
+      );
+    } else {
+      interaction.editReply(
+        `Please know that your search was invalid! \n\n${e}`
+      );
+    }
+  }
 }

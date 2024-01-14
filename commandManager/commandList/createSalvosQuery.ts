@@ -6,6 +6,18 @@ export default new SlashCommandBuilder()
   .addStringOption((option) =>
     option
       .setName("query")
-      .setDescription("The URL of the query. Sort by newest first.")
+      .setDescription("The name of the query.")
       .setRequired(true)
+  )
+  .addNumberOption((option) =>
+    option
+      .setName("minprice")
+      .setDescription("Enter the minimum price for a notification.")
+      .setRequired(false)
+  )
+  .addNumberOption((option) =>
+    option
+      .setName("maxprice")
+      .setDescription("Enter the maximum price for a notification.")
+      .setRequired(false)
   );
