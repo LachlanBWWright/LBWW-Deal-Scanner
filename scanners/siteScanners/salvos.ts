@@ -12,6 +12,7 @@ export async function scanSalvos() {
     return;
   setStatus("Scanning Salvos");
 
+  if (cursor === null) cursor = SalvosQuery.find().cursor(); //Bug fix for cursor being null
   let item = await cursor.next();
   if (item === null) {
     cursor = SalvosQuery.find().cursor();
