@@ -4,6 +4,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 let cursor = CashConvertersQuery.find().cursor();
 
@@ -25,7 +26,7 @@ export async function scanCashConverters(page: puppeteer.Page) {
   let selector = await selectorRace(
     page,
     ".product-item__title__description",
-    ".no-search-results__text"
+    ".no-search-results__text",
   );
 
   if (!selector) return;
@@ -33,13 +34,13 @@ export async function scanCashConverters(page: puppeteer.Page) {
 
   const price = await page.$eval(".product-item__price", (selector) =>
     //Slice removes the '$'
-    selector.textContent ? parseFloat(selector.textContent.slice(1)) : null
+    selector.textContent ? parseFloat(selector.textContent.slice(1)) : null,
   );
   if (!price) return;
 
   const shipping = await page.$eval(".product-item__postage", (selector) =>
     //Slice removes the '+ $'
-    selector.textContent ? parseFloat(selector.textContent.slice(3)) : null
+    selector.textContent ? parseFloat(selector.textContent.slice(3)) : null,
   );
   if (shipping === null) return;
 
@@ -48,7 +49,11 @@ export async function scanCashConverters(page: puppeteer.Page) {
   if (cashConvertersItem != item.lastItemFound) {
     sendToChannel(
       globals.CASH_CONVERTERS_CHANNEL_ID,
-      `<@&${globals.CASH_CONVERTERS_ROLE_ID}> Please know that a ${cashConvertersItem} for $${totalPrice} is available at ${item.name}`
+      `<@&${
+        globals.CASH_CONVERTERS_ROLE_ID
+      }> ${getNotificationPrelude()} a ${cashConvertersItem} for $${totalPrice} is available at ${
+        item.name
+      }`,
     );
     if (cashConvertersItem != undefined) {
       item.lastItemFound = cashConvertersItem;

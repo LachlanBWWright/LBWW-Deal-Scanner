@@ -4,6 +4,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 let cursor = EbayQuery.find().cursor();
 export async function scanEbay(page: puppeteer.Page) {
@@ -21,20 +22,20 @@ export async function scanEbay(page: puppeteer.Page) {
   const selector = await selectorRace(
     page,
     "div[class='srp-river-results clearfix']",
-    ".srp-save-null-search__heading"
+    ".srp-save-null-search__heading",
   );
   if (!selector) return;
 
   const foundName = await selector.$eval(
     'span[role="heading"]',
-    (res) => res.textContent
+    (res) => res.textContent,
   );
   const foundPrice = await selector.$eval(
     "span[class='s-item__price']",
     (res) =>
       res.textContent
         ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
-        : null
+        : null,
   );
   if (!foundName || !foundPrice)
     throw new Error("Could not find name or price");
@@ -42,7 +43,11 @@ export async function scanEbay(page: puppeteer.Page) {
 
   sendToChannel(
     globals.EBAY_CHANNEL_ID,
-    `<@&${globals.EBAY_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+    `<@&${
+      globals.EBAY_ROLE_ID
+    }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
+      item.name
+    }`,
   );
 
   if (foundName != undefined) {

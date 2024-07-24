@@ -10,6 +10,10 @@ import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
 import EbayQuery from "../../schema/ebayQuery.js";
 import SalvosQuery from "../../schema/salvosQuery.js";
 import GumtreeQuery from "../../schema/gumtreeQuery.js";
+import {
+  getFailurePrelude,
+  getResponsePrelude,
+} from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let scanner =
@@ -29,7 +33,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     else if (scanner === "gumtreequery") model = GumtreeQuery;
     else {
       await interaction.editReply(
-        "No scanner found. That's not acceptable. Aborting"
+        `${getFailurePrelude()} no scanner was found. Aborting.`,
       );
       return;
     }
@@ -37,7 +41,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     if (!searchName) {
       //Find multiple items
       await interaction.editReply(
-        "Returning all items for the chosen scanner: "
+        `${getResponsePrelude()} returning all items for the chosen scanner: `,
       );
 
       for await (const item of model.find()) {
@@ -47,7 +51,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
             `\n${item.minPrice ? `Mix Price: ${item.minPrice} ` : ""}` +
             `\n${item.maxFloat ? `Max Float: ${item.maxFloat} ` : ""}` +
             `\n${item.minFloat ? `Max Float: ${item.minFloat} ` : ""}` +
-            `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+            `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`,
         );
       }
     } else {
@@ -60,7 +64,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
 
       if (!item) {
         interaction.editReply(
-          "Please know that there is no search for the item you entered. That's not acceptable."
+          `${getFailurePrelude()} there is no search for the item you entered.`,
         );
         return;
       }
@@ -71,7 +75,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
           `\n${item.minPrice ? `Mix Price: ${item.minPrice}` : ""}` +
           `\n${item.maxFloat ? `Max Float: ${item.maxFloat}` : ""}` +
           `\n${item.minFloat ? `Max Float: ${item.minFloat}` : ""}` +
-          `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+          `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`,
       );
     }
   } catch (e) {

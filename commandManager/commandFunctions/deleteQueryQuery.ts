@@ -10,6 +10,10 @@ import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
 import EbayQuery from "../../schema/ebayQuery.js";
 import SalvosQuery from "../../schema/salvosQuery.js";
 import GumtreeQuery from "../../schema/gumtreeQuery.js";
+import {
+  getFailurePrelude,
+  getResponsePrelude,
+} from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let scanner = await interaction.options.getString("whichscanner");
@@ -29,7 +33,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     else if (scanner === "gumtreequery") model = GumtreeQuery;
     else {
       await interaction.editReply(
-        "No scanner found. That's not acceptable. Aborting."
+        `${getFailurePrelude()} no scanner was found. Aborting.`,
       );
       return;
     }
@@ -43,27 +47,29 @@ export default async function (interaction: ChatInputCommandInteraction) {
 
     if (!item) {
       interaction.editReply(
-        "Please know that the item you are searching for has already been deleted. Or didn't exist in the first place. That's not acceptable."
+        `${getFailurePrelude()} the item you are searching for has already been deleted. Or didn't exist in the first place.`,
       );
       return;
     }
 
     interaction.editReply(
-      `The following item has been deleted \n Name: ${
+      `${getResponsePrelude()} the following item has been deleted \n Name: ${
         isScmQuery ? item.displayUrl : item.name
       }` +
         `\n${item.maxPrice ? `Max Price: ${item.maxPrice}\n` : ""}` +
         `\n${item.minPrice ? `Mix Price: ${item.minPrice}\n` : ""}` +
         `\n${item.maxFloat ? `Max Float: ${item.maxFloat}\n` : ""}` +
         `\n${item.minFloat ? `Max Float: ${item.minFloat}\n` : ""}` +
-        `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`
+        `\n${item.maxDistance ? `Max Distance: ${item.maxDistance}` : ""}`,
     );
   } catch (e) {
     console.error(e);
   }
 
   if (!searchName) {
-    await interaction.editReply("No search name found. That's not acceptable.");
+    await interaction.editReply(
+      `${getFailurePrelude()} no search name was found.`,
+    );
     return;
   }
 }

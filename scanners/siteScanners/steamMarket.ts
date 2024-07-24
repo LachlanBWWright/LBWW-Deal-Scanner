@@ -6,6 +6,7 @@ import { CallbackError } from "mongoose";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 //For general market queries and CS Items
 let itemsFound = new Map<string, number>();
@@ -38,7 +39,9 @@ export async function scanSteamQuery() {
       if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
         sendToChannel(
           globals.STEAM_QUERY_CHANNEL_ID,
-          `<@&${globals.STEAM_QUERY_ROLE_ID}> Please know that a ${res.data.results[instance].name} is available for $${price} USD at: ${item.displayUrl}`
+          `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
+            res.data.results[instance].name
+          } is available for $${price} USD at: ${item.displayUrl}`,
         );
         break;
       }
@@ -88,7 +91,11 @@ export async function scanCs() {
       ) {
         sendToChannel(
           globals.CS_CHANNEL_ID,
-          `<@&${globals.CS_ROLE_ID}> Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+          `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
+            res.data.iteminfo.full_item_name
+          } with float ${
+            res.data.iteminfo.floatvalue
+          } is available for $${price} USD at: ${item.displayUrl}`,
         );
       }
 
@@ -126,7 +133,11 @@ export async function scanCs() {
                   //TODO: Fix ??
                   sendToChannel(
                     globals.CS_CHANNEL_ID ?? "",
-                    `Please know that a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`
+                    `${getNotificationPrelude()} a ${
+                      res.data.iteminfo.full_item_name
+                    } with float ${
+                      res.data.iteminfo.floatvalue
+                    } is available for $${price} USD at: ${item.displayUrl}`,
                   );
                 }
               })
@@ -151,7 +162,7 @@ export async function scanCs() {
 
 export async function createQuery(
   oldQuery: string,
-  maxPrice: number
+  maxPrice: number,
 ): Promise<[boolean, string]> {
   let browser = await puppeteer.launch({
     headless: true,
@@ -202,7 +213,7 @@ export async function createQuery(
 export async function createCs(
   oldQuery: string,
   maxPrice: number,
-  maxFloat: number
+  maxFloat: number,
 ) {
   //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
   //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
@@ -211,9 +222,9 @@ export async function createCs(
       let search = new URL(
         oldQuery
           .concat(
-            "/render/?query=&start=0&count=20&country=AU&language=english&currency=1"
+            "/render/?query=&start=0&count=20&country=AU&language=english&currency=1",
           )
-          .trim()
+          .trim(),
       ).toString();
       let csMarketItem = new CsMarketItem({
         name: search,

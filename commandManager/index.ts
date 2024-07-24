@@ -21,6 +21,7 @@ import createSalvosQuery from "./commandFunctions/createSalvosQuery.js";
 import createSCMQuery from "./commandFunctions/createSCMQuery.js";
 import deleteQueryQuery from "./commandFunctions/deleteQueryQuery.js";
 import viewQueriesQuery from "./commandFunctions/viewQueriesQuery.js";
+import { getFailurePrelude } from "../functions/messagePreludes.js";
 
 //Command handler code
 export const commandList = [
@@ -50,7 +51,7 @@ export async function commandHandler(interaction: Interaction<CacheType>) {
     });
     if (!roleFound) {
       await interaction.editReply(
-        "Please know you don't have the role needed to make commands. That's not acceptable."
+        `${getFailurePrelude()} you don't have the role needed to make commands.`,
       );
       return;
     }
@@ -76,7 +77,7 @@ export async function commandHandler(interaction: Interaction<CacheType>) {
   } catch (err) {
     console.error(err);
     await interaction.editReply(
-      `Please know that an error has occurred: ${err}`
+      `${getFailurePrelude()} an error has occurred: ${err}`,
     );
   }
 }

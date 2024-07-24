@@ -4,6 +4,7 @@ import SalvosQuery from "../../schema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 let cursor = SalvosQuery.find().cursor();
 
@@ -45,7 +46,7 @@ export async function scanSalvos() {
       headers: {
         Origin: "https://www.salvosstores.com.au",
       },
-    }
+    },
   );
 
   //Cancel if nothing found
@@ -68,10 +69,10 @@ export async function scanSalvos() {
       globals.SALVOS_CHANNEL_ID,
       `<@&${
         globals.SALVOS_ROLE_ID
-      }> Please know that a ${name} is available for $${price} at https://salvosstores.com.au/shop/p/${slug}/${getUrlCode(
-        id
+      }> ${getNotificationPrelude()} a ${name} is available for $${price} at https://salvosstores.com.au/shop/p/${slug}/${getUrlCode(
+        id,
       )}`,
-      { files: [image] }
+      { files: [image] },
     );
     item.lastItemFound = name;
     item.save();

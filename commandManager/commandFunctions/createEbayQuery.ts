@@ -1,5 +1,9 @@
 import { ChatInputCommandInteraction } from "discord.js";
 import EbayQuery from "../../schema/ebayQuery.js";
+import {
+  getFailurePrelude,
+  getResponsePrelude,
+} from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
@@ -12,7 +16,8 @@ export default async function (interaction: ChatInputCommandInteraction) {
     });
     ebayQuery.save();
     await interaction.editReply(
-      "Please know that the search has been created: " + search.toString()
+      `${getResponsePrelude()} the search has been created: ${search.toString()}`,
     );
-  } else interaction.editReply("Please know that your search was invalid!");
+  } else
+    interaction.editReply(`${getFailurePrelude()} your search was invalid!`);
 }

@@ -4,6 +4,7 @@ import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 export async function scanTradeIt() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -23,7 +24,7 @@ export async function scanTradeIt() {
             "User-Agent":
               "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
           },
-        }
+        },
       )
       .then((res) => {
         itemsArray = [...itemsArray, ...res.data.items];
@@ -62,11 +63,11 @@ export async function scanTradeIt() {
 
               sendToChannel(
                 globals.CS_CHANNEL_ID,
-                `<@&${globals.CS_ROLE_ID}> Please know that a ${
+                `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
                   items[i].name
                 } with a float of ${bestFloat} is available for $${
                   items[i].price / 100.0
-                } USD at: https://tradeit.gg/csgo/trade`
+                } USD at: https://tradeit.gg/csgo/trade`,
               );
             }
             itemWasFound = true;
@@ -98,7 +99,7 @@ export async function tradeItSkinExists(name: string) {
             "User-Agent":
               "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
           },
-        }
+        },
       )
       .then((res) => {
         itemsArray = [...itemsArray, ...res.data.items];

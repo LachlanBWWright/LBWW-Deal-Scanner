@@ -1,5 +1,9 @@
 import { ChatInputCommandInteraction } from "discord.js";
 import SalvosQuery from "../../schema/salvosQuery.js";
+import {
+  getFailurePrelude,
+  getResponsePrelude,
+} from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   try {
@@ -11,7 +15,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     }
     if (URL.canParse(query)) {
       throw new Error(
-        "Do not enter a URL, set the content to what you would enter in the search box."
+        "Do not enter a URL, set the content to what you would enter in the search box.",
       );
     }
 
@@ -22,18 +26,18 @@ export default async function (interaction: ChatInputCommandInteraction) {
     });
     await salvosQuery.save();
     await interaction.editReply(
-      `Please know that the search has been created: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
-        query
-      )}`
+      `${getResponsePrelude()} the search has been created: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
+        query,
+      )}`,
     );
   } catch (e) {
     if (e instanceof Error) {
       interaction.editReply(
-        `Please know that your search was invalid! \n\n${e.message}`
+        `${getFailurePrelude()} your search was invalid! \n\n${e.message}`,
       );
     } else {
       interaction.editReply(
-        `Please know that your search was invalid! \n\n${e}`
+        `${getFailurePrelude()} your search was invalid! \n\n${e}`,
       );
     }
   }

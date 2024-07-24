@@ -3,6 +3,7 @@ import LootFarmItem from "../../schema/lootFarmItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 export async function scanLootFarm() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -40,13 +41,13 @@ export async function scanLootFarm() {
 
               sendToChannel(
                 globals.CS_CHANNEL_ID,
-                `<@&${globals.CS_ROLE_ID}> Please know that a ${
+                `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
                   items[skinType].n
                 } with a float of ${
                   parseInt(items[skinType].u[instance][0].f) / 100000
                 } is available for $${
                   items[skinType].p / 100
-                } USD at: https://loot.farm/`
+                } USD at: https://loot.farm/`,
               );
             }
             itemWasFound = true;

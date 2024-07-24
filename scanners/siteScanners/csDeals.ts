@@ -3,6 +3,7 @@ import CsDealsItem from "../../schema/csDealsItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 export async function scanCSDeals(page: puppeteer.Page) {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -50,7 +51,11 @@ export async function scanCSDeals(page: puppeteer.Page) {
 
           sendToChannel(
             globals.CS_CHANNEL_ID,
-            `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].c} with a float of ${items[i].d1} is available for $${items[i].i} USD at: https://cs.deals/trade-skins`
+            `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
+              items[i].c
+            } with a float of ${items[i].d1} is available for $${
+              items[i].i
+            } USD at: https://cs.deals/trade-skins`,
           );
         }
         itemWasFound = true;

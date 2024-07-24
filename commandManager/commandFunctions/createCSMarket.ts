@@ -1,5 +1,9 @@
 import { ChatInputCommandInteraction } from "discord.js";
 import { createCs } from "../../scanners/siteScanners/steamMarket.js";
+import {
+  getFailurePrelude,
+  getResponsePrelude,
+} from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
@@ -10,10 +14,13 @@ export default async function (interaction: ChatInputCommandInteraction) {
     let response = await createCs(query, maxPrice, maxFloat);
     if (response != "")
       await interaction.editReply(
-        "Please know a search has been created with the URL: " + response
+        `${getResponsePrelude()} a search has been created with the URL: ${response}`,
       );
-    else await interaction.editReply("Please know that the url was invalid!");
+    else
+      await interaction.editReply(
+        `${getFailurePrelude()} the url was invalid!`,
+      );
   } catch (e) {
-    await interaction.editReply("Please know that the url was invalid!");
+    await interaction.editReply(`${getFailurePrelude()} the url was invalid!`);
   }
 }

@@ -3,6 +3,7 @@ import GumtreeQuery from "../../schema/gumtreeQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 let cursor = GumtreeQuery.find().cursor();
 let recentlyFound = new Map<string, Map<string, number>>();
@@ -33,7 +34,7 @@ export async function scanGumtree(page: puppeteer.Page) {
     let tempRes = results[i];
     if (
       !(await tempRes.$(
-        "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top"
+        "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span.user-ad-row-new-design__flag-top",
       ))
     ) {
       result = tempRes;
@@ -44,13 +45,13 @@ export async function scanGumtree(page: puppeteer.Page) {
 
   const foundName = await result.$eval(
     "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span",
-    (res) => res.textContent
+    (res) => res.textContent,
   );
   if (!foundName) return;
 
   let resPrice = await result.$eval(
     "div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price",
-    (res) => res.textContent
+    (res) => res.textContent,
   );
   if (!resPrice) return;
   const foundPrice = resPrice.includes("Free")
@@ -89,7 +90,11 @@ export async function scanGumtree(page: puppeteer.Page) {
 
   sendToChannel(
     globals.GUMTREE_CHANNEL_ID,
-    `<@&${globals.GUMTREE_ROLE_ID}> Please know that a ${foundName} priced at $${foundPrice} is available at ${item.name}`
+    `<@&${
+      globals.GUMTREE_ROLE_ID
+    }>${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
+      item.name
+    }`,
   );
 
   if (foundName != undefined) {

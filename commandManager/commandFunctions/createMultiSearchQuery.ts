@@ -7,10 +7,13 @@ import { csTradeSkinExists } from "../../scanners/siteScanners/csTrade.js";
 import CsTradeItem from "../../schema/csTradeItem.js";
 import { lootFarmSkinExists } from "../../scanners/siteScanners/lootFarm.js";
 import LootFarmItem from "../../schema/lootFarmItem.js";
+import {
+  getFailurePrelude,
+  getResponsePrelude,
+} from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
-  let replyText =
-    "Please know the results of your attempt to create new searches - ";
+  let replyText = `${getResponsePrelude()} the results of your attempt to create new searches - `;
   let skinName = interaction.options.getString("skinname") ?? "placeholder";
   let maxPriceCsDeals = interaction.options.getNumber("maxpricecsdeals") ?? -1;
   let maxPriceCsTrade = interaction.options.getNumber("maxpricecstrade") ?? -1;
@@ -22,15 +25,15 @@ export default async function (interaction: ChatInputCommandInteraction) {
 
   if (minFloat > maxFloat)
     await interaction.editReply(
-      "I cannot stress enough: The minimum float cannot be higher than the maximum float value."
+      `${getFailurePrelude()} the minimum float cannot be higher than the maximum float value.`,
     );
   else if (maxFloat <= 0 || maxFloat >= 1)
     await interaction.editReply(
-      "I cannot stress enough: The maximum float must be between 0 and 1."
+      `${getFailurePrelude()} the maximum float must be between 0 and 1.`,
     );
   else if (minFloat < 0 || minFloat >= 1)
     await interaction.editReply(
-      "I cannot stress enough: The minimum float must be between 0 and 1."
+      `${getFailurePrelude()} the minimum float must be between 0 and 1.`,
     );
   else {
     //Attempt creating new searches
@@ -79,7 +82,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
         replyText = replyText.concat("Tradeit.gg: Successful, ");
       } else {
         replyText = replyText.concat(
-          "Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), "
+          "Tradeit.gg: Skin not found on site (This site's a bit fickle, consider retrying), ",
         );
       }
       await interaction.editReply(replyText);

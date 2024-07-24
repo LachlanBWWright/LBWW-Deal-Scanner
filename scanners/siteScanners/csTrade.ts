@@ -3,6 +3,7 @@ import CsTradeItem from "../../schema/csTradeItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
 export async function scanCSTrade() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -10,7 +11,7 @@ export async function scanCSTrade() {
   setStatus("Scanning CS.Trade");
 
   const res = await axios.get(
-    "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
+    "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
   );
 
   let items = res.data.inventory;
@@ -38,7 +39,11 @@ export async function scanCSTrade() {
 
           sendToChannel(
             globals.CS_CHANNEL_ID,
-            `<@&${globals.CS_ROLE_ID}> Please know that a ${items[i].market_hash_name} with a float of ${items[i].wear} is available for $${items[i].price} USD at: https://cs.trade/`
+            `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
+              items[i].market_hash_name
+            } with a float of ${items[i].wear} is available for $${
+              items[i].price
+            } USD at: https://cs.trade/`,
           );
         }
         itemWasFound = true;
@@ -55,7 +60,7 @@ export async function csTradeSkinExists(name: string) {
   let skinFound = false;
   await axios
     .get(
-      "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463"
+      "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
     )
     .then(async (res) => {
       let items = res.data.inventory;
