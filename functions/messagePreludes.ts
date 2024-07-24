@@ -36,5 +36,5 @@ function getResponseMessage(
   if (Math.random() < 0.01) {
     return rareMessages[Math.floor(Math.random() * rareMessages.length)];
   }
-  return standardMessages[Math.floor(Math.random() * rareMessages.length)];
+  return standardMessages[Math.floor(Math.random() * standardMessages.length)];
 }
