@@ -10,7 +10,7 @@ const rarePreludes = ["Look, fat,"];
 const rareNotificationPreludes = ["This is a big fu- ...uh... flippable deal,"];
 
 const negativePreludes = [
-  "Makarkey,",
+  "Malarkey,",
   "This is a bunch of malarkey,",
   "Uh-oh, Jack,",
 ];
