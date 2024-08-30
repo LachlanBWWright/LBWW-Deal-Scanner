@@ -1,5 +1,5 @@
 import axios from "axios";
-import TradeItItem from "../../schema/tradeItItem.js";
+import TradeItItem from "../../mongoSchema/tradeItItem.js";
 import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";

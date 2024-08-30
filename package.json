@@ -13,12 +13,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^5.18.0",
     "axios": "^1.6.2",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
     "mongodb": "^4.5.0",
     "mongoose": "^6.6.1",
     "pending-xhr-puppeteer": "^2.3.3",
+    "prisma": "^5.18.0",
     "puppeteer": "^13.6.0",
     "typescript": "^5.3.3"
   }

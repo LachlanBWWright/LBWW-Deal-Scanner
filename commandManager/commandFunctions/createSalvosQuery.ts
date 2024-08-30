@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import SalvosQuery from "../../schema/salvosQuery.js";
+import SalvosQuery from "../../mongoSchema/salvosQuery.js";
 import {
   getFailurePrelude,
   getResponsePrelude,

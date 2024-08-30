@@ -1,0 +1,21 @@
+enum SCANNER {
+    CASH_CONVERTERS
+    CS_DEALS
+    CS_TRADE
+    EBAY
+    GUMTREE
+    LOOT_FARM
+    SALVOS
+    STEAM_MARKET_QUERY
+    STEAM_MARKET_CS
+    TRADEIT
+}
+
+model TtlItem {
+    itemId  String  @unique
+    ttl     Int
+    scanner SCANNER
+
+    @@id(name: "id", [scanner, itemId])
+    @@unique([scanner, itemId])
+}

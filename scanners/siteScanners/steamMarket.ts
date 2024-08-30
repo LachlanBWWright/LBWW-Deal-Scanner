@@ -1,6 +1,6 @@
 import axios from "axios";
-import SteamQuery from "../../schema/steamQuery.js";
-import CsMarketItem from "../../schema/csMarketItem.js";
+import SteamQuery from "../../mongoSchema/steamQuery.js";
+import CsMarketItem from "../../mongoSchema/csMarketItem.js";
 import puppeteer from "puppeteer";
 import { CallbackError } from "mongoose";
 import globals from "../../globals/Globals.js";

@@ -1,5 +1,5 @@
 import puppeteer, { HTTPResponse } from "puppeteer";
-import CsDealsItem from "../../schema/csDealsItem.js";
+import CsDealsItem from "../../mongoSchema/csDealsItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";

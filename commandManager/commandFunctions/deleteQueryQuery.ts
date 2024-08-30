@@ -1,15 +1,15 @@
 import { ChatInputCommandInteraction } from "discord.js";
 import mongoose from "mongoose";
-import CsDealsItem from "../../schema/csDealsItem.js";
-import CsTradeItem from "../../schema/csTradeItem.js";
-import TradeItItem from "../../schema/tradeItItem.js";
-import LootFarmItem from "../../schema/lootFarmItem.js";
-import SteamQuery from "../../schema/steamQuery.js";
-import CsMarketItem from "../../schema/csMarketItem.js";
-import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
-import EbayQuery from "../../schema/ebayQuery.js";
-import SalvosQuery from "../../schema/salvosQuery.js";
-import GumtreeQuery from "../../schema/gumtreeQuery.js";
+import CsDealsItem from "../../mongoSchema/csDealsItem.js";
+import CsTradeItem from "../../mongoSchema/csTradeItem.js";
+import TradeItItem from "../../mongoSchema/tradeItItem.js";
+import LootFarmItem from "../../mongoSchema/lootFarmItem.js";
+import SteamQuery from "../../mongoSchema/steamQuery.js";
+import CsMarketItem from "../../mongoSchema/csMarketItem.js";
+import CashConvertersQuery from "../../mongoSchema/cashConvertersQuery.js";
+import EbayQuery from "../../mongoSchema/ebayQuery.js";
+import SalvosQuery from "../../mongoSchema/salvosQuery.js";
+import GumtreeQuery from "../../mongoSchema/gumtreeQuery.js";
 import {
   getFailurePrelude,
   getResponsePrelude,

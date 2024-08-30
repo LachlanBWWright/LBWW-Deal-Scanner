@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
+import CashConvertersQuery from "../../mongoSchema/cashConvertersQuery.js";
 import {
   getFailurePrelude,
   getResponsePrelude,

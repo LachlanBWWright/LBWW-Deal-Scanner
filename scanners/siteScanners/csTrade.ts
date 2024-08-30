@@ -1,5 +1,5 @@
 import axios from "axios";
-import CsTradeItem from "../../schema/csTradeItem.js";
+import CsTradeItem from "../../mongoSchema/csTradeItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";

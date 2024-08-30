@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import CashConvertersQuery from "../../schema/cashConvertersQuery.js";
+import CashConvertersQuery from "../../mongoSchema/cashConvertersQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";

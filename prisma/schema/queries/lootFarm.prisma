@@ -1,0 +1,6 @@
+model lootFarm {
+    name     String @unique
+    maxPrice Float
+    minFloat Float
+    maxFloat Float
+}

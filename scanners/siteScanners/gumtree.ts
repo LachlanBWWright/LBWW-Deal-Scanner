@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import GumtreeQuery from "../../schema/gumtreeQuery.js";
+import GumtreeQuery from "../../mongoSchema/gumtreeQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";

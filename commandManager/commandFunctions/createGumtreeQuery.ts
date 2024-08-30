@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import GumtreeQuery from "../../schema/gumtreeQuery.js";
+import GumtreeQuery from "../../mongoSchema/gumtreeQuery.js";
 import {
   getFailurePrelude,
   getResponsePrelude,

@@ -1,4 +1,4 @@
-import GlobalsQuery, { globalsInterface } from "../schema/globals.js";
+import GlobalsQuery, { globalsInterface } from "../mongoSchema/globals.js";
 import Dotenv from "dotenv";
 Dotenv.config();
 

@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer";
 import axios from "axios";
-import SalvosQuery from "../../schema/salvosQuery.js";
+import SalvosQuery from "../../mongoSchema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";

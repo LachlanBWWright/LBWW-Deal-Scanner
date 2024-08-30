@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import EbayQuery from "../../schema/ebayQuery.js";
+import EbayQuery from "../../mongoSchema/ebayQuery.js";
 import {
   getFailurePrelude,
   getResponsePrelude,

@@ -1,0 +1,6 @@
+model CsTrade {
+    name     String @unique
+    maxPrice Float
+    minFloat Float
+    maxFloat Float
+}

@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import EbayQuery from "../../schema/ebayQuery.js";
+import EbayQuery from "../../mongoSchema/ebayQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";

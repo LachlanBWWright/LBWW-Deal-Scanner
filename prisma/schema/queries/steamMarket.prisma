@@ -1,0 +1,6 @@
+model steamMarket {
+    name       String @unique
+    displayUrl String
+    maxPrice   Float
+    lastPrice  Float
+}

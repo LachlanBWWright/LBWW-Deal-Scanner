@@ -1,5 +1,5 @@
 import axios from "axios";
-import LootFarmItem from "../../schema/lootFarmItem.js";
+import LootFarmItem from "../../mongoSchema/lootFarmItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";

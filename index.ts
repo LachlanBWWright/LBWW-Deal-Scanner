@@ -15,9 +15,9 @@ async function run() {
     .put(
       Routes.applicationGuildCommands(
         `${globals.BOT_CLIENT_ID}`,
-        `${globals.DISCORD_GUILD_ID}`
+        `${globals.DISCORD_GUILD_ID}`,
       ),
-      { body: commands }
+      { body: commands },
     )
     .then(() => console.log("Registered the bot's commands successfully"))
     .catch(console.error);
