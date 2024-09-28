@@ -5,6 +5,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 export async function scanTradeIt() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -119,6 +120,19 @@ export async function tradeItSkinExists(name: string) {
     console.error(e);
   }
   return skinFound;
+}
+
+let index = 0;
+async function getTradeItQuery() {
+  let query = await db.tradeIt.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.tradeIt.findFirstOrThrow();
 }
 
 /* {

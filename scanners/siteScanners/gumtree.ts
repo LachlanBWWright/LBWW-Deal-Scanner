@@ -4,6 +4,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 let cursor = GumtreeQuery.find().cursor();
 let recentlyFound = new Map<string, Map<string, number>>();
@@ -101,4 +102,17 @@ export async function scanGumtree(page: puppeteer.Page) {
     item.lastItemFound = foundName;
     item.save();
   }
+}
+
+let index = 0;
+async function getGumtreeQuery() {
+  let query = await db.gumtree.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.gumtree.findFirstOrThrow();
 }

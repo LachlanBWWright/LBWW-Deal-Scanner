@@ -5,6 +5,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 let cursor = SalvosQuery.find().cursor();
 
@@ -100,4 +101,17 @@ function M(e: string) {
 }
 function m(e: string) {
   return e.replace(/[^A-Za-z0-9\+\/]/g, "");
+}
+
+let index = 0;
+async function getSalvosQuery() {
+  let query = await db.salvos.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.salvos.findFirstOrThrow();
 }

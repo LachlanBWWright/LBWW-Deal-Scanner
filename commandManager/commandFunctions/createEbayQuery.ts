@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import EbayQuery from "../../mongoSchema/ebayQuery.js";
+import { db } from "../../globals/PrismaClient.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
@@ -10,11 +10,12 @@ export default async function (interaction: ChatInputCommandInteraction) {
   let maxPrice = interaction.options.getNumber("maxprice") || 1000;
   let search = new URL(query);
   if (search.toString().includes("https://www.ebay.com.au/")) {
-    let ebayQuery = new EbayQuery({
-      name: search.toString(),
-      maxPrice: maxPrice,
+    await db.ebay.create({
+      data: {
+        url: search.toString(),
+        maxPrice,
+      },
     });
-    ebayQuery.save();
     await interaction.editReply(
       `${getResponsePrelude()} the search has been created: ${search.toString()}`,
     );

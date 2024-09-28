@@ -1,12 +1,13 @@
 import puppeteer from "puppeteer";
-import CashConvertersQuery from "../../mongoSchema/cashConvertersQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-
-let cursor = CashConvertersQuery.find().cursor();
+import { db } from "../../globals/PrismaClient.js";
+import { formatPrice } from "../../functions/formatPrice.js";
+import { checkIfNew } from "../../functions/handleItemUpdate.js";
+import { SCANNER } from "@prisma/client";
 
 export async function scanCashConverters(page: puppeteer.Page) {
   if (
@@ -17,20 +18,18 @@ export async function scanCashConverters(page: puppeteer.Page) {
     return;
   setStatus("Scanning Cash Converters");
 
-  let item = await cursor.next();
-  if (item === null) {
-    cursor = CashConvertersQuery.find().cursor();
-    item = await cursor.next();
-  }
-  await page.goto(item.name);
-  let selector = await selectorRace(
+  const query = await getCashQuery();
+
+  await page.goto(query.url);
+  const selector = await selectorRace(
     page,
     ".product-item__title__description",
     ".no-search-results__text",
   );
-
   if (!selector) return;
-  let cashConvertersItem = await selector.evaluate((el) => el.textContent);
+
+  const itemName = await selector.evaluate((el) => el.textContent);
+  if (!itemName) return;
 
   const price = await page.$eval(".product-item__price", (selector) =>
     //Slice removes the '$'
@@ -46,18 +45,27 @@ export async function scanCashConverters(page: puppeteer.Page) {
 
   const totalPrice = price + (isNaN(shipping) ? 0 : shipping);
 
-  if (cashConvertersItem != item.lastItemFound) {
+  if (await checkIfNew(itemName, SCANNER.CASH_CONVERTERS)) {
     sendToChannel(
       globals.CASH_CONVERTERS_CHANNEL_ID,
       `<@&${
         globals.CASH_CONVERTERS_ROLE_ID
-      }> ${getNotificationPrelude()} a ${cashConvertersItem} for $${totalPrice} is available at ${
-        item.name
-      }`,
+      }> ${getNotificationPrelude()} a ${itemName} for ${formatPrice(
+        totalPrice,
+      )} is available at ${itemName}`,
     );
-    if (cashConvertersItem != undefined) {
-      item.lastItemFound = cashConvertersItem;
-      item.save();
-    }
   }
+}
+
+let index = 0;
+async function getCashQuery() {
+  let query = await db.cashConverters.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.cashConverters.findFirstOrThrow();
 }

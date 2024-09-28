@@ -1,0 +1,33 @@
+model Globals {
+    id                         String  @unique
+    BOT_CLIENT_ID              String
+    CASH_CONVERTERS            Boolean
+    CASH_CONVERTERS_CHANNEL_ID String
+    CASH_CONVERTERS_ROLE_ID    String
+    COMMAND_PERMISSION_ROLE_ID String
+    CS_CHANNEL_ID              String
+    CS_ITEMS                   Boolean
+    CS_MARKET_CHANNEL_ID       String
+    CS_MARKET_ROLE_ID          String
+    CS_ROLE_ID                 String
+    DISCORD_GUILD_ID           String
+    DISCORD_TOKEN              String
+    EBAY                       Boolean
+    EBAY_CHANNEL_ID            String
+    EBAY_ROLE_ID               String
+    ERROR_CHANNEL_ID           String
+    GUMTREE                    Boolean
+    GUMTREE_CHANNEL_ID         String
+    GUMTREE_ROLE_ID            String
+    SALVOS                     Boolean
+    SALVOS_CHANNEL_ID          String
+    SALVOS_ROLE_ID             String
+    STEAM_QUERY                Boolean
+    STEAM_QUERY_CHANNEL_ID     String
+    STEAM_QUERY_ROLE_ID        String
+    //CS Trade Bot Price Offsets
+    CS_TRADE_DOLLAR_RATIO      Float   @default(1)
+    LOOT_FARM_DOLLAR_RATIO     Float   @default(1)
+    CS_DEALS_DOLLAR_RATIO      Float   @default(1)
+    TRADEIT_GG_DOLLAR_RATIO    Float   @default(1)
+}

@@ -4,6 +4,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 export async function scanCSTrade() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -74,6 +75,19 @@ export async function csTradeSkinExists(name: string) {
     })
     .catch((e) => console.error(e));
   return skinFound;
+}
+
+let index = 0;
+async function getCsTradeQuery() {
+  let query = await db.csTrade.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.csTrade.findFirstOrThrow();
 }
 
 /* {

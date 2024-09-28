@@ -1,12 +1,9 @@
-import { Client, ChatInputCommandInteraction } from "discord.js";
+import { ChatInputCommandInteraction } from "discord.js";
 import { csDealsSkinExists } from "../../scanners/siteScanners/csDeals.js";
-import CsDealsItem from "../../mongoSchema/csDealsItem.js";
+import { db } from "../../globals/PrismaClient.js";
 import { tradeItSkinExists } from "../../scanners/siteScanners/tradeIt.js";
-import TradeItItem from "../../mongoSchema/tradeItItem.js";
 import { csTradeSkinExists } from "../../scanners/siteScanners/csTrade.js";
-import CsTradeItem from "../../mongoSchema/csTradeItem.js";
 import { lootFarmSkinExists } from "../../scanners/siteScanners/lootFarm.js";
-import LootFarmItem from "../../mongoSchema/lootFarmItem.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
@@ -40,14 +37,14 @@ export default async function (interaction: ChatInputCommandInteraction) {
     await interaction.editReply(replyText);
     if (maxPriceCsDeals > 0) {
       if (await csDealsSkinExists(skinName)) {
-        const csDealsItem = new CsDealsItem({
-          name: skinName,
-          maxPrice: maxPriceCsDeals,
-          minFloat: minFloat,
-          maxFloat: maxFloat,
+        db.csDeals.create({
+          data: {
+            name: skinName,
+            maxFloat,
+            minFloat,
+            maxPrice: maxPriceCsDeals,
+          },
         });
-        csDealsItem.save((err) => console.error(err));
-
         replyText = replyText.concat("Cs.Deals: Successful, ");
       } else {
         replyText = replyText.concat("Cs.Deals: Skin not found on site, ");
@@ -56,6 +53,14 @@ export default async function (interaction: ChatInputCommandInteraction) {
     }
     if (maxPriceCsTrade > 0) {
       if (await csTradeSkinExists(skinName)) {
+        db.csTrade.create({
+          data: {
+            name: skinName,
+            maxFloat,
+            minFloat,
+            maxPrice: maxPriceCsTrade,
+          },
+        });
         const csTradeItem = new CsTradeItem({
           name: skinName,
           maxPrice: maxPriceCsTrade,

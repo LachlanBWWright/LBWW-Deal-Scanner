@@ -1,6 +1,0 @@
-model CsDeals {
-    url      String @unique
-    maxPrice Float
-    minFloat Float
-    maxFloat Float
-}

@@ -1,4 +1,4 @@
-model steamMarket {
+model SteamMarket {
     name       String @unique
     displayUrl String
     maxPrice   Float

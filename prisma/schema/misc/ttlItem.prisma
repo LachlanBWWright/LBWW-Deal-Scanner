@@ -12,9 +12,9 @@ enum SCANNER {
 }
 
 model TtlItem {
-    itemId  String  @unique
-    ttl     Int
-    scanner SCANNER
+    itemId      String   @unique
+    scanner     SCANNER
+    lastUpdated DateTime
 
     @@id(name: "id", [scanner, itemId])
     @@unique([scanner, itemId])

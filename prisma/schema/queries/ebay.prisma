@@ -1,4 +1,4 @@
-model ebay {
-    name     String @unique
+model Ebay {
+    url      String @unique
     maxPrice Float
 }

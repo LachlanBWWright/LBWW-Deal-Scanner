@@ -1,5 +1,5 @@
-model salvos {
-    name     String @unique
+model Salvos {
+    url      String @unique
     minPrice Float
     maxPrice Float
 }

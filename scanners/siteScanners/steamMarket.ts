@@ -7,6 +7,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 //For general market queries and CS Items
 let itemsFound = new Map<string, number>();
@@ -245,4 +246,30 @@ export async function createCs(
 
 function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
+}
+
+let steamQueryIndex = 0;
+async function getSteamQuery() {
+  let query = await db.steamMarket.findFirst({
+    skip: steamQueryIndex++,
+  });
+  if (query) {
+    steamQueryIndex++;
+    return query;
+  }
+  steamQueryIndex = 1; //Will find the first query in the line below
+  return await db.steamMarket.findFirstOrThrow();
+}
+
+let csMarketIndex = 0;
+async function getCsMarketQuery() {
+  let query = await db.csMarket.findFirst({
+    skip: csMarketIndex++,
+  });
+  if (query) {
+    csMarketIndex++;
+    return query;
+  }
+  csMarketIndex = 1; //Will find the first query in the line below
+  return await db.csMarket.findFirstOrThrow();
 }

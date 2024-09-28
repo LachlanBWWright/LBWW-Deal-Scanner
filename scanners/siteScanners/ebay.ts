@@ -5,6 +5,7 @@ import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 let cursor = EbayQuery.find().cursor();
 export async function scanEbay(page: puppeteer.Page) {
@@ -54,4 +55,17 @@ export async function scanEbay(page: puppeteer.Page) {
     item.lastItemFound = foundName;
     await item.save();
   }
+}
+
+let index = 0;
+async function getEbayQuery() {
+  let query = await db.ebay.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.ebay.findFirstOrThrow();
 }

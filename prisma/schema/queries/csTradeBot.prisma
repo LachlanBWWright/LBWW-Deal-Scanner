@@ -1,4 +1,4 @@
-model tradeIt {
+model CsTradeBot {
     name     String @unique
     maxPrice Float
     minFloat Float

@@ -4,6 +4,7 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 export async function scanCSDeals(page: puppeteer.Page) {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -111,6 +112,19 @@ export async function csDealsSkinExists(name: string) {
   } catch (e) {
     console.error(e);
   }
+}
+
+let index = 0;
+async function getCsDealQuery() {
+  let query = await db.csDeals.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.csDeals.findFirstOrThrow();
 }
 
 /* 

@@ -1,5 +1,5 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import GumtreeQuery from "../../mongoSchema/gumtreeQuery.js";
+import { db } from "../../globals/PrismaClient.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
@@ -10,11 +10,12 @@ export default async function (interaction: ChatInputCommandInteraction) {
   let maxPrice = interaction.options.getNumber("maxprice") || 1000;
   let search = new URL(query);
   if (search.toString().includes("https://www.gumtree.com.au/")) {
-    let gumtreeQuery = new GumtreeQuery({
-      name: search.toString(),
-      maxPrice: maxPrice,
+    db.gumtree.create({
+      data: {
+        url: search.toString(),
+        maxPrice,
+      },
     });
-    gumtreeQuery.save();
     await interaction.editReply(
       `${getResponsePrelude()} the search has been created: ${search.toString()}`,
     );
