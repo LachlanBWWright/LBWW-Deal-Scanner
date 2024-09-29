@@ -7,51 +7,27 @@ export default new SlashCommandBuilder()
     option
       .setName("skinname")
       .setDescription(
-        'Copy and paste from the SCM, E.G. "StatTrak™ XM1014 | Seasons (Minimal Wear)".'
+        'Copy and paste from the SCM, E.G. "StatTrak™ XM1014 | Seasons (Minimal Wear)".',
       )
-      .setRequired(true)
+      .setRequired(true),
   )
   .addNumberOption((option) =>
     option
       .setName("minfloat")
       .setDescription("Enter the minimum acceptable float value for the skin.")
-      .setRequired(true)
+      .setRequired(true),
   )
   .addNumberOption((option) =>
     option
       .setName("maxfloat")
       .setDescription("Enter the maximum acceptable float value for the skin.")
-      .setRequired(true)
+      .setRequired(true),
   )
   .addNumberOption((option) =>
     option
-      .setName("maxpricecsdeals")
+      .setName("maxprice")
       .setDescription(
-        "Enter the max price for the skin on cs.deals, no search will be created if it's $0."
+        "Enter the max price for the skin, relative to USD on the Steam Community Market.",
       )
-      .setRequired(false)
-  )
-  .addNumberOption((option) =>
-    option
-      .setName("maxpricecstrade")
-      .setDescription(
-        "Enter the max price for the skin on cs.trade, no search will be created if it's $0."
-      )
-      .setRequired(false)
-  )
-  .addNumberOption((option) =>
-    option
-      .setName("maxpricetradeit")
-      .setDescription(
-        "Enter the max price for the skin on tradeit.gg, no search will be created if it's $0."
-      )
-      .setRequired(false)
-  )
-  .addNumberOption((option) =>
-    option
-      .setName("maxpricelootfarm")
-      .setDescription(
-        "Enter the max price for the skin on loot.farm, no search will be created if it's $0."
-      )
-      .setRequired(false)
+      .setRequired(false),
   );

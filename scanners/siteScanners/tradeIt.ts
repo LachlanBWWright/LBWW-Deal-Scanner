@@ -1,11 +1,14 @@
 import axios from "axios";
-import TradeItItem from "../../mongoSchema/tradeItItem.js";
 import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-import { db } from "../../globals/PrismaClient.js";
+import {
+  checkIfNewCsItem,
+  CsSite,
+  getAllTradeBotItems,
+} from "../../functions/csTradeBot.js";
 
 export async function scanTradeIt() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -34,105 +37,51 @@ export async function scanTradeIt() {
       .catch((e) => console.error(e));
   }
   try {
-    let items = <any>itemsArray;
-    let cursor = TradeItItem.find().cursor();
-    for (
-      let item = await cursor.next();
-      item != null;
-      item = await cursor.next()
-    ) {
-      let itemWasFound = false;
-      let itemCount = items.length;
-      for (let i = 0; i < itemCount; i++) {
+    const foundItems = <any>itemsArray;
+    const searchItems = await getAllTradeBotItems();
+
+    for (const searchItem of searchItems) {
+      for (const foundItem of foundItems) {
         if (
-          items[i].price / 100.0 <= item.maxPrice &&
-          items[i].name === item.name
+          foundItem.price / 100.0 <= searchItem.maxPrice &&
+          foundItem.name === searchItem.name
         ) {
           let bestFloat = 1;
-          if (items[i].floatValue) bestFloat = items[i].floatValue;
-          else if (items[i].floatValues) {
-            for (let x = 0; x < items[i].floatValues.length; x++) {
-              if (items[i].floatValues[x] < bestFloat)
-                bestFloat = items[i].floatValues[x];
+          if (foundItem.floatValue) bestFloat = foundItem.floatValue;
+          else if (foundItem.floatValues) {
+            for (let x = 0; x < foundItem.floatValues.length; x++) {
+              if (foundItem.floatValues[x] < bestFloat)
+                bestFloat = foundItem.floatValues[x];
             }
           }
-          if (bestFloat >= item.minFloat && bestFloat <= item.maxFloat) {
-            if (!item.found) {
+          if (
+            bestFloat >= searchItem.minFloat &&
+            bestFloat <= searchItem.maxFloat
+          ) {
+            if (
+              await checkIfNewCsItem(
+                searchItem.name,
+                bestFloat,
+                CsSite.LOOT_FARM,
+              )
+            ) {
               //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-              item.found = true;
-              item.save((e) => console.error(e));
-
               sendToChannel(
                 globals.CS_CHANNEL_ID,
                 `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
-                  items[i].name
+                  foundItem.name
                 } with a float of ${bestFloat} is available for $${
-                  items[i].price / 100.0
+                  foundItem.price / 100.0
                 } USD at: https://tradeit.gg/csgo/trade`,
               );
             }
-            itemWasFound = true;
           }
         }
       }
-      if (!itemWasFound) {
-        item.found = false;
-        item.save();
-      }
     }
   } catch (e) {
     console.error(e);
   }
-}
-
-export async function tradeItSkinExists(name: string) {
-  let itemsArray: JSONArray = [];
-  let skinFound = false;
-  for (let i = 0; i < 20; i++) {
-    //Has to make multiple searches due to a size limit.
-    await axios
-      .get(
-        `https://tradeit.gg/api/v2/inventory/data?gameId=730&offset=${
-          i * 1000
-        }&limit=1000&sortType=(CSGO)+Best+Float&searchValue=&minPrice=0&maxPrice=100000&minFloat=0&maxFloat=1&hideTradeLock=false&fresh=true`,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
-          },
-        },
-      )
-      .then((res) => {
-        itemsArray = [...itemsArray, ...res.data.items];
-        if (res.data.items.length < 750) i = 20; //Breaks the loop if it's reached the end of the item list
-      })
-      .catch((e) => console.error(e));
-  }
-  try {
-    let items = <any>itemsArray;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].name == name) {
-        skinFound = true;
-        break;
-      }
-    }
-  } catch (e) {
-    console.error(e);
-  }
-  return skinFound;
-}
-
-let index = 0;
-async function getTradeItQuery() {
-  let query = await db.tradeIt.findFirst({
-    skip: index++,
-  });
-  if (query) {
-    index++;
-    return query;
-  }
-  index = 1; //Will find the first query in the line below
-  return await db.tradeIt.findFirstOrThrow();
 }
 
 /* {

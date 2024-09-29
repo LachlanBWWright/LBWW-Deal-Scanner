@@ -4,10 +4,9 @@ import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-import { db } from "../../globals/PrismaClient.js";
+import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { formatPrice } from "../../functions/formatPrice.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
-import { SCANNER } from "@prisma/client";
 
 export async function scanCashConverters(page: puppeteer.Page) {
   if (

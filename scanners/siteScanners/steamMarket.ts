@@ -1,8 +1,5 @@
 import axios from "axios";
-import SteamQuery from "../../mongoSchema/steamQuery.js";
-import CsMarketItem from "../../mongoSchema/csMarketItem.js";
 import puppeteer from "puppeteer";
-import { CallbackError } from "mongoose";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -11,8 +8,6 @@ import { db } from "../../globals/PrismaClient.js";
 
 //For general market queries and CS Items
 let itemsFound = new Map<string, number>();
-let queryCursor = SteamQuery.find().cursor();
-let csCursor = CsMarketItem.find().cursor();
 
 export async function scanSteamQuery() {
   if (
@@ -24,11 +19,7 @@ export async function scanSteamQuery() {
   setStatus("Scanning the Steam Community Market");
 
   try {
-    let item = await queryCursor.next();
-    if (item === null) {
-      queryCursor = SteamQuery.find().cursor();
-      item = await queryCursor.next();
-    }
+    const item = await getSteamQuery();
 
     await sleep(3000);
     let res = await axios.get(`${item.name}`);
@@ -48,8 +39,12 @@ export async function scanSteamQuery() {
       }
     }
     if (price != item.lastPrice) {
-      item.lastPrice = price;
-      item.save((e: CallbackError) => console.error(e));
+      await db.steamMarket.update({
+        where: { name: item.name },
+        data: {
+          lastPrice: price,
+        },
+      });
     }
   } catch (e) {
     console.error(e);
@@ -62,14 +57,10 @@ export async function scanCs() {
     return;
 
   try {
-    let item = await csCursor.next();
-    if (item === null) {
-      csCursor = CsMarketItem.find().cursor();
-      item = await csCursor.next();
-    }
+    const item = await getCsMarketQuery();
 
     await sleep(3000);
-    let res = await axios.get(`${item.name}`);
+    let res = await axios.get(`${item.url}`);
     if (res.status !== 200) return;
     let i = 0;
     for (let skin in res.data.listinginfo) {
@@ -108,7 +99,7 @@ export async function scanCs() {
 
     //TODO: Refactor callback
     await axios
-      .get(`${item.name}`)
+      .get(`${item.url}`)
       .then(async (res) => {
         let i = 0;
         for (let skin in res.data.listinginfo) {
@@ -131,7 +122,6 @@ export async function scanCs() {
                   res.data.iteminfo.floatvalue < item.maxFloat &&
                   price <= item.maxPrice
                 ) {
-                  //TODO: Fix ??
                   sendToChannel(
                     globals.CS_CHANNEL_ID ?? "",
                     `${getNotificationPrelude()} a ${
@@ -189,12 +179,16 @@ export async function createQuery(
           .includes("https://steamcommunity.com/market/search/render/?query")
       ) {
         new URL(query);
-        let steamQuery = new SteamQuery({
-          name: response.url().toString().concat("&norender=1"),
-          displayUrl: oldQuery,
-          maxPrice: maxPrice,
+
+        db.steamMarket.create({
+          data: {
+            name: response.url().toString().concat("&norender=1"),
+            displayUrl: oldQuery,
+            maxPrice: maxPrice,
+            lastPrice: 0,
+          },
         });
-        steamQuery.save((e) => console.error(e));
+
         responseUrl = response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
         return true;
       }
@@ -227,14 +221,17 @@ export async function createCs(
           )
           .trim(),
       ).toString();
-      let csMarketItem = new CsMarketItem({
-        name: search,
-        displayUrl: oldQuery,
-        maxPrice: maxPrice,
-        maxFloat: maxFloat,
+
+      await db.csMarket.create({
+        data: {
+          url: search,
+          displayUrl: oldQuery,
+          maxPrice: maxPrice,
+          maxFloat: maxFloat,
+          lastPrice: 0,
+        },
       });
 
-      await csMarketItem.save((e) => console.error(e));
       return search;
     }
     return "";

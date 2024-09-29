@@ -1,5 +1,4 @@
-import { db } from "../globals/PrismaClient";
-import { SCANNER } from "@prisma/client";
+import { db, SCANNER } from "../globals/PrismaClient.js";
 
 /* 
 Checks an item. If it doesn't, add it to the database, and return true.

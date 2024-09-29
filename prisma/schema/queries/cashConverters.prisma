@@ -1,5 +1,5 @@
 model CashConverters {
-    url             String   @unique
-    requiredPhrases String[]
-    excludePhrases  String[]
+    url             String @unique
+    requiredPhrases String @default("")
+    excludePhrases  String @default("")
 }

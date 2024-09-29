@@ -1,5 +1,5 @@
 model Salvos {
-    url      String @unique
+    name     String @unique
     minPrice Float
     maxPrice Float
 }

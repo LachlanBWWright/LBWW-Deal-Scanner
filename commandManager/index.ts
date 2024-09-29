@@ -8,8 +8,8 @@ import createGumtreeQueryDefinition from "./commandList/createGumtreeQuery.js";
 import createMultiSearchDefinition from "./commandList/createMultiSearchQuery.js";
 import createSalvosQueryDefinition from "./commandList/createSalvosQuery.js";
 import createSCMQueryDefinition from "./commandList/createSCMQuery.js";
-import deleteQueryQueryDefinition from "./commandList/deleteQueryQuery.js";
-import viewQueriesQueryDefinition from "./commandList/viewQueriesQuery.js";
+/* import deleteQueryQueryDefinition from "./commandList/deleteQueryQuery.js";
+import viewQueriesQueryDefinition from "./commandList/viewQueriesQuery.js"; */
 
 //Functions that run after a slash command is sent
 import createCashQuery from "./commandFunctions/createCashQuery.js";
@@ -19,8 +19,8 @@ import createGumtreeQuery from "./commandFunctions/createGumtreeQuery.js";
 import createMultiSearch from "./commandFunctions/createMultiSearchQuery.js";
 import createSalvosQuery from "./commandFunctions/createSalvosQuery.js";
 import createSCMQuery from "./commandFunctions/createSCMQuery.js";
-import deleteQueryQuery from "./commandFunctions/deleteQueryQuery.js";
-import viewQueriesQuery from "./commandFunctions/viewQueriesQuery.js";
+/* import deleteQueryQuery from "./commandFunctions/deleteQueryQuery.js";
+import viewQueriesQuery from "./commandFunctions/viewQueriesQuery.js"; */
 import { getFailurePrelude } from "../functions/messagePreludes.js";
 
 //Command handler code
@@ -32,8 +32,8 @@ export const commandList = [
   createMultiSearchDefinition,
   createSalvosQueryDefinition,
   createSCMQueryDefinition,
-  deleteQueryQueryDefinition,
-  viewQueriesQueryDefinition,
+  /*   deleteQueryQueryDefinition,
+  viewQueriesQueryDefinition, */
 ];
 
 export async function commandHandler(interaction: Interaction<CacheType>) {
@@ -70,10 +70,10 @@ export async function commandHandler(interaction: Interaction<CacheType>) {
       await createSalvosQuery(interaction);
     else if (interaction.commandName === "createscmquery")
       await createSCMQuery(interaction);
-    else if (interaction.commandName === "deletequery")
+    /*     else if (interaction.commandName === "deletequery")
       await deleteQueryQuery(interaction);
     else if (interaction.commandName === "viewqueries")
-      await viewQueriesQuery(interaction);
+      await viewQueriesQuery(interaction); */
   } catch (err) {
     console.error(err);
     await interaction.editReply(

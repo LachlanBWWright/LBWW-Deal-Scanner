@@ -1,5 +1,5 @@
-import GlobalsQuery, { globalsInterface } from "../mongoSchema/globals.js";
 import Dotenv from "dotenv";
+import { db } from "./PrismaClient.js";
 Dotenv.config();
 
 if (!process.env.BOT_CLIENT_ID) {
@@ -32,30 +32,21 @@ const defaultGlobals = {
   EBAY_CHANNEL_ID: null,
   EBAY_ROLE_ID: null,
   ERROR_CHANNEL_ID: null,
-  FACEBOOK: false,
-  FACEBOOK_CHANNEL_ID: null,
-  FACEBOOK_ROLE_ID: null,
   GUMTREE: false,
   GUMTREE_CHANNEL_ID: null,
   GUMTREE_ROLE_ID: null,
-  PS5BIGW: false,
-  PS5_CHANNEL_ID: null,
-  PS5_ROLE_ID: null,
   SALVOS: false,
   SALVOS_CHANNEL_ID: null,
   SALVOS_ROLE_ID: null,
   STEAM_QUERY: false,
   STEAM_QUERY_CHANNEL_ID: null,
   STEAM_QUERY_ROLE_ID: null,
-  XBOXBIGW: false,
-  XBOX_CHANNEL_ID: null,
-  XBOX_ROLE_ID: null,
-} as globalsInterface;
+};
 
 export const MONGO_URI = process.env.MONGO_URI;
 
 export async function initGlobals() {
-  const globals = (await GlobalsQuery.findOne()) as globalsInterface;
+  const globals = await db.globals.findFirst();
 
   if (!globals) return;
 

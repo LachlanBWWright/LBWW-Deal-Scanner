@@ -1,19 +1,6 @@
-enum SCANNER {
-    CASH_CONVERTERS
-    CS_DEALS
-    CS_TRADE
-    EBAY
-    GUMTREE
-    LOOT_FARM
-    SALVOS
-    STEAM_MARKET_QUERY
-    STEAM_MARKET_CS
-    TRADEIT
-}
-
 model TtlItem {
     itemId      String   @unique
-    scanner     SCANNER
+    scanner     Int
     lastUpdated DateTime
 
     @@id(name: "id", [scanner, itemId])
