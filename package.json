@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "tsc && node build/index.js",
+    "dev": "tsc && node --inspect-brk build/index.js",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
