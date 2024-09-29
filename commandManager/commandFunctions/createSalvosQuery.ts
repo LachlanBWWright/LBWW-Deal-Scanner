@@ -1,16 +1,16 @@
 import { ChatInputCommandInteraction } from "discord.js";
-import SalvosQuery from "../../schema/salvosQuery.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   try {
     const query = interaction.options.getString("query");
     const minPrice = interaction.options.getNumber("minPrice");
     const maxPrice = interaction.options.getNumber("maxprice");
-    if (!query) {
+    if (!query || minPrice == null || maxPrice == null) {
       throw new Error("Invalid query paramaters.");
     }
     if (URL.canParse(query)) {
@@ -19,12 +19,14 @@ export default async function (interaction: ChatInputCommandInteraction) {
       );
     }
 
-    const salvosQuery = new SalvosQuery({
-      name: query.toString(),
-      minPrice: minPrice,
-      maxPrice: maxPrice,
+    await db.salvos.create({
+      data: {
+        name: query.toString(),
+        minPrice,
+        maxPrice,
+      },
     });
-    await salvosQuery.save();
+
     await interaction.editReply(
       `${getResponsePrelude()} the search has been created: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
         query,

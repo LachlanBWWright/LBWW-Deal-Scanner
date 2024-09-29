@@ -1,0 +1,8 @@
+model TtlItem {
+    itemId      String   @unique
+    scanner     Int
+    lastUpdated DateTime
+
+    @@id(name: "id", [scanner, itemId])
+    @@unique([scanner, itemId])
+}

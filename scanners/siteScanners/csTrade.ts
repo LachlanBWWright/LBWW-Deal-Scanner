@@ -1,9 +1,13 @@
 import axios from "axios";
-import CsTradeItem from "../../schema/csTradeItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import {
+  checkIfNewCsItem,
+  CsSite,
+  getAllTradeBotItems,
+} from "../../functions/csTradeBot.js";
 
 export async function scanCSTrade() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -14,66 +18,34 @@ export async function scanCSTrade() {
     "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
   );
 
-  let items = res.data.inventory;
-  items = items.filter((item: { app_id: number }) => item.app_id == 730);
+  const foundItems = res.data.inventory.filter(
+    (item: { app_id: number }) => item.app_id == 730,
+  );
+  const searchItems = await getAllTradeBotItems();
 
-  let cursor = CsTradeItem.find().cursor();
-  for (
-    let item = await cursor.next();
-    item != null;
-    item = await cursor.next()
-  ) {
-    let itemWasFound = false;
-    let itemCount = items.length;
-    for (let i = 0; i < itemCount; i++) {
+  for (const searchItem of searchItems) {
+    for (const foundItem of foundItems) {
       if (
-        items[i].price <= item.maxPrice &&
-        items[i].wear >= item.minFloat &&
-        items[i].wear <= item.maxFloat &&
-        items[i].market_hash_name === item.name
+        foundItem.price <= searchItem.maxPrice &&
+        foundItem.wear >= searchItem.minFloat &&
+        foundItem.wear <= searchItem.maxFloat &&
+        foundItem.market_hash_name === searchItem.name
       ) {
-        if (!item.found) {
-          //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-          item.found = true;
-          item.save((e) => console.error(e));
-
+        if (
+          await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_TRADE)
+        ) {
           sendToChannel(
             globals.CS_CHANNEL_ID,
             `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
-              items[i].market_hash_name
-            } with a float of ${items[i].wear} is available for $${
-              items[i].price
+              foundItem.market_hash_name
+            } with a float of ${foundItem.wear} is available for $${
+              foundItem.price
             } USD at: https://cs.trade/`,
           );
         }
-        itemWasFound = true;
       }
-    }
-    if (!itemWasFound) {
-      item.found = false;
-      item.save();
     }
   }
-}
-
-export async function csTradeSkinExists(name: string) {
-  let skinFound = false;
-  await axios
-    .get(
-      "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
-    )
-    .then(async (res) => {
-      let items = res.data.inventory;
-      items = items.filter((item: { app_id: number }) => item.app_id == 730);
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].market_hash_name == name) {
-          skinFound = true;
-          break;
-        }
-      }
-    })
-    .catch((e) => console.error(e));
-  return skinFound;
 }
 
 /* {

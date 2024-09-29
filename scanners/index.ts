@@ -28,7 +28,7 @@ export default async function () {
 
     //Scans performed every iteration
     await scanCashConverters(page).catch((err) =>
-      handleError(err, "Cash Converters")
+      handleError(err, "Cash Converters"),
     );
     await scanEbay(page).catch((err) => handleError(err, "Ebay"));
     await scanGumtree(page).catch((err) => handleError(err, "Gumtree"));

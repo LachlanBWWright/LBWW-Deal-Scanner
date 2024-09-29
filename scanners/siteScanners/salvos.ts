@@ -1,24 +1,17 @@
-import puppeteer from "puppeteer";
 import axios from "axios";
-import SalvosQuery from "../../schema/salvosQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-
-let cursor = SalvosQuery.find().cursor();
+import { db, SCANNER } from "../../globals/PrismaClient.js";
+import { checkIfNew } from "../../functions/handleItemUpdate.js";
 
 export async function scanSalvos() {
   if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
     return;
   setStatus("Scanning Salvos");
 
-  if (cursor === null) cursor = SalvosQuery.find().cursor(); //Bug fix for cursor being null
-  let item = await cursor.next();
-  if (item === null) {
-    cursor = SalvosQuery.find().cursor();
-    item = await cursor.next();
-  }
+  const item = await getSalvosQuery();
 
   let res = await axios.post(
     "https://jsonapi-au-valkyrie.sajari.com/sajari.api.pipeline.v1.Query/Search",
@@ -64,7 +57,7 @@ export async function scanSalvos() {
 
   if (!name || !image || !slug || !id || !price) return;
 
-  if (name !== item.lastItemFound) {
+  if (await checkIfNew(id, SCANNER.SALVOS)) {
     sendToChannel(
       globals.SALVOS_CHANNEL_ID,
       `<@&${
@@ -74,8 +67,6 @@ export async function scanSalvos() {
       )}`,
       { files: [image] },
     );
-    item.lastItemFound = name;
-    item.save();
   }
 }
 
@@ -100,4 +91,17 @@ function M(e: string) {
 }
 function m(e: string) {
   return e.replace(/[^A-Za-z0-9\+\/]/g, "");
+}
+
+let index = 0;
+async function getSalvosQuery() {
+  let query = await db.salvos.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.salvos.findFirstOrThrow();
 }

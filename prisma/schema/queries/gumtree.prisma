@@ -1,0 +1,4 @@
+model Gumtree {
+    url      String @unique
+    maxPrice Float
+}

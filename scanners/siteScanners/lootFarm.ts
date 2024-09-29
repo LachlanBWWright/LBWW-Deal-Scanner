@@ -1,9 +1,14 @@
 import axios from "axios";
-import LootFarmItem from "../../schema/lootFarmItem.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db } from "../../globals/PrismaClient.js";
+import {
+  checkIfNewCsItem,
+  CsSite,
+  getAllTradeBotItems,
+} from "../../functions/csTradeBot.js";
 
 export async function scanLootFarm() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
@@ -12,33 +17,32 @@ export async function scanLootFarm() {
 
   const res = await axios.get("https://loot.farm/botsInventory_730.json");
   let items: any = res.data.result;
-  let cursor = LootFarmItem.find().cursor();
-  for (
-    let item = await cursor.next();
-    item != null;
-    item = await cursor.next()
-  ) {
-    let itemWasFound = false;
 
+  const searchItems = await getAllTradeBotItems();
+
+  for (const searchItem of searchItems) {
     for (let skinType in items) {
       if (
-        item.name.includes(items[skinType].n) &&
-        items[skinType].p / 100 <= item.maxPrice
+        searchItem.name.includes(items[skinType].n) &&
+        items[skinType].p / 100 <= searchItem.maxPrice
       ) {
         for (let instance in items[skinType].u) {
           if (
             parseInt(items[skinType].u[instance][0].f) / 100000 >=
-              item.minFloat &&
+              searchItem.minFloat &&
             parseInt(items[skinType].u[instance][0].f) / 100000 <=
-              item.maxFloat &&
-            (!item.name.includes("StatTrak") ||
+              searchItem.maxFloat &&
+            /* If searchItem is StatTrak, check that the found item is also StatTrak */
+            (!searchItem.name.includes("StatTrak") ||
               items[skinType].u[instance][0].st != undefined)
           ) {
-            if (!item.found) {
-              //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-              item.found = true;
-              item.save((e) => console.error(e));
-
+            if (
+              await checkIfNewCsItem(
+                searchItem.name,
+                items[skinType].u[instance][0].f,
+                CsSite.LOOT_FARM,
+              )
+            ) {
               sendToChannel(
                 globals.CS_CHANNEL_ID,
                 `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
@@ -50,33 +54,11 @@ export async function scanLootFarm() {
                 } USD at: https://loot.farm/`,
               );
             }
-            itemWasFound = true;
           }
         }
       }
     }
-    if (!itemWasFound) {
-      item.found = false;
-      item.save();
-    }
   }
-}
-
-export async function lootFarmSkinExists(name: string) {
-  let skinFound = false;
-  await axios
-    .get("https://loot.farm/botsInventory_730.json")
-    .then(async (res) => {
-      let items = res.data.result;
-
-      for (let skinType in items) {
-        if (name.includes(items[skinType].n)) {
-          skinFound = true;
-        }
-      }
-    })
-    .catch((e) => console.error(e));
-  return skinFound;
 }
 
 /* "27623861":{

@@ -1,23 +1,20 @@
 import puppeteer from "puppeteer";
-import EbayQuery from "../../schema/ebayQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import { db, SCANNER } from "../../globals/PrismaClient.js";
+import { checkIfNew } from "../../functions/handleItemUpdate.js";
 
-let cursor = EbayQuery.find().cursor();
 export async function scanEbay(page: puppeteer.Page) {
   if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
     return;
   setStatus("Scanning eBay");
 
-  let item = await cursor.next();
-  if (item === null) {
-    cursor = EbayQuery.find().cursor();
-    item = await cursor.next();
-  }
-  await page.goto(item.name);
+  const item = await getEbayQuery();
+
+  await page.goto(item.url);
 
   const selector = await selectorRace(
     page,
@@ -39,19 +36,28 @@ export async function scanEbay(page: puppeteer.Page) {
   );
   if (!foundName || !foundPrice)
     throw new Error("Could not find name or price");
-  if (foundName === item.lastItemFound || foundPrice > item.maxPrice) return;
 
-  sendToChannel(
-    globals.EBAY_CHANNEL_ID,
-    `<@&${
-      globals.EBAY_ROLE_ID
-    }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
-      item.name
-    }`,
-  );
-
-  if (foundName != undefined) {
-    item.lastItemFound = foundName;
-    await item.save();
+  if (await checkIfNew(foundName, SCANNER.EBAY)) {
+    sendToChannel(
+      globals.EBAY_CHANNEL_ID,
+      `<@&${
+        globals.EBAY_ROLE_ID
+      }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
+        item.url
+      }`,
+    );
   }
+}
+
+let index = 0;
+async function getEbayQuery() {
+  let query = await db.ebay.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.ebay.findFirstOrThrow();
 }

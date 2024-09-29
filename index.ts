@@ -1,5 +1,4 @@
 import { REST, Routes, Events } from "discord.js";
-import mongoose from "mongoose";
 import globals, { initGlobals, MONGO_URI } from "./globals/Globals.js";
 import runScan from "./scanners/index.js";
 import { commandHandler, commandList } from "./commandManager/index.js";
@@ -7,7 +6,6 @@ import client from "./globals/DiscordJSClient.js";
 
 //Main function
 async function run() {
-  await mongoose.connect(MONGO_URI ?? "");
   await initGlobals(); //Creates the bot's /commands
   const commands = [...commandList].map((command) => command.toJSON());
   const rest = new REST({ version: "9" }).setToken(`${globals.DISCORD_TOKEN}`);
@@ -15,9 +13,9 @@ async function run() {
     .put(
       Routes.applicationGuildCommands(
         `${globals.BOT_CLIENT_ID}`,
-        `${globals.DISCORD_GUILD_ID}`
+        `${globals.DISCORD_GUILD_ID}`,
       ),
-      { body: commands }
+      { body: commands },
     )
     .then(() => console.log("Registered the bot's commands successfully"))
     .catch(console.error);

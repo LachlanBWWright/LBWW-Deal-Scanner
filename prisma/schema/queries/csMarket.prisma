@@ -1,0 +1,7 @@
+model CsMarket {
+    url        String @unique
+    displayUrl String
+    maxPrice   Float
+    maxFloat   Float
+    lastPrice  Float
+}

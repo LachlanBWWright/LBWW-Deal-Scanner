@@ -1,12 +1,10 @@
 import puppeteer from "puppeteer";
-import GumtreeQuery from "../../schema/gumtreeQuery.js";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-
-let cursor = GumtreeQuery.find().cursor();
-let recentlyFound = new Map<string, Map<string, number>>();
+import { db, SCANNER } from "../../globals/PrismaClient.js";
+import { checkIfNew } from "../../functions/handleItemUpdate.js";
 
 export async function scanGumtree(page: puppeteer.Page) {
   if (
@@ -17,13 +15,9 @@ export async function scanGumtree(page: puppeteer.Page) {
     return;
   setStatus("Scanning Gumtree");
 
-  let item = await cursor.next();
-  if (item === null) {
-    cursor = GumtreeQuery.find().cursor();
-    item = await cursor.next();
-  }
+  let item = await getGumtreeQuery();
 
-  await page.goto(item.name);
+  await page.goto(item.url);
 
   let results = await page.$$(".user-ad-collection-new-design"); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
 
@@ -58,47 +52,26 @@ export async function scanGumtree(page: puppeteer.Page) {
     ? 0
     : parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
 
-  //Map stuff
-  let foundRecently = true;
-  let map =
-    recentlyFound.get(item.name) ??
-    recentlyFound.set(item.name, new Map()).get(item.name); //Expands map if item does not exist in it.
-  if (map !== undefined && foundName !== undefined) {
-    if (map.get(foundName) === undefined) foundRecently = false; //Block notification if date was already found
-    map.set(foundName, Date.now()); //MS pased since 1970, lower = older
+  if (await checkIfNew(foundName, SCANNER.GUMTREE))
+    sendToChannel(
+      globals.GUMTREE_CHANNEL_ID,
+      `<@&${
+        globals.GUMTREE_ROLE_ID
+      }>${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
+        item.url
+      }`,
+    );
+}
 
-    if (map.size > 10) {
-      //Purges the youngest from the map
-      let toDelete = "";
-      let oldest = 0;
-      map.forEach((val, key) => {
-        if (val < oldest || oldest === 0) {
-          toDelete = key;
-          oldest = val;
-        }
-      });
-      map.delete(toDelete);
-    }
+let index = 0;
+async function getGumtreeQuery() {
+  let query = await db.gumtree.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
   }
-
-  if (
-    foundName === item.lastItemFound ||
-    foundPrice > item.maxPrice ||
-    foundRecently
-  )
-    return;
-
-  sendToChannel(
-    globals.GUMTREE_CHANNEL_ID,
-    `<@&${
-      globals.GUMTREE_ROLE_ID
-    }>${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
-      item.name
-    }`,
-  );
-
-  if (foundName != undefined) {
-    item.lastItemFound = foundName;
-    item.save();
-  }
+  index = 1; //Will find the first query in the line below
+  return await db.gumtree.findFirstOrThrow();
 }

@@ -1,0 +1,5 @@
+model Salvos {
+    name     String @unique
+    minPrice Float
+    maxPrice Float
+}

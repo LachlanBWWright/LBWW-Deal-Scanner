@@ -1,0 +1,4 @@
+model Ebay {
+    url      String @unique
+    maxPrice Float
+}

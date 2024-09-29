@@ -1,5 +1,5 @@
-import GlobalsQuery, { globalsInterface } from "../schema/globals.js";
 import Dotenv from "dotenv";
+import { db } from "./PrismaClient.js";
 Dotenv.config();
 
 if (!process.env.BOT_CLIENT_ID) {
@@ -11,10 +11,18 @@ if (!process.env.DISCORD_GUILD_ID) {
 if (!process.env.DISCORD_TOKEN) {
   throw new Error("DISCORD_TOKEN is not defined in .env");
 }
-if (!process.env.MONGO_URI) {
-  throw new Error("MONGO_URI is not defined in .env");
+if (!process.env.DISCORD_TOKEN) {
+  throw new Error("DISCORD_TOKEN is not defined in .env");
 }
-
+if (!process.env.DISCORD_TOKEN) {
+  throw new Error("DISCORD_TOKEN is not defined in .env");
+}
+if (!process.env.TURSO_DATABASE_URL) {
+  throw new Error("TURSO_DATABASE_URL is not defined in .env");
+}
+if (!process.env.TURSO_AUTH_TOKEN) {
+  throw new Error("TURSO_AUTH_TOKEN is not defined in .env");
+}
 const defaultGlobals = {
   BOT_CLIENT_ID: process.env.BOT_CLIENT_ID,
   CASH_CONVERTERS: false,
@@ -32,30 +40,21 @@ const defaultGlobals = {
   EBAY_CHANNEL_ID: null,
   EBAY_ROLE_ID: null,
   ERROR_CHANNEL_ID: null,
-  FACEBOOK: false,
-  FACEBOOK_CHANNEL_ID: null,
-  FACEBOOK_ROLE_ID: null,
   GUMTREE: false,
   GUMTREE_CHANNEL_ID: null,
   GUMTREE_ROLE_ID: null,
-  PS5BIGW: false,
-  PS5_CHANNEL_ID: null,
-  PS5_ROLE_ID: null,
   SALVOS: false,
   SALVOS_CHANNEL_ID: null,
   SALVOS_ROLE_ID: null,
   STEAM_QUERY: false,
   STEAM_QUERY_CHANNEL_ID: null,
   STEAM_QUERY_ROLE_ID: null,
-  XBOXBIGW: false,
-  XBOX_CHANNEL_ID: null,
-  XBOX_ROLE_ID: null,
-} as globalsInterface;
+};
 
 export const MONGO_URI = process.env.MONGO_URI;
 
 export async function initGlobals() {
-  const globals = (await GlobalsQuery.findOne()) as globalsInterface;
+  const globals = await db.globals.findFirst();
 
   if (!globals) return;
 
