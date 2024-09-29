@@ -11,10 +11,18 @@ if (!process.env.DISCORD_GUILD_ID) {
 if (!process.env.DISCORD_TOKEN) {
   throw new Error("DISCORD_TOKEN is not defined in .env");
 }
-if (!process.env.MONGO_URI) {
-  throw new Error("MONGO_URI is not defined in .env");
+if (!process.env.DISCORD_TOKEN) {
+  throw new Error("DISCORD_TOKEN is not defined in .env");
 }
-
+if (!process.env.DISCORD_TOKEN) {
+  throw new Error("DISCORD_TOKEN is not defined in .env");
+}
+if (!process.env.TURSO_DATABASE_URL) {
+  throw new Error("TURSO_DATABASE_URL is not defined in .env");
+}
+if (!process.env.TURSO_AUTH_TOKEN) {
+  throw new Error("TURSO_AUTH_TOKEN is not defined in .env");
+}
 const defaultGlobals = {
   BOT_CLIENT_ID: process.env.BOT_CLIENT_ID,
   CASH_CONVERTERS: false,

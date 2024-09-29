@@ -1,5 +1,14 @@
 import { PrismaClient } from "@prisma/client";
-export const db = new PrismaClient();
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import { createClient } from "@libsql/client";
+
+const libsql = createClient({
+  url: `${process.env.TURSO_DATABASE_URL}`,
+  authToken: `${process.env.TURSO_AUTH_TOKEN}`,
+});
+
+const adapter = new PrismaLibSQL(libsql);
+export const db = new PrismaClient({ adapter });
 
 export enum SCANNER {
   CASH_CONVERTERS = 0,
@@ -10,5 +19,3 @@ export enum SCANNER {
   STEAM_MARKET_CS = 5,
   CS_TRADE_BOT = 6,
 }
-
-console.log(SCANNER.EBAY);
