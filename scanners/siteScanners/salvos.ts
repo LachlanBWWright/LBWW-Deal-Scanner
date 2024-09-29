@@ -57,6 +57,8 @@ export async function scanSalvos() {
 
   if (!name || !image || !slug || !id || !price) return;
 
+  if (price > item.maxPrice || price < item.minPrice) return;
+
   if (await checkIfNew(id, SCANNER.SALVOS)) {
     sendToChannel(
       globals.SALVOS_CHANNEL_ID,

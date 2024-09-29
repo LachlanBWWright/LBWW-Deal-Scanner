@@ -17,9 +17,9 @@ export async function scanCashConverters(page: puppeteer.Page) {
     return;
   setStatus("Scanning Cash Converters");
 
-  const query = await getCashQuery();
+  const item = await getCashQuery();
 
-  await page.goto(query.url);
+  await page.goto(item.url);
   const selector = await selectorRace(
     page,
     ".product-item__title__description",

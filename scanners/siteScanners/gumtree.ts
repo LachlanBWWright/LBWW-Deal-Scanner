@@ -52,6 +52,9 @@ export async function scanGumtree(page: puppeteer.Page) {
     ? 0
     : parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
 
+  //Skip if invalid price
+  if (foundPrice > item.maxPrice) return;
+
   if (await checkIfNew(foundName, SCANNER.GUMTREE))
     sendToChannel(
       globals.GUMTREE_CHANNEL_ID,

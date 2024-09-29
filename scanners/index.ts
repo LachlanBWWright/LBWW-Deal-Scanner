@@ -24,7 +24,8 @@ export default async function () {
 
   //Round-robin scanning
   while (true) {
-    console.time("Cycle Time");
+    const throttler = new Promise((r) => setTimeout(r, 2000));
+    console.time("Cycle Time (2000ms minimum)");
 
     //Scans performed every iteration
     await scanCashConverters(page).catch((err) =>
@@ -49,6 +50,9 @@ export default async function () {
 
     steamScanCnt++;
     csTradeScanCnt++;
-    console.timeEnd("Cycle Time");
+
+    //Throttle
+    await throttler;
+    console.timeEnd("Cycle Time (2000ms minimum)");
   }
 }

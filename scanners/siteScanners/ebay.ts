@@ -37,6 +37,8 @@ export async function scanEbay(page: puppeteer.Page) {
   if (!foundName || !foundPrice)
     throw new Error("Could not find name or price");
 
+  if (foundPrice > item.maxPrice) return;
+
   if (await checkIfNew(foundName, SCANNER.EBAY)) {
     sendToChannel(
       globals.EBAY_CHANNEL_ID,
