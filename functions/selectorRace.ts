@@ -1,13 +1,13 @@
-import puppeteer from "puppeteer";
+import { Page, ElementHandle } from "puppeteer";
 
 //Accepts a puppeteer page, a selector for items found, and a selector for the "nothing found" text
 //Returns the page if items were found, and null if nothing was found
 export default async function selectorRace(
-  page: puppeteer.Page,
+  page: Page,
   foundSelector: string,
-  noItemSelector: string
+  noItemSelector: string,
 ) {
-  return await Promise.race<puppeteer.ElementHandle<Element> | null>([
+  return await Promise.race<ElementHandle<Element> | null>([
     new Promise((res) => {
       page
         .waitForSelector(foundSelector)

@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
@@ -6,14 +6,18 @@ import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
+import { Ebay } from "@prisma/client";
 
-export async function scanEbay(page: puppeteer.Page) {
-  if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
-    return;
+export async function scanEbay(page: Page) {
   setStatus("Scanning eBay");
 
   const item = await getEbayQuery();
+  checkEbayQuery(page, item);
+}
 
+export async function checkEbayQuery(page: Page, item: Ebay) {
+  if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
+    return;
   await page.goto(item.url);
 
   const selector = await selectorRace(
@@ -22,7 +26,6 @@ export async function scanEbay(page: puppeteer.Page) {
     ".srp-save-null-search__heading",
   );
   if (!selector) return;
-
   const foundName = await selector.$eval(
     'span[role="heading"]',
     (res) => res.textContent,

@@ -1,22 +1,21 @@
-import puppeteer, { HTTPResponse } from "puppeteer";
+import { HTTPResponse, Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-import { db } from "../../globals/PrismaClient.js";
 import {
   checkIfNewCsItem,
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
 
-export async function scanCSDeals(page: puppeteer.Page) {
+export async function scanCSDeals(page: Page) {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
   setStatus("Scanning CS Deals");
 
   await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
-  page.goto("https://cs.deals/trade-skins");
+  await page.goto("https://cs.deals/trade-skins");
 
   //New eventlistener replacement
   let foundResponse;

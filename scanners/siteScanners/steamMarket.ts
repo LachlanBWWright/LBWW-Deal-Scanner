@@ -169,7 +169,7 @@ export async function createQuery(
 
     let responseUrl = "";
     let query = new URL(oldQuery);
-    page.goto(query.toString());
+    await page.goto(query.toString());
 
     //New eventlistener replacement
     await page.waitForResponse((response) => {

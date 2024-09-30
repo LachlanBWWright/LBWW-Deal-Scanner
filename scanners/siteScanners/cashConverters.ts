@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
@@ -8,7 +8,7 @@ import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { formatPrice } from "../../functions/formatPrice.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 
-export async function scanCashConverters(page: puppeteer.Page) {
+export async function scanCashConverters(page: Page) {
   if (
     !globals.CASH_CONVERTERS ||
     !globals.CASH_CONVERTERS_CHANNEL_ID ||

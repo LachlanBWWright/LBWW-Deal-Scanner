@@ -1,5 +1,4 @@
 import axios from "axios";
-import { JSONArray } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -15,7 +14,7 @@ export async function scanTradeIt() {
     return;
   setStatus("Scanning tradeit.gg");
 
-  let itemsArray: JSONArray = [];
+  let itemsArray: any = [];
   for (let i = 0; i < 20; i++) {
     //Has to make multiple searches due to a size limit.
     await axios

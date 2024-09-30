@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -6,7 +6,7 @@ import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 
-export async function scanGumtree(page: puppeteer.Page) {
+export async function scanGumtree(page: Page) {
   if (
     !globals.GUMTREE ||
     !globals.GUMTREE_CHANNEL_ID ||

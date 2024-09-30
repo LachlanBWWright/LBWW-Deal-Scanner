@@ -1,5 +1,5 @@
 import { REST, Routes, Events } from "discord.js";
-import globals, { initGlobals, MONGO_URI } from "./globals/Globals.js";
+import globals, { initGlobals } from "./globals/Globals.js";
 import runScan from "./scanners/index.js";
 import { commandHandler, commandList } from "./commandManager/index.js";
 import client from "./globals/DiscordJSClient.js";
