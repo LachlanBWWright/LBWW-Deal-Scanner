@@ -17,7 +17,7 @@ export default async function () {
     headless: "shell",
     args: ["--no-sandbox"],
   });
-  const page = await browser.newPage();
+  let page = await browser.newPage();
 
   //For Restricting how often certain scans are peformed to avoid rate-limiting
   let steamScanCnt = 0;
@@ -52,6 +52,9 @@ export default async function () {
 
     steamScanCnt++;
     csTradeScanCnt++;
+
+    page.close();
+    page = await browser.newPage();
 
     //Throttle
     await throttler;
