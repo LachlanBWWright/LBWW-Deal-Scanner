@@ -48,27 +48,37 @@ export async function scanSalvos() {
     res.data.searchResponse.results.length <= 0
   )
     return;
-  const data = res.data.searchResponse.results[0];
-  const name = data.values.name.single;
-  const image = data.values.image.single;
-  const id = data.values.id.single;
-  const slug = data.values.slug.single; // E.G. name = "Xbox One S 1TB Console" slug = "xbox-one-s-1tb-console"
-  const price = data.values.price.single;
 
-  if (!name || !image || !slug || !id || !price) return;
+  let notificationSent = false; //Don't spam notifications if multiple new items
 
-  if (price > item.maxPrice || price < item.minPrice) return;
+  for (let i = 0; i < res.data.searchResponse.results.length; i++) {
+    const data = res.data.searchResponse.results[i];
+    const name = data.values.name.single;
+    const image = data.values.image.single;
+    const id = data.values.id.single;
+    const slug = data.values.slug.single; // E.G. name = "Xbox One S 1TB Console" slug = "xbox-one-s-1tb-console"
+    const price = data.values.price.single;
 
-  if (await checkIfNew(id, SCANNER.SALVOS)) {
-    sendToChannel(
-      globals.SALVOS_CHANNEL_ID,
-      `<@&${
-        globals.SALVOS_ROLE_ID
-      }> ${getNotificationPrelude()} a ${name} is available for $${price} at https://salvosstores.com.au/shop/p/${slug}/${getUrlCode(
-        id,
-      )}`,
-      { files: [image] },
-    );
+    if (!name || !image || !slug || !id || !price) return;
+
+    if (price > item.maxPrice || price < item.minPrice) return;
+
+    if (
+      (await checkIfNew(id, SCANNER.SALVOS)) &&
+      i <= 10 &&
+      !notificationSent
+    ) {
+      sendToChannel(
+        globals.SALVOS_CHANNEL_ID,
+        `<@&${
+          globals.SALVOS_ROLE_ID
+        }> ${getNotificationPrelude()} a ${name} is available for $${price} at https://salvosstores.com.au/shop/p/${slug}/${getUrlCode(
+          id,
+        )}`,
+        { files: [image] },
+      );
+      notificationSent = true;
+    }
   }
 }
 

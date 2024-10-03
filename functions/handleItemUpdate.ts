@@ -6,8 +6,6 @@ If it already exists, extend the TTL
 */
 export async function checkIfNew(itemId: string, scanner: SCANNER) {
   const item = await db.ttlItem.findUnique({ where: { itemId, scanner } });
-  console.log("CHECKIFNEW");
-  console.log(item);
   if (item) {
     db.ttlItem.update({
       where: { itemId, scanner },
