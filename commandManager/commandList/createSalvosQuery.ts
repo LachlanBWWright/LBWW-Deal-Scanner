@@ -13,11 +13,11 @@ export default new SlashCommandBuilder()
     option
       .setName("minprice")
       .setDescription("Enter the minimum price for a notification.")
-      .setRequired(true),
+      .setRequired(false),
   )
   .addNumberOption((option) =>
     option
       .setName("maxprice")
       .setDescription("Enter the maximum price for a notification.")
-      .setRequired(true),
+      .setRequired(false),
   );

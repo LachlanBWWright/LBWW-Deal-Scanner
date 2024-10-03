@@ -8,8 +8,8 @@ import { db } from "../../globals/PrismaClient.js";
 export default async function (interaction: ChatInputCommandInteraction) {
   try {
     const query = interaction.options.getString("query");
-    const minPrice = interaction.options.getNumber("minPrice");
-    const maxPrice = interaction.options.getNumber("maxprice");
+    const minPrice = interaction.options.getNumber("minprice") ?? 0;
+    const maxPrice = interaction.options.getNumber("maxprice") ?? 99999;
     if (!query || minPrice == null || maxPrice == null) {
       throw new Error("Invalid query paramaters.");
     }
