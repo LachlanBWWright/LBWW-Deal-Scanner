@@ -12,7 +12,7 @@ export async function scanEbay(page: Page) {
   setStatus("Scanning eBay");
 
   const item = await getEbayQuery();
-  checkEbayQuery(page, item);
+  await checkEbayQuery(page, item);
 }
 
 export async function checkEbayQuery(page: Page, item: Ebay) {
