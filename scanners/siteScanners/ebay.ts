@@ -16,45 +16,41 @@ export async function scanEbay(page: Page) {
 }
 
 export async function checkEbayQuery(page: Page, item: Ebay) {
-  try {
-    if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
-      return;
-    await page.goto(item.url);
+  if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
+    return;
+  await page.goto(item.url);
 
-    const selector = await selectorRace(
-      page,
-      "div[class='srp-river-results clearfix']",
-      ".srp-save-null-search__heading",
-    );
-    if (!selector) return;
-    const foundName = await selector.$eval(
-      'span[role="heading"]',
-      (res) => res.textContent,
-    );
-    const foundPrice = await selector.$eval(
-      "span[class='s-item__price']",
-      (res) =>
-        res.textContent
-          ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
-          : null,
-    );
-    if (!foundName || !foundPrice)
-      throw new Error("Could not find name or price");
+  const selector = await selectorRace(
+    page,
+    "div[class='srp-river-results clearfix']",
+    ".srp-save-null-search__heading",
+  );
+  if (!selector) return;
+  const foundName = await selector.$eval(
+    'span[role="heading"]',
+    (res) => res.textContent,
+  );
+  const foundPrice = await selector.$eval(
+    "span[class='s-item__price']",
+    (res) =>
+      res.textContent
+        ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
+        : null,
+  );
+  if (!foundName || !foundPrice)
+    throw new Error("Could not find name or price");
 
-    if (foundPrice > item.maxPrice) return;
+  if (foundPrice > item.maxPrice) return;
 
-    if (await checkIfNew(foundName, SCANNER.EBAY)) {
-      sendToChannel(
-        globals.EBAY_CHANNEL_ID,
-        `<@&${
-          globals.EBAY_ROLE_ID
-        }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
-          item.url
-        }`,
-      );
-    }
-  } catch {
-    console.log("\n\n\n\n\nCATCH TEST");
+  if (await checkIfNew(foundName, SCANNER.EBAY)) {
+    sendToChannel(
+      globals.EBAY_CHANNEL_ID,
+      `<@&${
+        globals.EBAY_ROLE_ID
+      }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
+        item.url
+      }`,
+    );
   }
 }
 
