@@ -53,7 +53,7 @@ export default async function () {
     steamScanCnt++;
     csTradeScanCnt++;
 
-    page.close();
+    await page.close();
     page = await browser.newPage();
 
     //Throttle
