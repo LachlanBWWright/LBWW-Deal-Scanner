@@ -7,8 +7,9 @@
   "scripts": {
     "start": "tsc && node build/index.js",
     "build": "tsc",
-    "test": "jest",
-    "heroku-postbuild": "tsc && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache"
+    "test": "vitest",
+    "heroku-postbuild": "tsc && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache",
+    "test:browser": "vitest --workspace=vitest.workspace.ts"
   },
   "keywords": [],
   "author": "",
@@ -25,7 +26,10 @@
     "typescript": "^5.3.3"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.13",
-    "jest": "^29.7.0"
+    "@vitest/browser": "^2.1.2",
+    "jest": "^29.7.0",
+    "playwright": "^1.47.2",
+    "ts-node": "^10.9.2",
+    "vitest": "^2.1.2"
   }
 }

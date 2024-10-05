@@ -9,36 +9,14 @@ import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Ebay } from "@prisma/client";
 
 export async function scanEbay(page: Page) {
+  if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
+    return;
   setStatus("Scanning eBay");
 
   const item = await getEbayQuery();
-  await checkEbayQuery(page, item);
-}
+  await getEbayValues(page, item);
 
-export async function checkEbayQuery(page: Page, item: Ebay) {
-  if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
-    return;
-  await page.goto(item.url);
-
-  const selector = await selectorRace(
-    page,
-    "div[class='srp-river-results clearfix']",
-    ".srp-save-null-search__heading",
-  );
-  if (!selector) return;
-  const foundName = await selector.$eval(
-    'span[role="heading"]',
-    (res) => res.textContent,
-  );
-  const foundPrice = await selector.$eval(
-    "span[class='s-item__price']",
-    (res) =>
-      res.textContent
-        ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
-        : null,
-  );
-  if (!foundName || !foundPrice)
-    throw new Error("Could not find name or price");
+  const { foundName, foundPrice, foundImage } = await getEbayValues(page, item);
 
   if (foundPrice > item.maxPrice) return;
 
@@ -50,8 +28,45 @@ export async function checkEbayQuery(page: Page, item: Ebay) {
       }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
         item.url
       }`,
+      { files: [foundImage] },
     );
   }
+}
+
+export async function getEbayValues(page: Page, item: Ebay) {
+  await page.goto(item.url);
+
+  const selector = await selectorRace(
+    page,
+    "div[class='srp-river-results clearfix']",
+    ".srp-save-null-search__heading",
+  );
+  if (!selector) throw new Error("Missing eBay selector");
+
+  const result = await selector.$("li[class='s-item s-item__pl-on-bottom']");
+  if (!result) throw new Error("Missing eBay");
+
+  const foundName = await result.$eval('span[role="heading"]', (res) => {
+    if (res.textContent?.startsWith("New listing"))
+      return res.textContent.replace("New listing", "");
+    return res.textContent;
+  });
+  const foundPrice = await result.$eval("span[class='s-item__price']", (res) =>
+    res.textContent
+      ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
+      : null,
+  );
+
+  const foundImgContainer = await result.$(
+    "div[class='s-item__image-wrapper image-treatment']",
+  );
+
+  const foundImage = await foundImgContainer?.$eval("img", (img) => img.src);
+
+  if (!foundName || !foundPrice || !foundImage)
+    throw new Error("Could not find name, price, or img");
+
+  return { foundName, foundPrice, foundImage };
 }
 
 let index = 0;

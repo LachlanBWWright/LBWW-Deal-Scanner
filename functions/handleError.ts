@@ -14,7 +14,7 @@ export default function handleError(error: Error, name: string) {
         ":\n\n" +
         error.message +
         "\n\n" +
-        error.stack
+        error.stack,
     );
   }
 }
