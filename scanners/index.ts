@@ -35,7 +35,7 @@ export default async function () {
     );
     await scanEbay(page).catch((err) => handleError(err, "Ebay"));
     await scanGumtree(page).catch((err) => handleError(err, "Gumtree"));
-    await scanSalvos().catch((err) => handleError(err, "Salvos"));
+    await scanSalvos(page).catch((err) => handleError(err, "Salvos"));
 
     //Scans performed at limited intervals
     if (steamScanCnt >= 55) {

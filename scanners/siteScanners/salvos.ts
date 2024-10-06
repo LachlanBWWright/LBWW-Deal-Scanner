@@ -1,83 +1,92 @@
-import axios from "axios";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
+import { Salvos } from "@prisma/client";
+import { Page } from "puppeteer";
 
-export async function scanSalvos() {
+export async function scanSalvos(page: Page) {
   if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
     return;
   setStatus("Scanning Salvos");
 
   const item = await getSalvosQuery();
+  let notificationSent = false;
 
-  let res = await axios.post(
-    "https://jsonapi-au-valkyrie.sajari.com/sajari.api.pipeline.v1.Query/Search",
-    {
-      metadata: {
-        project: ["1638755075284158580"],
-        collection: ["test5"],
-      },
-      request: {
-        pipeline: {
-          name: "app",
-        },
-        tracking: {},
-        values: {
-          q: item.name,
-          resultsPerPage: "10",
-          filter: `(price >= ${item.minPrice ?? "0"} AND price <= ${
-            item.maxPrice ?? "99999"
-          })`,
-          sort: "created", //created (New first ) -created (Old first)
-        },
-      },
-    },
-    {
-      headers: {
-        Origin: "https://www.salvosstores.com.au",
-      },
-    },
-  );
+  const result = await getSalvosValues(page, item);
+  if (!result) return;
 
-  //Cancel if nothing found
-  if (
-    typeof res.data.searchResponse.results === "undefined" ||
-    res.data.searchResponse.results.length <= 0
-  )
-    return;
+  if (result.price > item.maxPrice || result.price < item.minPrice) return;
 
-  let notificationSent = false; //Don't spam notifications if multiple new items
-
-  for (let i = 0; i < res.data.searchResponse.results.length; i++) {
-    const data = res.data.searchResponse.results[i];
-    const name = data.values.name.single;
-    const image = data.values.image.single;
-    const id = data.values.id.single;
-    const slug = data.values.slug.single; // E.G. name = "Xbox One S 1TB Console" slug = "xbox-one-s-1tb-console"
-    const price = data.values.price.single;
-
-    if (!name || !image || !slug || !id || !price) return;
-
-    if (price > item.maxPrice || price < item.minPrice) return;
-
-    if ((await checkIfNew(id, SCANNER.SALVOS)) && i <= 5 && !notificationSent) {
-      sendToChannel(
-        globals.SALVOS_CHANNEL_ID,
-        `<@&${
-          globals.SALVOS_ROLE_ID
-        }> ${getNotificationPrelude()} a ${name} is available for $${price} at https://salvosstores.com.au/shop/p/${slug}/${getUrlCode(
-          id,
-        )}`,
-        { files: [image] },
-      );
-      notificationSent = true;
-    }
+  if ((await checkIfNew(result.image, SCANNER.SALVOS)) && !notificationSent) {
+    sendToChannel(
+      globals.SALVOS_CHANNEL_ID,
+      `<@&${globals.SALVOS_ROLE_ID}> ${getNotificationPrelude()} a ${
+        result.name
+      } is available for $${result.price} at ${result.link}`,
+      { files: [result.image] },
+    );
+    notificationSent = true;
   }
 }
 
+export async function getSalvosValues(page: Page, item: Salvos) {
+  await page.goto(
+    `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(
+      item.name,
+    )}&sorting=newestFirst&price=${item.minPrice ?? 0}-${
+      item.maxPrice ?? 99999
+    }`,
+  );
+
+  const grid = await page.$(
+    "div[class='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-10']",
+  );
+  const pageItem = await grid?.$(
+    "div[class='flex flex-col overflow-hidden rounded shadow-card bg-white h-auto']",
+  );
+
+  if (!pageItem) return;
+
+  const name = await pageItem.$eval(
+    "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
+    (el) => el.textContent,
+  );
+  const link = await pageItem.$eval(
+    "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
+    (el) => el.href,
+  );
+
+  const price = await pageItem.$eval(
+    "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price']",
+    (el) => {
+      return el.textContent ? parseFloat(el.textContent.substring(1)) : null; //Remove leading $1
+    },
+  );
+
+  const image = await pageItem.$eval("img", (img) => img.src);
+
+  if (!name || !price || !image || !link) return;
+  return { name, price, image, link };
+}
+
+let index = 0;
+async function getSalvosQuery() {
+  let query = await db.salvos.findFirst({
+    skip: index++,
+  });
+  if (query) {
+    index++;
+    return query;
+  }
+  index = 1; //Will find the first query in the line below
+  return await db.salvos.findFirstOrThrow();
+}
+
+/* 
+Depreciated - Return to scraping
 function getUrlCode(e: string) {
   const t = "Product";
   if (!e) return "";
@@ -100,16 +109,4 @@ function M(e: string) {
 function m(e: string) {
   return e.replace(/[^A-Za-z0-9\+\/]/g, "");
 }
-
-let index = 0;
-async function getSalvosQuery() {
-  let query = await db.salvos.findFirst({
-    skip: index++,
-  });
-  if (query) {
-    index++;
-    return query;
-  }
-  index = 1; //Will find the first query in the line below
-  return await db.salvos.findFirstOrThrow();
-}
+ */
