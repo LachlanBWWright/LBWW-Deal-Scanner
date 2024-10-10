@@ -18,9 +18,7 @@ export async function scanCSTrade() {
     "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
   );
 
-  const foundItems = res.data.inventory.filter(
-    (item: { app_id: number }) => item.app_id == 730,
-  );
+  const foundItems = await getCsTradeItems();
   const searchItems = await getAllTradeBotItems();
 
   for (const searchItem of searchItems) {
@@ -46,6 +44,16 @@ export async function scanCSTrade() {
       }
     }
   }
+}
+
+export async function getCsTradeItems() {
+  const res = await axios.get(
+    "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
+  );
+
+  return res.data.inventory.filter(
+    (item: { app_id: number }) => item.app_id == 730,
+  );
 }
 
 /* {

@@ -14,8 +14,8 @@ export default async function () {
   console.log("Discord client is ready.");
 
   const browser = await puppeteer.launch({
-    headless: "shell",
     args: ["--no-sandbox"],
+    headless: true,
   });
   let page = await browser.newPage();
 

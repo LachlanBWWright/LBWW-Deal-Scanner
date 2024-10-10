@@ -1,35 +1,20 @@
 import { HTTPResponse, Page } from "puppeteer";
-import globals from "../../globals/Globals.js";
-import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
+import globals from "../globals/Globals.js";
+import setStatus from "../functions/setStatus.js";
+import sendToChannel from "../functions/sendToChannel.js";
+import { getNotificationPrelude } from "../functions/messagePreludes.js";
 import {
   checkIfNewCsItem,
   CsSite,
   getAllTradeBotItems,
-} from "../../functions/csTradeBot.js";
+} from "../functions/csTradeBot.js";
 
 export async function scanCSDeals(page: Page) {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
   setStatus("Scanning CS Deals");
 
-  await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
-  await page.goto("https://cs.deals/trade-skins");
-
-  //New eventlistener replacement
-  let foundResponse;
-  await page.waitForResponse((response) => {
-    if (response.url().endsWith("botsinventory?appid=0")) {
-      foundResponse = response;
-      return true;
-    } else return false;
-  });
-
-  if (!foundResponse) return;
-  foundResponse = <HTTPResponse>foundResponse;
-
-  const foundItems = (await foundResponse.json()).response.items[730];
+  const foundItems = await getCSDealsItems(page);
   const searchItems = await getAllTradeBotItems();
 
   for (const searchItem of searchItems) {
@@ -54,6 +39,25 @@ export async function scanCSDeals(page: Page) {
       }
     }
   }
+}
+
+export async function getCSDealsItems(page: Page) {
+  await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
+  await page.goto("https://cs.deals/trade-skins");
+
+  //New eventlistener replacement
+  let foundResponse;
+  await page.waitForResponse((response) => {
+    if (response.url().endsWith("botsinventory?appid=0")) {
+      foundResponse = response;
+      return true;
+    } else return false;
+  });
+
+  if (!foundResponse) return;
+  foundResponse = <HTTPResponse>foundResponse;
+
+  return (await foundResponse.json()).response; //.response.items[730];
 }
 
 /* 
