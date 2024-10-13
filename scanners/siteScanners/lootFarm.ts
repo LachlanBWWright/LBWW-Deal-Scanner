@@ -15,8 +15,7 @@ export async function scanLootFarm() {
     return;
   setStatus("Scanning loot.farm");
 
-  const res = await axios.get("https://loot.farm/botsInventory_730.json");
-  let items: any = res.data.result;
+  let items = await getLootFarmItems();
 
   const searchItems = await getAllTradeBotItems();
 
@@ -26,30 +25,23 @@ export async function scanLootFarm() {
         searchItem.name.includes(items[skinType].n) &&
         items[skinType].p / 100 <= searchItem.maxPrice
       ) {
-        for (let instance in items[skinType].u) {
+        for (let botNumber in items[skinType].u) {
+          const item = items[skinType].u[botNumber][0];
+          const itemFloat = parseInt(item.f) / 100000;
           if (
-            parseInt(items[skinType].u[instance][0].f) / 100000 >=
-              searchItem.minFloat &&
-            parseInt(items[skinType].u[instance][0].f) / 100000 <=
-              searchItem.maxFloat &&
+            itemFloat >= searchItem.minFloat &&
+            itemFloat <= searchItem.maxFloat &&
             /* If searchItem is StatTrak, check that the found item is also StatTrak */
-            (!searchItem.name.includes("StatTrak") ||
-              items[skinType].u[instance][0].st != undefined)
+            (!searchItem.name.includes("StatTrak") || item.st != undefined)
           ) {
             if (
-              await checkIfNewCsItem(
-                searchItem.name,
-                items[skinType].u[instance][0].f,
-                CsSite.LOOT_FARM,
-              )
+              await checkIfNewCsItem(searchItem.name, item.f, CsSite.LOOT_FARM)
             ) {
               sendToChannel(
                 globals.CS_CHANNEL_ID,
                 `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
                   items[skinType].n
-                } with a float of ${
-                  parseInt(items[skinType].u[instance][0].f) / 100000
-                } is available for $${
+                } with a float of ${itemFloat} is available for $${
                   items[skinType].p / 100
                 } USD at: https://loot.farm/`,
               );
@@ -59,6 +51,11 @@ export async function scanLootFarm() {
       }
     }
   }
+}
+
+export async function getLootFarmItems() {
+  const res = await axios.get("https://loot.farm/botsInventory_730.json");
+  return res.data.result;
 }
 
 /* "27623861":{

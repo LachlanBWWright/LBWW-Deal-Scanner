@@ -1,5 +1,5 @@
 import axios from "axios";
-import puppeteer from "puppeteer";
+import puppeteer, { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -22,22 +22,19 @@ export async function scanSteamQuery() {
     const item = await getSteamQuery();
 
     await sleep(3000);
-    let res = await axios.get(`${item.name}`);
-    if (res.status !== 200) return;
-    let price: number = res.data.results[0].sell_price;
-    for (let instance in res.data.results) {
-      let thisPrice = parseFloat(res.data.results[instance].sell_price) / 100.0;
-      if (thisPrice < price) price = thisPrice;
-      if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
-        sendToChannel(
-          globals.STEAM_QUERY_CHANNEL_ID,
-          `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
-            res.data.results[instance].name
-          } is available for $${price} USD at: ${item.displayUrl}`,
-        );
-        break;
-      }
+
+    const results = await getQueryResults(item.name);
+    const result = results[0];
+    let price = parseFloat(result.sell_price) / 100.0;
+    if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
+      sendToChannel(
+        globals.STEAM_QUERY_CHANNEL_ID,
+        `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
+          result.name
+        } is available for $${price} USD at: ${item.displayUrl}`,
+      );
     }
+
     if (price != item.lastPrice) {
       await db.steamMarket.update({
         where: { name: item.name },
@@ -49,6 +46,12 @@ export async function scanSteamQuery() {
   } catch (e) {
     console.error(e);
   }
+}
+
+export async function getQueryResults(url: string) {
+  let res = await axios.get(url);
+  if (res.status !== 200) throw new Error("Steam query failed");
+  return res.data.results;
 }
 
 //NOTE: This is depreciated currently due to increased ratelimits
@@ -151,59 +154,25 @@ export async function scanCs() {
   }
 }
 
-export async function createQuery(
-  oldQuery: string,
-  maxPrice: number,
-): Promise<[boolean, string]> {
-  let browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox"],
-  });
-  const page = await browser.newPage();
-  let response: [boolean, string];
-  response = [false, ""];
-  try {
-    if (!oldQuery.includes("https://steamcommunity.com/market/search")) {
-      response = [false, ""];
-    }
-
-    let responseUrl = "";
-    let query = new URL(oldQuery);
-    await page.goto(query.toString());
-
-    //New eventlistener replacement
-    await page.waitForResponse((response) => {
-      if (
-        response
-          .url()
-          .includes("https://steamcommunity.com/market/search/render/?query")
-      ) {
-        new URL(query);
-
-        db.steamMarket.create({
-          data: {
-            name: response.url().toString().concat("&norender=1"),
-            displayUrl: oldQuery,
-            maxPrice: maxPrice,
-            lastPrice: 0,
-          },
-        });
-
-        responseUrl = response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
-        return true;
-      }
-      return false;
-    });
-    response = [true, responseUrl];
-  } catch (e) {
-    console.error(e);
-    response = [false, ""];
-  } finally {
-    await page.close();
-    await browser.disconnect();
-    //await browser.close();
-    return response;
+export async function getCsQueryString(page: Page, oldQuery: string) {
+  if (!oldQuery.includes("https://steamcommunity.com/market/search")) {
+    throw new Error("Invalid query");
   }
+
+  //Deliberately not awaited, as response will resolve (and become unavailable) before waitForResponse
+  page.goto(new URL(oldQuery).toString());
+
+  //Promise resolves when response handling function returns true
+  const response = await page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .includes("https://steamcommunity.com/market/search/render/?query"),
+
+    { timeout: 10000 },
+  );
+  await page.waitForNetworkIdle();
+  return response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
 }
 export async function createCs(
   oldQuery: string,
