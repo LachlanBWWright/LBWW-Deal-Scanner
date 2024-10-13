@@ -8,10 +8,14 @@ import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Ebay } from "@prisma/client";
 
+let isAud = true;
+
 export async function scanEbay(page: Page) {
   if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
     return;
-  setStatus("Scanning eBay");
+
+  if (isAud) setStatus("Scanning eBay");
+  else setStatus("Scanning eBay (USD)");
 
   const item = await getEbayQuery();
   await getEbayValues(page, item);
@@ -51,10 +55,20 @@ export async function getEbayValues(page: Page, item: Ebay) {
       return res.textContent.replace("New listing", "");
     return res.textContent;
   });
-  const foundPrice = await result.$eval("span[class='s-item__price']", (res) =>
-    res.textContent
-      ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
-      : null,
+  const foundPrice = await result.$eval(
+    "span[class='s-item__price']",
+    (res) => {
+      if (res.textContent?.startsWith("AU $")) {
+        isAud = true;
+        return res.textContent
+          ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
+          : null;
+      }
+      isAud = false;
+      return res.textContent
+        ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, "")) * 1.55 //Hack currency conversion
+        : null;
+    },
   );
 
   const foundImgContainer = await result.$(
