@@ -11,7 +11,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
   if (search.toString().includes("https://www.cashconverters.com.au/")) {
     await db.cashConverters.create({ data: { url: search.toString() } });
     await interaction.editReply(
-      `${getResponsePrelude()} the search has been created:  + ${search.toString()}`,
+      `${getResponsePrelude()} the search has been created: ${search.toString()}`,
     );
   } else
     interaction.editReply(`${getFailurePrelude()} your search was invalid!`);
