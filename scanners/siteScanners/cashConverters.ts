@@ -27,36 +27,39 @@ export async function scanCashConverters(page: Page) {
       globals.CASH_CONVERTERS_CHANNEL_ID,
       `<@&${globals.CASH_CONVERTERS_ROLE_ID}> ${getNotificationPrelude()} a ${
         foundItem.itemName
-      } for ${formatPrice(foundItem.totalPrice)} is available at ${
-        foundItem.itemName
-      }`,
+      } for ${formatPrice(foundItem.totalPrice)} is available at ${item.url}`,
+      { files: [foundItem.image] }
     );
   }
 }
 
 export async function getCashConvertersValues(
   page: Page,
-  item: CashConverters,
+  item: CashConverters
 ) {
   await page.goto(item.url);
   const selector = await selectorRace(
     page,
     "div[class='product-item']",
-    ".no-search-results__text",
+    ".no-search-results__text"
   );
   if (!selector) return;
-  const itemName = await selector.evaluate((el) => el.textContent);
+
+  const itemName = await selector.$eval(
+    "span[class='product-item__title__description']",
+    (selector) => selector.textContent
+  );
   if (!itemName) return;
 
   const price = await selector.$eval(".product-item__price", (selector) =>
     //Slice removes the '$'
-    selector.textContent ? parseFloat(selector.textContent.slice(1)) : null,
+    selector.textContent ? parseFloat(selector.textContent.slice(1)) : null
   );
   if (!price) return;
 
   const shipping = await selector.$eval(".product-item__postage", (selector) =>
     //Slice removes the '+ $'
-    selector.textContent ? parseFloat(selector.textContent.slice(3)) : null,
+    selector.textContent ? parseFloat(selector.textContent.slice(3)) : null
   );
   if (shipping === null) return;
 
