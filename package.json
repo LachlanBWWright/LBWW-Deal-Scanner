@@ -8,7 +8,7 @@
     "start": "tsc && node build/index.js",
     "build": "tsc",
     "test": "vitest",
-    "heroku-postbuild": "npm i @libsql/linux-x64-gnu && tsc && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache",
+    "heroku-postbuild": "npm i @libsql/linux-x64-gnu && npm i && tsc && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache",
     "test:browser": "vitest --workspace=vitest.workspace.ts"
   },
   "keywords": [],
@@ -30,6 +30,6 @@
     "playwright": "^1.47.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.2"
+    "vitest": "^2.1.8"
   }
 }
