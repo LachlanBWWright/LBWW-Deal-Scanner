@@ -220,7 +220,6 @@ async function getSteamQuery() {
     skip: steamQueryIndex++,
   });
   if (query) {
-    steamQueryIndex++;
     return query;
   }
   steamQueryIndex = 1; //Will find the first query in the line below
@@ -233,7 +232,6 @@ async function getCsMarketQuery() {
     skip: csMarketIndex++,
   });
   if (query) {
-    csMarketIndex++;
     return query;
   }
   csMarketIndex = 1; //Will find the first query in the line below

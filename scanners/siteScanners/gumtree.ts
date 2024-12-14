@@ -78,7 +78,6 @@ async function getGumtreeQuery() {
     skip: index++,
   });
   if (query) {
-    index++;
     return query;
   }
   index = 1; //Will find the first query in the line below
