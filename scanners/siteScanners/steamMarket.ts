@@ -32,6 +32,10 @@ export async function scanSteamQuery() {
         `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
           result.name
         } is available for $${price} USD at: ${item.displayUrl}`,
+        {
+          queryId: item.name,
+          queryType: 'steamMarket'
+        },
       );
     }
 
@@ -91,6 +95,10 @@ export async function scanCs() {
           } with float ${
             res.data.iteminfo.floatvalue
           } is available for $${price} USD at: ${item.displayUrl}`,
+          {
+            queryId: item.url,
+            queryType: 'csMarket'
+          },
         );
       }
 
@@ -132,6 +140,10 @@ export async function scanCs() {
                     } with float ${
                       res.data.iteminfo.floatvalue
                     } is available for $${price} USD at: ${item.displayUrl}`,
+                    {
+                      queryId: item.url,
+                      queryType: 'csMarket'
+                    },
                   );
                 }
               })

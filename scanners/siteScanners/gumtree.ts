@@ -30,7 +30,11 @@ export async function scanGumtree(page: Page) {
       `<@&${globals.GUMTREE_ROLE_ID}>${getNotificationPrelude()} a ${
         result.foundName
       } priced at $${result.foundPrice} is available at ${item.url}`,
-      { files: [result.foundImg] },
+      { 
+        files: [result.foundImg],
+        queryId: item.url,
+        queryType: 'gumtree'
+      },
     );
 }
 

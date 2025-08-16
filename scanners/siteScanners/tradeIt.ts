@@ -70,6 +70,10 @@ export async function scanTradeIt() {
                 } with a float of ${bestFloat} is available for $${
                   foundItem.price / 100.0
                 } USD at: https://tradeit.gg/csgo/trade`,
+                {
+                  queryId: searchItem.name,
+                  queryType: 'csTradeBot'
+                },
               );
             }
           }

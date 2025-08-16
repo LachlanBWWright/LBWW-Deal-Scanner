@@ -39,6 +39,10 @@ export async function scanCSTrade() {
             } with a float of ${foundItem.wear} is available for $${
               foundItem.price
             } USD at: https://cs.trade/`,
+            {
+              queryId: searchItem.name,
+              queryType: 'csTradeBot'
+            },
           );
         }
       }

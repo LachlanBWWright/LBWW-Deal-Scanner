@@ -2,6 +2,7 @@ import { REST, Routes, Events } from "discord.js";
 import globals, { initGlobals } from "./globals/Globals.js";
 import runScan from "./scanners/index.js";
 import { commandHandler, commandList } from "./commandManager/index.js";
+import { buttonInteractionHandler } from "./commandManager/buttonHandler.js";
 import client from "./globals/DiscordJSClient.js";
 
 //Main function
@@ -23,7 +24,13 @@ async function run() {
   client.once("ready", runScan);
 
   //Runs upon a user creating a command
-  client.on(Events.InteractionCreate, commandHandler);
+  client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+      await commandHandler(interaction);
+    } else if (interaction.isButton()) {
+      await buttonInteractionHandler(interaction);
+    }
+  });
 
   //Starts DiscordJS server
   client.login(globals.DISCORD_TOKEN);

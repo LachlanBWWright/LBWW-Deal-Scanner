@@ -44,6 +44,10 @@ export async function scanLootFarm() {
                 } with a float of ${itemFloat} is available for $${
                   items[skinType].p / 100
                 } USD at: https://loot.farm/`,
+                {
+                  queryId: searchItem.name,
+                  queryType: 'csTradeBot'
+                },
               );
             }
           }

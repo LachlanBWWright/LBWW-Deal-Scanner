@@ -32,7 +32,11 @@ export async function scanEbay(page: Page) {
       }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
         item.url
       }`,
-      { files: [foundImage] },
+      { 
+        files: [foundImage],
+        queryId: item.url,
+        queryType: 'ebay'
+      },
     );
   }
 }
