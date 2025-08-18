@@ -1,1 +1,6 @@
-// Unit tests for setStatus.ts
+import { describe, it } from "vitest";
+describe("setStatus.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

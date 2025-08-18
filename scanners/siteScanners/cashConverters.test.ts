@@ -16,3 +16,9 @@ test("cash converters scanner", async () => {
   });
   console.log(result);
 });
+import { describe, it } from "vitest";
+describe("cashConverters.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

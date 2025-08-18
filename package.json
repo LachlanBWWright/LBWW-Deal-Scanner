@@ -5,10 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "tsc && node build/index.js",
-    "build": "tsc",
+    "dev": "vite-node index.ts",
+    "build": "vite build",
+    "start": "node build/index.js",
     "test": "vitest",
-    "heroku-postbuild": "npm i @libsql/linux-x64-gnu && npm i && tsc && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache",
+    "heroku-postbuild": "npm i @libsql/linux-x64-gnu && npm i && vite build && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache",
     "test:browser": "vitest --workspace=vitest.workspace.ts"
   },
   "keywords": [],
@@ -31,6 +32,9 @@
     "playwright": "^1.47.2",
     "prisma": "^6.14.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vite": "^5.4.19",
+    "vite-node": "^3.2.4",
+    "vite-plugin-node-externals": "^0.0.1"
   }
 }

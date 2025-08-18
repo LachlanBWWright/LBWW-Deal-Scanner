@@ -1,1 +1,6 @@
-// Unit tests for sendToChannel.ts
+import { describe, it } from "vitest";
+describe("sendToChannel.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

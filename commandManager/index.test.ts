@@ -1,1 +1,6 @@
-// Unit tests for index.ts in commandManager/
+import { describe, it } from "vitest";
+describe("commandManager/index.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

@@ -1,1 +1,6 @@
-// Unit tests for formatPrice.ts
+import { describe, it } from "vitest";
+describe("formatPrice.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

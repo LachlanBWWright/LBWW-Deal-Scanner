@@ -1,1 +1,6 @@
-// Unit tests for DiscordJSClient.ts
+import { describe, it } from "vitest";
+describe("DiscordJSClient.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

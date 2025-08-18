@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer";
 import { getEbayValues } from "./ebay";
-import { test } from "vitest";
+import { describe, it, test } from "vitest";
 
 test("ebay scanner", async () => {
   const browser = await puppeteer.launch({

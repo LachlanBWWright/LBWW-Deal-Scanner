@@ -1,1 +1,6 @@
-// Unit tests for Globals.ts
+import { describe, it } from "vitest";
+describe("Globals.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

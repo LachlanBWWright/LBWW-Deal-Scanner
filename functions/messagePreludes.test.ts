@@ -1,1 +1,6 @@
-// Unit tests for messagePreludes.ts
+import { describe, it } from "vitest";
+describe("messagePreludes.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

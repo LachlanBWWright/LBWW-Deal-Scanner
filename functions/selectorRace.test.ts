@@ -1,1 +1,6 @@
-// Unit tests for selectorRace.ts
+import { describe, it } from "vitest";
+describe("selectorRace.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});
