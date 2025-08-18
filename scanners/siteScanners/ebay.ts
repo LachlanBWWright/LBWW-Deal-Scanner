@@ -32,10 +32,10 @@ export async function scanEbay(page: Page) {
       }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
         item.url
       }`,
-      { 
+      {
         files: [foundImage],
         queryId: item.url,
-        queryType: 'ebay'
+        queryType: "ebay",
       },
     );
   }
@@ -44,12 +44,20 @@ export async function scanEbay(page: Page) {
 export async function getEbayValues(page: Page, item: Ebay) {
   await page.goto(item.url);
 
+  console.log("test 1");
+  console.log(page);
+
+  const test = await page.title();
+  console.log(test);
+
   const selector = await selectorRace(
     page,
-    "div[class='srp-river-results clearfix']",
+    "div[class='srp-river']",
     ".srp-save-null-search__heading",
   );
   if (!selector) throw new Error("Missing eBay selector");
+
+  console.log("test 2");
 
   const result = await selector.$("li[class='s-item s-item__pl-on-bottom']");
   if (!result) throw new Error("Missing eBay");
