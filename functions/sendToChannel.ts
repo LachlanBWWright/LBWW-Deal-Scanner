@@ -1,4 +1,11 @@
-import { ChannelType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import {
+  ChannelType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  MessagePayload,
+  MessagePayloadOption,
+} from "discord.js";
 import client from "../globals/DiscordJSClient.js";
 
 interface sendToChannelOptions {
@@ -10,7 +17,7 @@ interface sendToChannelOptions {
 export default async function sendToChannel(
   channelId: string,
   message: string,
-  { files, queryId, queryType }: sendToChannelOptions = {} //Optional param for embedding images
+  { files, queryId, queryType }: sendToChannelOptions = {}, //Optional param for embedding images
 ) {
   const channel = await client.channels.fetch(channelId);
 
@@ -19,7 +26,7 @@ export default async function sendToChannel(
   if (channel.type !== ChannelType.GuildText)
     throw new Error(`Channel with id ${channelId} is not a text channel`);
 
-  const messageOptions: any = {
+  const messageOptions: MessagePayloadOption = {
     content: message,
     ...(files && { files: files }),
   };
@@ -28,15 +35,18 @@ export default async function sendToChannel(
   if (queryId && queryType) {
     const deleteButton = new ButtonBuilder()
       .setCustomId(`delete_query_${queryType}_${queryId}`)
-      .setLabel('Delete Query')
+      .setLabel("Delete Query")
       .setStyle(ButtonStyle.Danger);
 
-    const row = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(deleteButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      deleteButton,
+    );
 
     messageOptions.components = [row];
   }
 
+  const messagePayload = new MessagePayload(channel, messageOptions); // Create a new MessagePayload instance to ensure proper formatting
+
   //https://discord.js.org/docs/packages/discord.js/14.14.1/BaseGuildTextChannel:Class#send
-  await channel.send(messageOptions);
+  await channel.send(messagePayload);
 }
