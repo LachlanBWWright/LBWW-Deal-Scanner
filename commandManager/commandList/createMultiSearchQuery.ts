@@ -31,3 +31,33 @@ export default new SlashCommandBuilder()
       )
       .setRequired(false),
   );
+
+export const editmultisearchquery = new SlashCommandBuilder()
+  .setName("editmultisearchquery")
+  .setDescription("Edit an existing multi-search saved query")
+  .addStringOption((option) =>
+    option
+      .setName("id")
+      .setDescription("ID of the saved query to edit")
+      .setRequired(true),
+  )
+  .addStringOption((option) =>
+    option
+      .setName("query")
+      .setDescription("New query string")
+      .setRequired(true),
+  );
+
+export const deletemultisearchquery = new SlashCommandBuilder()
+  .setName("deletemultisearchquery")
+  .setDescription("Delete an existing multi-search saved query")
+  .addStringOption((option) =>
+    option
+      .setName("id")
+      .setDescription("ID of the saved query to delete")
+      .setRequired(true),
+  );
+
+export const viewmultisearchqueries = new SlashCommandBuilder()
+  .setName("viewmultisearchqueries")
+  .setDescription("List all saved multi-search queries");
