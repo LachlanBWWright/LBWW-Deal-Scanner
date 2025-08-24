@@ -7,6 +7,10 @@ import {
   MessagePayloadOption,
 } from "discord.js";
 import client from "../globals/DiscordJSClient.js";
+import {
+  actionRegistry,
+  generateRandomKey,
+} from "../commandManager/actionRegistry.js";
 
 interface sendToChannelOptions {
   files?: string[];
@@ -33,8 +37,17 @@ export default async function sendToChannel(
 
   // Add delete button if query info is provided
   if (queryId && queryType) {
+    const actionKey = generateRandomKey();
+    const now = Date.now();
+    actionRegistry.set(actionKey, {
+      type: "delete",
+      queryType,
+      queryId,
+      timestamp: now,
+    });
+
     const deleteButton = new ButtonBuilder()
-      .setCustomId(`delete_query_${queryType}_${queryId}`)
+      .setCustomId(actionKey)
       .setLabel("Delete Query")
       .setStyle(ButtonStyle.Danger);
 
@@ -43,6 +56,12 @@ export default async function sendToChannel(
     );
 
     messageOptions.components = [row];
+
+    // cleanup old actions (10 minutes)
+    const tenMinutesAgo = now - 10 * 60 * 1000;
+    for (const [key, value] of actionRegistry.entries()) {
+      if (value.timestamp < tenMinutesAgo) actionRegistry.delete(key);
+    }
   }
 
   const messagePayload = new MessagePayload(channel, messageOptions); // Create a new MessagePayload instance to ensure proper formatting

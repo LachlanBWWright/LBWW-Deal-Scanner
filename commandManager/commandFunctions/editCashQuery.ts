@@ -35,7 +35,7 @@ export default async function editCashQuery(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} invalid URL or database error.`,
+  `${getFailurePrelude()} invalid URL or database error: ${err}`,
     );
   }
 }

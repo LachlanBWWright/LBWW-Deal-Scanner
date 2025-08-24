@@ -6,15 +6,17 @@ import {
 } from "discord.js";
 import { db } from "../globals/PrismaClient.js";
 import {
+  actionRegistry,
+  generateRandomKey,
+  ActionData,
+} from "./actionRegistry.js";
+import {
   getResponsePrelude,
   getFailurePrelude,
 } from "../functions/messagePreludes.js";
 
-// Store pending deletions with user ID and timestamp
-const pendingDeletions = new Map<
-  string,
-  { queryType: string; queryId: string; timestamp: number }
->();
+// Global action registry for button actions
+// Use shared actionRegistry and generateRandomKey from actionRegistry.ts
 
 export async function buttonInteractionHandler(interaction: ButtonInteraction) {
   try {
@@ -22,11 +24,23 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
 
     const customId = interaction.customId;
 
-    if (customId.startsWith("delete_query_")) {
-      await handleDeleteQuery(interaction);
-    } else if (customId.startsWith("confirm_delete_")) {
-      await handleConfirmDelete(interaction);
-    } else if (customId.startsWith("cancel_delete_")) {
+    // customId is now the short action key
+    const actionKey = customId;
+    const action = actionRegistry.get(actionKey);
+    if (!action) {
+      await interaction.editReply({
+        content: `${getFailurePrelude()} This action has expired or is invalid.`,
+      });
+      return;
+    }
+
+    // Dispatch based on stored action type
+    if (action.type === "delete") {
+      // For delete we open a confirmation dialog (create confirm/cancel actions)
+      await handleDeleteQuery(interaction, actionKey);
+    } else if (action.type === "confirm_delete") {
+      await handleConfirmDelete(interaction, actionKey);
+    } else if (action.type === "cancel_delete") {
       await handleCancelDelete(interaction);
     }
   } catch (error) {
@@ -41,36 +55,51 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
   }
 }
 
-async function handleDeleteQuery(interaction: ButtonInteraction) {
-  const customId = interaction.customId;
-  const parts = customId.split("_");
-
-  if (parts.length < 4) {
+async function handleDeleteQuery(
+  interaction: ButtonInteraction,
+  actionKey: string,
+) {
+  const action = actionRegistry.get(actionKey);
+  if (!action) {
     await interaction.editReply({
-      content: `${getFailurePrelude()} Invalid button format.`,
+      content: `${getFailurePrelude()} Invalid or expired action.`,
+      components: [],
     });
     return;
   }
 
-  const queryType = parts[2];
-  const queryId = parts.slice(3).join("_"); // Rejoin in case URL contains underscores
+  const { queryType, queryId } = action;
 
-  // Store pending deletion
-  const pendingKey = `${interaction.user.id}_${Date.now()}`;
-  pendingDeletions.set(pendingKey, {
-    queryType,
-    queryId,
-    timestamp: Date.now(),
+  // Create confirmation buttons which reference new short keys
+  const confirmKey = generateRandomKey();
+  const cancelKey = generateRandomKey();
+  const now = Date.now();
+
+  actionRegistry.set(confirmKey, {
+    type: "confirm_delete",
+    queryType: action.queryType,
+    queryId: action.queryId,
+    userId: interaction.user.id,
+    timestamp: now,
+    relatedKey: actionKey,
   });
 
-  // Create confirmation buttons
+  actionRegistry.set(cancelKey, {
+    type: "cancel_delete",
+    queryType: action.queryType,
+    queryId: action.queryId,
+    userId: interaction.user.id,
+    timestamp: now,
+    relatedKey: actionKey,
+  });
+
   const confirmButton = new ButtonBuilder()
-    .setCustomId(`confirm_delete_${pendingKey}`)
+    .setCustomId(confirmKey)
     .setLabel("Yes, Delete Query")
     .setStyle(ButtonStyle.Danger);
 
   const cancelButton = new ButtonBuilder()
-    .setCustomId(`cancel_delete_${pendingKey}`)
+    .setCustomId(cancelKey)
     .setLabel("Cancel")
     .setStyle(ButtonStyle.Secondary);
 
@@ -84,21 +113,21 @@ async function handleDeleteQuery(interaction: ButtonInteraction) {
     components: [row],
   });
 
-  // Clean up old pending deletions (older than 10 minutes)
-  const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-  for (const [key, value] of pendingDeletions.entries()) {
+  // Clean up old actions (older than 10 minutes)
+  const tenMinutesAgo = now - 10 * 60 * 1000;
+  for (const [key, value] of actionRegistry.entries()) {
     if (value.timestamp < tenMinutesAgo) {
-      pendingDeletions.delete(key);
+      actionRegistry.delete(key);
     }
   }
 }
 
-async function handleConfirmDelete(interaction: ButtonInteraction) {
-  const customId = interaction.customId;
-  const pendingKey = customId.replace("confirm_delete_", "");
-
-  const pendingDeletion = pendingDeletions.get(pendingKey);
-  if (!pendingDeletion) {
+async function handleConfirmDelete(
+  interaction: ButtonInteraction,
+  actionKey: string,
+) {
+  const actionData = actionRegistry.get(actionKey);
+  if (!actionData || actionData.type !== "confirm_delete") {
     await interaction.editReply({
       content: `${getFailurePrelude()} This deletion request has expired or is invalid.`,
       components: [],
@@ -106,7 +135,7 @@ async function handleConfirmDelete(interaction: ButtonInteraction) {
     return;
   }
 
-  const { queryType, queryId } = pendingDeletion;
+  const { queryType, queryId } = actionData;
 
   try {
     // Delete from database based on query type
@@ -159,7 +188,9 @@ async function handleConfirmDelete(interaction: ButtonInteraction) {
         throw new Error(`Unknown query type: ${queryType}`);
     }
 
-    pendingDeletions.delete(pendingKey);
+    // Remove the confirm action and its related pending action
+    actionRegistry.delete(actionKey);
+    if (actionData.relatedKey) actionRegistry.delete(actionData.relatedKey);
 
     if (deleted) {
       await interaction.editReply({
@@ -168,7 +199,7 @@ async function handleConfirmDelete(interaction: ButtonInteraction) {
       });
     }
   } catch (error: unknown) {
-    pendingDeletions.delete(pendingKey);
+    actionRegistry.delete(actionKey);
     console.error("Delete query error:", error);
 
     // Narrow error shape for Prisma
@@ -191,10 +222,10 @@ async function handleConfirmDelete(interaction: ButtonInteraction) {
 }
 
 async function handleCancelDelete(interaction: ButtonInteraction) {
-  const customId = interaction.customId;
-  const pendingKey = customId.replace("cancel_delete_", "");
-
-  pendingDeletions.delete(pendingKey);
+  const actionKey = interaction.customId;
+  const action = actionRegistry.get(actionKey);
+  if (action?.relatedKey) actionRegistry.delete(action.relatedKey);
+  actionRegistry.delete(actionKey);
 
   await interaction.editReply({
     content: `Deletion cancelled.`,

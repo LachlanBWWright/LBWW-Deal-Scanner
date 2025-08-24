@@ -28,7 +28,7 @@ export default async function viewMultiSearchQueries(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} database error while fetching queries.`,
+  `${getFailurePrelude()} database error while fetching queries: ${err}`,
     );
   }
 }

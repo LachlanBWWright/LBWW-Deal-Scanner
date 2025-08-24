@@ -39,7 +39,7 @@ export default async function editSalvosQuery(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} database error while updating.`,
+  `${getFailurePrelude()} database error while updating: ${err}`,
     );
   }
 }

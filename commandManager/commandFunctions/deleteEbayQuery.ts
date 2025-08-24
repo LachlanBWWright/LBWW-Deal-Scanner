@@ -29,7 +29,7 @@ export default async function deleteEbayQuery(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} database error while deleting.`,
+  `${getFailurePrelude()} database error while deleting: ${err}`,
     );
   }
 }

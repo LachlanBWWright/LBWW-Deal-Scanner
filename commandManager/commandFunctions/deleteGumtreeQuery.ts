@@ -29,7 +29,7 @@ export default async function deleteGumtreeQuery(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} database error while deleting.`,
+  `${getFailurePrelude()} database error while deleting: ${err}`,
     );
   }
 }

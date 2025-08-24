@@ -38,7 +38,7 @@ export default async function editSCMQuery(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} invalid URL or database error.`,
+  `${getFailurePrelude()} invalid URL or database error: ${err}`,
     );
   }
 }

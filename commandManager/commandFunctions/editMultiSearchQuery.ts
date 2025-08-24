@@ -51,7 +51,7 @@ export default async function editMultiSearchQuery(
     );
   } catch (err) {
     await interaction.editReply(
-      `${getFailurePrelude()} database error while updating.`,
+  `${getFailurePrelude()} database error while updating: ${err}`,
     );
   }
 }
