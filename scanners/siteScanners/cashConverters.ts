@@ -1,4 +1,4 @@
-import { Page } from "puppeteer";
+import { Page } from "playwright";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
@@ -49,25 +49,24 @@ export async function getCashConvertersValues(
   );
   if (!selector) return;
 
-  const itemName = await selector.$eval(
+  const itemName = await selector.locator(
     "span[class='product-item__title__description']",
-    (selector) => selector.textContent,
-  );
+  ).evaluate((selector) => selector.textContent);
   if (!itemName) return;
 
-  const price = await selector.$eval(".product-item__price", (selector) =>
+  const price = await selector.locator(".product-item__price").evaluate((selector) =>
     //Slice removes the '$'
     selector.textContent ? parseFloat(selector.textContent.slice(1)) : null,
   );
   if (!price) return;
 
-  const shipping = await selector.$eval(".product-item__postage", (selector) =>
+  const shipping = await selector.locator(".product-item__postage").evaluate((selector) =>
     //Slice removes the '+ $'
     selector.textContent ? parseFloat(selector.textContent.slice(3)) : null,
   );
   if (shipping === null) return;
 
-  const image = await selector.$eval("img", (img) => img.src);
+  const image = await selector.locator("img").evaluate((img: HTMLImageElement) => img.src);
 
   const totalPrice = price + (isNaN(shipping) ? 0 : shipping);
 

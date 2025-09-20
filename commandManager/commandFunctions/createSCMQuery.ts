@@ -5,21 +5,21 @@ import {
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
-import puppeteer from "puppeteer";
+import { chromium } from "playwright";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
   let maxPrice = interaction.options.getNumber("maxprice") || 1;
 
-  const browser = await puppeteer.launch({
-    headless: "shell",
+  const browser = await chromium.launch({
+    headless: true,
     args: ["--no-sandbox"],
   });
   let page = await browser.newPage();
   try {
     const newUrl = await getCsQueryString(page, query);
 
-    db.steamMarket.create({
+    await db.steamMarket.create({
       data: {
         name: newUrl,
         displayUrl: query,
@@ -28,12 +28,9 @@ export default async function (interaction: ChatInputCommandInteraction) {
       },
     });
 
-    if (status)
-      await interaction.editReply(
-        `${getResponsePrelude()}, the item was added successfully! URL generated: ${newUrl}`,
-      );
-    else
-      await interaction.editReply(`${getFailurePrelude()} the URL is invalid!`);
+    await interaction.editReply(
+      `${getResponsePrelude()}, the item was added successfully! URL generated: ${newUrl}`,
+    );
   } catch (e) {
     await interaction.editReply(`${getFailurePrelude()} the URL is invalid!`);
   }

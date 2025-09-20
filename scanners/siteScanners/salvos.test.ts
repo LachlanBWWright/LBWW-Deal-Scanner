@@ -4,13 +4,13 @@ describe("salvos.ts", () => {
     // TODO: implement test
   });
 });
-import puppeteer from "puppeteer";
+import { chromium } from "playwright";
 import { test } from "vitest";
 import { getSalvosValues } from "./salvos";
 
 test("salvos scanner", async () => {
-  const browser = await puppeteer.launch({
-    headless: "shell",
+  const browser = await chromium.launch({
+    headless: true,
     args: ["--no-sandbox"],
   });
   let page = await browser.newPage();

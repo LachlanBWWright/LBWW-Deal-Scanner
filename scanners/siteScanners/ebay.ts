@@ -1,4 +1,4 @@
-import { Page } from "puppeteer";
+import { Page } from "playwright";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
@@ -59,16 +59,15 @@ export async function getEbayValues(page: Page, item: Ebay) {
 
   console.log("test 2");
 
-  const result = await selector.$("li[class='s-item s-item__pl-on-bottom']");
-  if (!result) throw new Error("Missing eBay");
+  const result = selector.locator("li[class='s-item s-item__pl-on-bottom']").first();
+  if (!(await result.count())) throw new Error("Missing eBay");
 
-  const foundName = await result.$eval('span[role="heading"]', (res) => {
+  const foundName = await result.locator('span[role="heading"]').evaluate((res) => {
     if (res.textContent?.startsWith("New listing"))
       return res.textContent.replace("New listing", "");
     return res.textContent;
   });
-  const foundPrice = await result.$eval(
-    "span[class='s-item__price']",
+  const foundPrice = await result.locator("span[class='s-item__price']").evaluate(
     (res) => {
       if (res.textContent?.startsWith("AU $")) {
         isAud = true;
@@ -83,11 +82,11 @@ export async function getEbayValues(page: Page, item: Ebay) {
     },
   );
 
-  const foundImgContainer = await result.$(
+  const foundImgContainer = result.locator(
     "div[class='s-item__image-wrapper image-treatment']",
   );
 
-  const foundImage = await foundImgContainer?.$eval("img", (img) => img.src);
+  const foundImage = await foundImgContainer.locator("img").evaluate((img: HTMLImageElement) => img.src);
 
   if (!foundName || !foundPrice || !foundImage)
     throw new Error("Could not find name, price, or img");

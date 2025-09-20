@@ -1,10 +1,10 @@
-import puppeteer from "puppeteer";
+import { chromium } from "playwright";
 import { test } from "vitest";
 import { getCsQueryString, getQueryResults } from "./steamMarket";
 
 test("steam query scanner", async () => {
-  const browser = await puppeteer.launch({
-    headless: "shell",
+  const browser = await chromium.launch({
+    headless: true,
     args: ["--no-sandbox"],
   });
   let page = await browser.newPage();

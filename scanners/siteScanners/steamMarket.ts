@@ -1,5 +1,5 @@
 import axios from "axios";
-import puppeteer, { Page } from "puppeteer";
+import { chromium, Page } from "playwright";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -183,7 +183,7 @@ export async function getCsQueryString(page: Page, oldQuery: string) {
 
     { timeout: 10000 },
   );
-  await page.waitForNetworkIdle();
+  await page.waitForLoadState('networkidle');
   return response.url().toString().concat("&norender=1"); //Makes it JSON instead of html
 }
 export async function createCs(

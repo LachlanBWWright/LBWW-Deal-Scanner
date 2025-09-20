@@ -7,13 +7,13 @@ import { scanSalvos } from "./siteScanners/salvos.js";
 import { scanEbay } from "./siteScanners/ebay.js";
 import { scanGumtree } from "./siteScanners/gumtree.js";
 import handleError from "../functions/handleError.js";
-import puppeteer from "puppeteer";
+import { chromium } from "playwright";
 import { memoryUsage } from "node:process";
 
 export default async function () {
   console.log("Discord client is ready.");
 
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     args: ["--no-sandbox"],
     headless: true,
   });

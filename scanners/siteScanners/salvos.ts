@@ -5,7 +5,7 @@ import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Salvos } from "@prisma/client";
-import { Page } from "puppeteer";
+import { Page } from "playwright";
 
 export async function scanSalvos(page: Page) {
   if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
@@ -45,32 +45,29 @@ export async function getSalvosValues(page: Page, item: Salvos) {
     }`,
   );
 
-  const grid = await page.$(
+  const grid = page.locator(
     "div[class='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-10']",
   );
-  const pageItem = await grid?.$(
+  const pageItem = grid.locator(
     "div[class='flex flex-col overflow-hidden rounded shadow-card bg-white h-auto']",
-  );
+  ).first();
 
-  if (!pageItem) return;
+  if (!(await pageItem.count())) return;
 
-  const name = await pageItem.$eval(
+  const name = await pageItem.locator(
     "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
-    (el) => el.textContent,
-  );
-  const link = await pageItem.$eval(
+  ).evaluate((el) => el.textContent);
+  const link = await pageItem.locator(
     "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
-    (el) => el.href,
-  );
+  ).evaluate((el: HTMLAnchorElement) => el.href);
 
-  const price = await pageItem.$eval(
+  const price = await pageItem.locator(
     "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price']",
-    (el) => {
-      return el.textContent ? parseFloat(el.textContent.substring(1)) : null; //Remove leading $1
-    },
-  );
+  ).evaluate((el) => {
+    return el.textContent ? parseFloat(el.textContent.substring(1)) : null; //Remove leading $1
+  });
 
-  const image = await pageItem.$eval("img", (img) => img.src);
+  const image = await pageItem.locator("img").evaluate((img: HTMLImageElement) => img.src);
 
   if (!name || !price || !image || !link) return;
   return { name, price, image, link };

@@ -1,9 +1,9 @@
-import puppeteer from "puppeteer";
+import { chromium } from "playwright";
 import { getEbayValues } from "./ebay";
 import { test } from "vitest";
 
 test("ebay scanner", async () => {
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     //args: ["--no-sandbox"],
     headless: true,
   });

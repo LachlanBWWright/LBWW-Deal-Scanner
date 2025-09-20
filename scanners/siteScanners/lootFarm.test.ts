@@ -1,4 +1,3 @@
-import puppeteer from "puppeteer";
 import { test } from "vitest";
 import { getLootFarmItems } from "./lootFarm";
 

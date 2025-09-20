@@ -1,4 +1,4 @@
-import { HTTPResponse, Page } from "puppeteer";
+import { Response, Page } from "playwright";
 import globals from "../globals/Globals.js";
 import setStatus from "../functions/setStatus.js";
 import sendToChannel from "../functions/sendToChannel.js";
@@ -47,7 +47,7 @@ export async function getCSDealsItems(page: Page) {
 
   //New eventlistener replacement
   let foundResponse;
-  await page.waitForResponse((response) => {
+  await page.waitForResponse((response: Response) => {
     if (response.url().endsWith("botsinventory?appid=0")) {
       foundResponse = response;
       return true;
@@ -55,7 +55,7 @@ export async function getCSDealsItems(page: Page) {
   });
 
   if (!foundResponse) return;
-  foundResponse = <HTTPResponse>foundResponse;
+  foundResponse = <Response>foundResponse;
 
   return (await foundResponse.json()).response; //.response.items[730];
 }
