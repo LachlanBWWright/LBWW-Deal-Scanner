@@ -1,3 +1,6 @@
 .env
 node_modules/
 build/
+prisma/dev.db
+prisma/test.db
+*.db-journal
