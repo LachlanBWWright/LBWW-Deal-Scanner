@@ -18,7 +18,7 @@ test("gumtree scanner", async () => {
   });
   let page = await browser.newPage();
   const results = await getGumtreeValues(page, {
-    url: "https://www.gumtree.com.au/s-xbox/ballarat-city/k0c21119l3000626r10",
+    url: "https://www.gumtree.com.au/s-playstation/ballarat-city/ps4/k0c18617l3000626r10",
     maxPrice: 50,
   });
   console.log(results);

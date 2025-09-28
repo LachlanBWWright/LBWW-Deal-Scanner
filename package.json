@@ -10,7 +10,9 @@
     "start": "node build/index.js",
     "test": "vitest",
     "heroku-postbuild": "npm i @libsql/linux-x64-gnu && npm i && vite build && mkdir ./.cache && mv /app/.cache/puppeteer ./.cache",
-    "test:browser": "vitest --workspace=vitest.workspace.ts"
+    "test:browser": "vitest --workspace=vitest.workspace.ts",
+    "lint": "eslint --ext .ts,.js .",
+    "lint:fix": "eslint --ext .ts,.js . --fix"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +37,11 @@
     "typescript": "^5.7.2",
     "vite": "^5.4.19",
     "vite-node": "^3.2.4",
-    "vite-plugin-node-externals": "^0.0.1"
+    "vite-plugin-node-externals": "^0.0.1",
+    "eslint": "^8.50.0",
+    "@typescript-eslint/parser": "^6.6.0",
+    "@typescript-eslint/eslint-plugin": "^6.6.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vitest": "^1.0.0"
   }
 }
