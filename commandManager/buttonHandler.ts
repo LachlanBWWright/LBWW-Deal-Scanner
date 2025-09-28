@@ -26,7 +26,7 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
 
     // customId is now the short action key
     const actionKey = customId;
-    const action = actionRegistry.get(actionKey);
+    const action = await actionRegistry.get(actionKey);
     if (!action) {
       await interaction.editReply({
         content: `${getFailurePrelude()} This action has expired or is invalid.`,
@@ -59,7 +59,7 @@ async function handleDeleteQuery(
   interaction: ButtonInteraction,
   actionKey: string,
 ) {
-  const action = actionRegistry.get(actionKey);
+  const action = await actionRegistry.get(actionKey);
   if (!action) {
     await interaction.editReply({
       content: `${getFailurePrelude()} Invalid or expired action.`,
@@ -75,7 +75,7 @@ async function handleDeleteQuery(
   const cancelKey = generateRandomKey();
   const now = Date.now();
 
-  actionRegistry.set(confirmKey, {
+  await actionRegistry.set(confirmKey, {
     type: "confirm_delete",
     queryType: action.queryType,
     queryId: action.queryId,
@@ -84,7 +84,7 @@ async function handleDeleteQuery(
     relatedKey: actionKey,
   });
 
-  actionRegistry.set(cancelKey, {
+  await actionRegistry.set(cancelKey, {
     type: "cancel_delete",
     queryType: action.queryType,
     queryId: action.queryId,
@@ -114,19 +114,14 @@ async function handleDeleteQuery(
   });
 
   // Clean up old actions (older than 10 minutes)
-  const tenMinutesAgo = now - 10 * 60 * 1000;
-  for (const [key, value] of actionRegistry.entries()) {
-    if (value.timestamp < tenMinutesAgo) {
-      actionRegistry.delete(key);
-    }
-  }
+  await actionRegistry.cleanupExpired(10 * 60 * 1000);
 }
 
 async function handleConfirmDelete(
   interaction: ButtonInteraction,
   actionKey: string,
 ) {
-  const actionData = actionRegistry.get(actionKey);
+  const actionData = await actionRegistry.get(actionKey);
   if (!actionData || actionData.type !== "confirm_delete") {
     await interaction.editReply({
       content: `${getFailurePrelude()} This deletion request has expired or is invalid.`,
@@ -189,8 +184,8 @@ async function handleConfirmDelete(
     }
 
     // Remove the confirm action and its related pending action
-    actionRegistry.delete(actionKey);
-    if (actionData.relatedKey) actionRegistry.delete(actionData.relatedKey);
+    await actionRegistry.delete(actionKey);
+    if (actionData.relatedKey) await actionRegistry.delete(actionData.relatedKey);
 
     if (deleted) {
       await interaction.editReply({
@@ -199,7 +194,7 @@ async function handleConfirmDelete(
       });
     }
   } catch (error: unknown) {
-    actionRegistry.delete(actionKey);
+    await actionRegistry.delete(actionKey);
     console.error("Delete query error:", error);
 
     // Narrow error shape for Prisma
@@ -223,9 +218,9 @@ async function handleConfirmDelete(
 
 async function handleCancelDelete(interaction: ButtonInteraction) {
   const actionKey = interaction.customId;
-  const action = actionRegistry.get(actionKey);
-  if (action?.relatedKey) actionRegistry.delete(action.relatedKey);
-  actionRegistry.delete(actionKey);
+  const action = await actionRegistry.get(actionKey);
+  if (action?.relatedKey) await actionRegistry.delete(action.relatedKey);
+  await actionRegistry.delete(actionKey);
 
   await interaction.editReply({
     content: `Deletion cancelled.`,

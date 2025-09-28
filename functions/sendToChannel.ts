@@ -39,7 +39,7 @@ export default async function sendToChannel(
   if (queryId && queryType) {
     const actionKey = generateRandomKey();
     const now = Date.now();
-    actionRegistry.set(actionKey, {
+    await actionRegistry.set(actionKey, {
       type: "delete",
       queryType,
       queryId,
@@ -58,10 +58,7 @@ export default async function sendToChannel(
     messageOptions.components = [row];
 
     // cleanup old actions (10 minutes)
-    const tenMinutesAgo = now - 10 * 60 * 1000;
-    for (const [key, value] of actionRegistry.entries()) {
-      if (value.timestamp < tenMinutesAgo) actionRegistry.delete(key);
-    }
+    await actionRegistry.cleanupExpired(10 * 60 * 1000);
   }
 
   const messagePayload = new MessagePayload(channel, messageOptions); // Create a new MessagePayload instance to ensure proper formatting
