@@ -30,6 +30,12 @@ export default new SlashCommandBuilder()
         "Enter the max price for the skin, relative to USD on the Steam Community Market.",
       )
       .setRequired(false),
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("dmonly")
+      .setDescription("Make this query DM-only (no channel notifications)")
+      .setRequired(false),
   );
 
 export const editmultisearchquery = new SlashCommandBuilder()

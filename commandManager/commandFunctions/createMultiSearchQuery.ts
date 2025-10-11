@@ -10,6 +10,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
   const maxPrice = interaction.options.getNumber("maxprice") ?? -1;
   const maxFloat = interaction.options.getNumber("maxfloat") ?? -1;
   const minFloat = interaction.options.getNumber("minfloat") ?? 0;
+  const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
 
   if (minFloat > maxFloat)
     await interaction.editReply(
@@ -29,16 +30,21 @@ export default async function (interaction: ChatInputCommandInteraction) {
     );
   } else {
     //Attempt creating new searches
-    db.csTradeBot.create({
+    await db.query.create({
       data: {
-        name: skinName,
-        maxFloat,
-        minFloat,
-        maxPrice,
+        dmOnly,
+        csTradeBot: {
+          create: {
+            name: skinName,
+            maxFloat,
+            minFloat,
+            maxPrice,
+          },
+        },
       },
     });
     await interaction.editReply(
-      `${getResponsePrelude()} your search has been created.`,
+      `${getResponsePrelude()} your search has been created${dmOnly ? " (DM only)" : ""}.`,
     );
   }
 }
