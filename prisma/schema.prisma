@@ -62,40 +62,79 @@ model TtlItem {
     @@id(name: "id", [scanner, itemId])
     @@unique([scanner, itemId])
 }
+model Query {
+    id              String          @id @default(cuid())
+    dmOnly          Boolean         @default(false)
+    createdAt       DateTime        @default(now())
+    userQueries     UserQuery[]
+    cashConverters  CashConverters?
+    csMarket        CsMarket?
+    csTradeBot      CsTradeBot?
+    ebay            Ebay?
+    gumtree         Gumtree?
+    salvos          Salvos?
+    steamMarket     SteamMarket?
+}
+
+model UserQuery {
+    id        String   @id @default(cuid())
+    userId    String
+    queryId   String
+    queryType String
+    query     Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+
+    @@unique([userId, queryId])
+}
+
 model CashConverters {
-    url             String @unique
-    requiredPhrases String @default("")
-    excludePhrases  String @default("")
+    url             String  @unique
+    requiredPhrases String  @default("")
+    excludePhrases  String  @default("")
+    queryId         String? @unique
+    query           Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
 model CsMarket {
-    url        String @unique
+    url        String  @unique
     displayUrl String
     maxPrice   Float
     maxFloat   Float
     lastPrice  Float
+    queryId    String? @unique
+    query      Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
 model CsTradeBot {
-    name     String @unique
+    name     String  @unique
     maxPrice Float
     minFloat Float
     maxFloat Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
 model Ebay {
-    url      String @unique
+    url      String  @unique
     maxPrice Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
 model Gumtree {
-    url      String @unique
+    url      String  @unique
     maxPrice Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
 model Salvos {
-    name     String @unique
+    name     String  @unique
     minPrice Float
     maxPrice Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
 model SteamMarket {
-    name       String @unique
+    name       String  @unique
     displayUrl String
     maxPrice   Float
     lastPrice  Float
+    queryId    String? @unique
+    query      Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }

@@ -8,6 +8,12 @@ export default new SlashCommandBuilder()
       .setName("query")
       .setDescription("The URL of the query. Sort by price or newness.")
       .setRequired(true),
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("dmonly")
+      .setDescription("Make this query DM-only (no channel notifications)")
+      .setRequired(false),
   );
 
 // Additional commands (edit / delete / view) for Cash Converters queries

@@ -190,6 +190,7 @@ export async function createCs(
   oldQuery: string,
   maxPrice: number,
   maxFloat: number,
+  dmOnly: boolean = false,
 ) {
   //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
   //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
@@ -203,13 +204,18 @@ export async function createCs(
           .trim(),
       ).toString();
 
-      await db.csMarket.create({
+      await db.query.create({
         data: {
-          url: search,
-          displayUrl: oldQuery,
-          maxPrice: maxPrice,
-          maxFloat: maxFloat,
-          lastPrice: 0,
+          dmOnly,
+          csMarket: {
+            create: {
+              url: search,
+              displayUrl: oldQuery,
+              maxPrice: maxPrice,
+              maxFloat: maxFloat,
+              lastPrice: 0,
+            },
+          },
         },
       });
 

@@ -1,0 +1,10 @@
+model UserQuery {
+    id        String   @id @default(cuid())
+    userId    String
+    queryId   String
+    queryType String
+    query     Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+
+    @@unique([userId, queryId])
+}

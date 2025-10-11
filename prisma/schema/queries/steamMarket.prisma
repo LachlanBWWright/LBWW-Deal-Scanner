@@ -1,6 +1,8 @@
 model SteamMarket {
-    name       String @unique
+    name       String  @unique
     displayUrl String
     maxPrice   Float
     lastPrice  Float
+    queryId    String? @unique
+    query      Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }
