@@ -7,3 +7,10 @@ test("cs Trade scanner", async () => {
   console.log(result[0].wear);
   console.log(result[0].market_hash_name);
 });
+
+import { describe, it } from "vitest";
+describe("csTrade.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

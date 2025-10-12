@@ -28,7 +28,11 @@ export async function scanCashConverters(page: Page) {
       `<@&${globals.CASH_CONVERTERS_ROLE_ID}> ${getNotificationPrelude()} a ${
         foundItem.itemName
       } for ${formatPrice(foundItem.totalPrice)} is available at ${item.url}`,
-      { files: [foundItem.image] },
+      { 
+        files: [foundItem.image],
+        queryId: item.url,
+        queryType: 'cashConverters'
+      },
     );
   }
 }

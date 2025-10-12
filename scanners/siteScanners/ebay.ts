@@ -32,7 +32,11 @@ export async function scanEbay(page: Page) {
       }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
         item.url
       }`,
-      { files: [foundImage] },
+      {
+        files: [foundImage],
+        queryId: item.url,
+        queryType: "ebay",
+      },
     );
   }
 }
@@ -40,23 +44,33 @@ export async function scanEbay(page: Page) {
 export async function getEbayValues(page: Page, item: Ebay) {
   await page.goto(item.url);
 
+  console.log("test 1");
+  console.log(page);
+
+  const test = await page.title();
+  console.log(test);
+
   const selector = await selectorRace(
     page,
-    "div[class='srp-river-results clearfix']",
+    "div[class='srp-river']",
     ".srp-save-null-search__heading",
   );
   if (!selector) throw new Error("Missing eBay selector");
 
-  const result = await selector.$("li[class='s-item s-item__pl-on-bottom']");
+  console.log("test 2");
+
+  const result = await selector.$(
+    `div[class="su-card-container su-card-container--horizontal"]`,
+  );
   if (!result) throw new Error("Missing eBay");
 
-  const foundName = await result.$eval('span[role="heading"]', (res) => {
+  const foundName = await result.$eval('div[role="heading"]', (res) => {
     if (res.textContent?.startsWith("New listing"))
       return res.textContent.replace("New listing", "");
     return res.textContent;
   });
   const foundPrice = await result.$eval(
-    "span[class='s-item__price']",
+    `span[class='su-styled-text primary bold large-1 s-card__price']`,
     (res) => {
       if (res.textContent?.startsWith("AU $")) {
         isAud = true;
@@ -71,12 +85,11 @@ export async function getEbayValues(page: Page, item: Ebay) {
     },
   );
 
-  const foundImgContainer = await result.$(
-    "div[class='s-item__image-wrapper image-treatment']",
-  );
+  const foundImgContainer = await result.$("a[class='image-treatment']");
 
   const foundImage = await foundImgContainer?.$eval("img", (img) => img.src);
 
+  console.log(foundName, foundPrice, foundImage);
   if (!foundName || !foundPrice || !foundImage)
     throw new Error("Could not find name, price, or img");
 

@@ -15,3 +15,10 @@ test("loot farm scanner", async () => {
     }
   }
 });
+
+import { describe, it } from "vitest";
+describe("lootFarm.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

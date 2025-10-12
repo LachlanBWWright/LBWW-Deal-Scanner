@@ -14,7 +14,16 @@ export async function scanTradeIt() {
     return;
   setStatus("Scanning tradeit.gg");
 
-  let itemsArray: any = [];
+  interface TradeItItem {
+    price: number;
+    name: string;
+    floatValue?: number;
+    floatValues?: number[];
+    // allow other unknown props from the API
+    [k: string]: unknown;
+  }
+
+  let itemsArray: TradeItItem[] = [];
   for (let i = 0; i < 20; i++) {
     //Has to make multiple searches due to a size limit.
     try {
@@ -29,12 +38,12 @@ export async function scanTradeIt() {
           },
         },
       );
-      itemsArray = [...itemsArray, ...res.data.items];
+      itemsArray = [...itemsArray, ...(res.data.items as TradeItItem[])];
       if (res.data.items.length < 750) break; //Breaks the loop if it's reached the end of the item list
     } catch {}
   }
   try {
-    const foundItems = <any>itemsArray;
+    const foundItems = itemsArray;
     const searchItems = await getAllTradeBotItems();
 
     for (const searchItem of searchItems) {
@@ -70,6 +79,10 @@ export async function scanTradeIt() {
                 } with a float of ${bestFloat} is available for $${
                   foundItem.price / 100.0
                 } USD at: https://tradeit.gg/csgo/trade`,
+                {
+                  queryId: searchItem.name,
+                  queryType: "csTradeBot",
+                },
               );
             }
           }

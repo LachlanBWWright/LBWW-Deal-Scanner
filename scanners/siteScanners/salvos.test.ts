@@ -1,3 +1,9 @@
+import { describe, it } from "vitest";
+describe("salvos.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});
 import puppeteer from "puppeteer";
 import { test } from "vitest";
 import { getSalvosValues } from "./salvos";

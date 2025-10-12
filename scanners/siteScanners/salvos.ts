@@ -26,7 +26,11 @@ export async function scanSalvos(page: Page) {
       `<@&${globals.SALVOS_ROLE_ID}> ${getNotificationPrelude()} a ${
         result.name
       } is available for $${result.price} at ${result.link}`,
-      { files: [result.image] },
+      { 
+        files: [result.image],
+        queryId: item.name, // Use name as the unique identifier for salvos
+        queryType: 'salvos'
+      },
     );
     notificationSent = true;
   }

@@ -24,14 +24,22 @@ export async function scanGumtree(page: Page) {
   //Skip if invalid price
   if (result.foundPrice > item.maxPrice) return;
 
-  if (await checkIfNew(result.foundName, SCANNER.GUMTREE))
-    sendToChannel(
-      globals.GUMTREE_CHANNEL_ID,
-      `<@&${globals.GUMTREE_ROLE_ID}>${getNotificationPrelude()} a ${
-        result.foundName
-      } priced at $${result.foundPrice} is available at ${item.url}`,
-      { files: [result.foundImg] },
-    );
+  if (await checkIfNew(result.foundName, SCANNER.GUMTREE)) {
+    const message = `<@&${
+      globals.GUMTREE_ROLE_ID
+    }>${getNotificationPrelude()} a ${result.foundName} priced at $${
+      result.foundPrice
+    } is available at ${item.url}`;
+
+    const payload: { queryId: string; queryType: string; files?: string[] } = {
+      queryId: item.url,
+      queryType: "gumtree",
+    };
+
+    if (result.foundImg) payload.files = [result.foundImg];
+
+    sendToChannel(globals.GUMTREE_CHANNEL_ID, message, payload);
+  }
 }
 
 export async function getGumtreeValues(page: Page, item: Gumtree) {
@@ -67,7 +75,8 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
     ? 0
     : parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
 
-  const foundImg = await result.$eval("img", (img) => img.src);
+  const imgSelector = await result.$("img");
+  const foundImg = await imgSelector?.evaluate((img) => img.src);
 
   return { foundName, foundPrice, foundImg };
 }

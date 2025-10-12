@@ -10,6 +10,7 @@ import puppeteer from "puppeteer";
 export default async function (interaction: ChatInputCommandInteraction) {
   let query = interaction.options.getString("query") || "placeholder";
   let maxPrice = interaction.options.getNumber("maxprice") || 1;
+  const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
 
   const browser = await puppeteer.launch({
     headless: "shell",
@@ -19,18 +20,23 @@ export default async function (interaction: ChatInputCommandInteraction) {
   try {
     const newUrl = await getCsQueryString(page, query);
 
-    db.steamMarket.create({
+    await db.query.create({
       data: {
-        name: newUrl,
-        displayUrl: query,
-        maxPrice: maxPrice,
-        lastPrice: 0,
+        dmOnly,
+        steamMarket: {
+          create: {
+            name: newUrl,
+            displayUrl: query,
+            maxPrice: maxPrice,
+            lastPrice: 0,
+          },
+        },
       },
     });
 
     if (status)
       await interaction.editReply(
-        `${getResponsePrelude()}, the item was added successfully! URL generated: ${newUrl}`,
+        `${getResponsePrelude()}, the item was added successfully${dmOnly ? " (DM only)" : ""}! URL generated: ${newUrl}`,
       );
     else
       await interaction.editReply(`${getFailurePrelude()} the URL is invalid!`);

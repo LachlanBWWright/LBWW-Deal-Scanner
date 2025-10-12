@@ -1,4 +1,6 @@
 model Gumtree {
-    url      String @unique
+    url      String  @unique
     maxPrice Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }

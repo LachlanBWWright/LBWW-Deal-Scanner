@@ -22,3 +22,10 @@ test("steam query scanner", async () => {
 
   console.log(res);
 });
+
+import { describe, it } from "vitest";
+describe("steamMarket.ts", () => {
+  it("should ...", () => {
+    // TODO: implement test
+  });
+});

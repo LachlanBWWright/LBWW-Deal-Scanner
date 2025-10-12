@@ -32,6 +32,10 @@ export async function scanSteamQuery() {
         `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
           result.name
         } is available for $${price} USD at: ${item.displayUrl}`,
+        {
+          queryId: item.name,
+          queryType: 'steamMarket'
+        },
       );
     }
 
@@ -91,6 +95,10 @@ export async function scanCs() {
           } with float ${
             res.data.iteminfo.floatvalue
           } is available for $${price} USD at: ${item.displayUrl}`,
+          {
+            queryId: item.url,
+            queryType: 'csMarket'
+          },
         );
       }
 
@@ -132,6 +140,10 @@ export async function scanCs() {
                     } with float ${
                       res.data.iteminfo.floatvalue
                     } is available for $${price} USD at: ${item.displayUrl}`,
+                    {
+                      queryId: item.url,
+                      queryType: 'csMarket'
+                    },
                   );
                 }
               })
@@ -178,6 +190,7 @@ export async function createCs(
   oldQuery: string,
   maxPrice: number,
   maxFloat: number,
+  dmOnly: boolean = false,
 ) {
   //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
   //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
@@ -191,13 +204,18 @@ export async function createCs(
           .trim(),
       ).toString();
 
-      await db.csMarket.create({
+      await db.query.create({
         data: {
-          url: search,
-          displayUrl: oldQuery,
-          maxPrice: maxPrice,
-          maxFloat: maxFloat,
-          lastPrice: 0,
+          dmOnly,
+          csMarket: {
+            create: {
+              url: search,
+              displayUrl: oldQuery,
+              maxPrice: maxPrice,
+              maxFloat: maxFloat,
+              lastPrice: 0,
+            },
+          },
         },
       });
 
