@@ -1,5 +1,7 @@
 model Salvos {
-    name     String @unique
+    name     String  @unique
     minPrice Float
     maxPrice Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }

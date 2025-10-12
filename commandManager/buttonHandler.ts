@@ -42,6 +42,10 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
       await handleConfirmDelete(interaction, actionKey);
     } else if (action.type === "cancel_delete") {
       await handleCancelDelete(interaction);
+    } else if (action.type === "subscribe_dm") {
+      await handleSubscribeDM(interaction, actionKey);
+    } else if (action.type === "unsubscribe_dm") {
+      await handleUnsubscribeDM(interaction, actionKey);
     }
   } catch (error) {
     console.error("Button interaction error:", error);
@@ -226,4 +230,172 @@ async function handleCancelDelete(interaction: ButtonInteraction) {
     content: `Deletion cancelled.`,
     components: [],
   });
+}
+
+async function handleSubscribeDM(
+  interaction: ButtonInteraction,
+  actionKey: string,
+) {
+  const action = await actionRegistry.get(actionKey);
+  if (!action) {
+    await interaction.editReply({
+      content: `${getFailurePrelude()} Invalid or expired action.`,
+      components: [],
+    });
+    return;
+  }
+
+  const { queryType, queryId } = action;
+
+  try {
+    // Get the Query record for this specific query
+    const query = await getQueryByTypeAndId(queryType, queryId);
+    if (!query?.queryId) {
+      await interaction.editReply({
+        content: `${getFailurePrelude()} Query not found.`,
+      });
+      return;
+    }
+
+    // Check if user is already subscribed
+    const existing = await db.userQuery.findUnique({
+      where: {
+        userId_queryId: {
+          userId: interaction.user.id,
+          queryId: query.queryId,
+        },
+      },
+    });
+
+    if (existing) {
+      await interaction.editReply({
+        content: `${getResponsePrelude()} You are already subscribed to DMs for this query.`,
+      });
+      return;
+    }
+
+    // Create subscription
+    await db.userQuery.create({
+      data: {
+        userId: interaction.user.id,
+        queryId: query.queryId,
+        queryType,
+      },
+    });
+
+    await actionRegistry.delete(actionKey);
+
+    await interaction.editReply({
+      content: `${getResponsePrelude()} You have been subscribed to DM notifications for this ${queryType} query. You will receive a DM when new items are found.`,
+    });
+  } catch (error: unknown) {
+    console.error("Subscribe DM error:", error);
+    const errAny = error as { message?: string } | undefined;
+    await interaction.editReply({
+      content: `${getFailurePrelude()} Failed to subscribe: ${
+        errAny?.message || "Unknown error"
+      }`,
+    });
+  }
+}
+
+async function handleUnsubscribeDM(
+  interaction: ButtonInteraction,
+  actionKey: string,
+) {
+  const action = await actionRegistry.get(actionKey);
+  if (!action) {
+    await interaction.editReply({
+      content: `${getFailurePrelude()} Invalid or expired action.`,
+      components: [],
+    });
+    return;
+  }
+
+  const { queryType, queryId } = action;
+
+  try {
+    // Get the Query record for this specific query
+    const query = await getQueryByTypeAndId(queryType, queryId);
+    if (!query?.queryId) {
+      await interaction.editReply({
+        content: `${getFailurePrelude()} Query not found.`,
+      });
+      return;
+    }
+
+    // Delete subscription
+    await db.userQuery.delete({
+      where: {
+        userId_queryId: {
+          userId: interaction.user.id,
+          queryId: query.queryId,
+        },
+      },
+    });
+
+    await actionRegistry.delete(actionKey);
+
+    await interaction.editReply({
+      content: `${getResponsePrelude()} You have been unsubscribed from DM notifications for this query.`,
+    });
+  } catch (error: unknown) {
+    console.error("Unsubscribe DM error:", error);
+    const errAny = error as { code?: string; message?: string } | undefined;
+    
+    if (errAny?.code === "P2025") {
+      // Prisma record not found error
+      await interaction.editReply({
+        content: `${getFailurePrelude()} You are not subscribed to this query.`,
+      });
+    } else {
+      await interaction.editReply({
+        content: `${getFailurePrelude()} Failed to unsubscribe: ${
+          errAny?.message || "Unknown error"
+        }`,
+      });
+    }
+  }
+}
+
+async function getQueryByTypeAndId(queryType: string, queryId: string) {
+  switch (queryType) {
+    case "salvos":
+      return await db.salvos.findUnique({
+        where: { name: queryId },
+        include: { query: true },
+      });
+    case "ebay":
+      return await db.ebay.findUnique({
+        where: { url: queryId },
+        include: { query: true },
+      });
+    case "gumtree":
+      return await db.gumtree.findUnique({
+        where: { url: queryId },
+        include: { query: true },
+      });
+    case "cashConverters":
+      return await db.cashConverters.findUnique({
+        where: { url: queryId },
+        include: { query: true },
+      });
+    case "steamMarket":
+      return await db.steamMarket.findUnique({
+        where: { name: queryId },
+        include: { query: true },
+      });
+    case "csTradeBot":
+      return await db.csTradeBot.findUnique({
+        where: { name: queryId },
+        include: { query: true },
+      });
+    case "csMarket":
+      return await db.csMarket.findUnique({
+        where: { url: queryId },
+        include: { query: true },
+      });
+    default:
+      return null;
+  }
 }

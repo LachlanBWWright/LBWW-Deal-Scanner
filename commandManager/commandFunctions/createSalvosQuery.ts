@@ -10,6 +10,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     const query = interaction.options.getString("query");
     const minPrice = interaction.options.getNumber("minprice") ?? 0;
     const maxPrice = interaction.options.getNumber("maxprice") ?? 99999;
+    const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
     if (!query || minPrice == null || maxPrice == null) {
       throw new Error("Invalid query paramaters.");
     }
@@ -19,16 +20,22 @@ export default async function (interaction: ChatInputCommandInteraction) {
       );
     }
 
-    await db.salvos.create({
+    // Create Query first, then link it to Salvos
+    const queryRecord = await db.query.create({
       data: {
-        name: query.toString(),
-        minPrice,
-        maxPrice,
+        dmOnly,
+        salvos: {
+          create: {
+            name: query.toString(),
+            minPrice,
+            maxPrice,
+          },
+        },
       },
     });
 
     await interaction.editReply(
-      `${getResponsePrelude()} the search has been created: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
+      `${getResponsePrelude()} the search has been created${dmOnly ? " (DM only)" : ""}: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
         query,
       )}`,
     );
