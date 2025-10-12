@@ -1,0 +1,13 @@
+model Query {
+    id              String          @id @default(cuid())
+    dmOnly          Boolean         @default(false)
+    createdAt       DateTime        @default(now())
+    userQueries     UserQuery[]
+    cashConverters  CashConverters?
+    csMarket        CsMarket?
+    csTradeBot      CsTradeBot?
+    ebay            Ebay?
+    gumtree         Gumtree?
+    salvos          Salvos?
+    steamMarket     SteamMarket?
+}

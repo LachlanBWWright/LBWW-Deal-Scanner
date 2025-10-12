@@ -20,6 +20,12 @@ export default new SlashCommandBuilder()
       .setName("maxprice")
       .setDescription("Enter the maximum price for a notification.")
       .setRequired(true),
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("dmonly")
+      .setDescription("Make this query DM-only (no channel notifications)")
+      .setRequired(false),
   );
 
 export const editcsmarket = new SlashCommandBuilder()

@@ -1,6 +1,8 @@
 model CsTradeBot {
-    name     String @unique
+    name     String  @unique
     maxPrice Float
     minFloat Float
     maxFloat Float
+    queryId  String? @unique
+    query    Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
 }

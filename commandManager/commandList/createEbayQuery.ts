@@ -14,6 +14,12 @@ export default new SlashCommandBuilder()
       .setName("maxprice")
       .setDescription("Enter the maximum price (in AUD) a notification.")
       .setRequired(true),
+  )
+  .addBooleanOption((option) =>
+    option
+      .setName("dmonly")
+      .setDescription("Make this query DM-only (no channel notifications)")
+      .setRequired(false),
   );
 
 export const editedbayquery = new SlashCommandBuilder()
