@@ -8,7 +8,6 @@ import { db } from "../globals/PrismaClient.js";
 import {
   actionRegistry,
   generateRandomKey,
-  ActionData,
 } from "./actionRegistry.js";
 import {
   getResponsePrelude,
@@ -141,48 +140,55 @@ async function handleConfirmDelete(
     let deleted = false;
 
     switch (queryType) {
-      case "ebay":
-        const ebayResult = await db.ebay.delete({
+      case "ebay": {
+        await db.ebay.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
-      case "gumtree":
-        const gumtreeResult = await db.gumtree.delete({
+      }
+      case "gumtree": {
+        await db.gumtree.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
-      case "cashConverters":
-        const cashResult = await db.cashConverters.delete({
+      }
+      case "cashConverters": {
+        await db.cashConverters.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
-      case "salvos":
-        const salvosResult = await db.salvos.delete({
+      }
+      case "salvos": {
+        await db.salvos.delete({
           where: { name: queryId },
         });
         deleted = true;
         break;
-      case "steamMarket":
-        const steamResult = await db.steamMarket.delete({
+      }
+      case "steamMarket": {
+        await db.steamMarket.delete({
           where: { name: queryId },
         });
         deleted = true;
         break;
-      case "csTradeBot":
-        const csTradeBotResult = await db.csTradeBot.delete({
+      }
+      case "csTradeBot": {
+        await db.csTradeBot.delete({
           where: { name: queryId },
         });
         deleted = true;
         break;
-      case "csMarket":
-        const csMarketResult = await db.csMarket.delete({
+      }
+      case "csMarket": {
+        await db.csMarket.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
+      }
       default:
         throw new Error(`Unknown query type: ${queryType}`);
     }

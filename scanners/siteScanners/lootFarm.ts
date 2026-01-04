@@ -3,7 +3,6 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-import { db } from "../../globals/PrismaClient.js";
 import {
   checkIfNewCsItem,
   CsSite,
@@ -15,17 +14,17 @@ export async function scanLootFarm() {
     return;
   setStatus("Scanning loot.farm");
 
-  let items = await getLootFarmItems();
+  const items = await getLootFarmItems();
 
   const searchItems = await getAllTradeBotItems();
 
   for (const searchItem of searchItems) {
-    for (let skinType in items) {
+    for (const skinType in items) {
       if (
         searchItem.name.includes(items[skinType].n) &&
         items[skinType].p / 100 <= searchItem.maxPrice
       ) {
-        for (let botNumber in items[skinType].u) {
+        for (const botNumber in items[skinType].u) {
           const item = items[skinType].u[botNumber][0];
           const itemFloat = parseInt(item.f) / 100000;
           if (

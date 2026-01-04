@@ -40,7 +40,9 @@ export async function scanTradeIt() {
       );
       itemsArray = [...itemsArray, ...(res.data.items as TradeItItem[])];
       if (res.data.items.length < 750) break; //Breaks the loop if it's reached the end of the item list
-    } catch {}
+    } catch {
+      // Ignore errors
+    }
   }
   try {
     const foundItems = itemsArray;

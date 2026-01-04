@@ -16,7 +16,7 @@ export async function scanGumtree(page: Page) {
     return;
   setStatus("Scanning Gumtree");
 
-  let item = await getGumtreeQuery();
+  const item = await getGumtreeQuery();
 
   const result = await getGumtreeValues(page, item);
   if (!result) return;
@@ -51,7 +51,7 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
     "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
   );
 
-  let result = await page.$(
+  const result = await page.$(
     "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
   ); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
 
@@ -66,7 +66,7 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
   );
   if (!foundName) throw new Error();
 
-  let resPrice = await result.$eval(
+  const resPrice = await result.$eval(
     "div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price",
     (res) => res.textContent,
   );
@@ -83,7 +83,7 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
 
 let index = 0;
 async function getGumtreeQuery() {
-  let query = await db.gumtree.findFirst({
+  const query = await db.gumtree.findFirst({
     skip: index++,
   });
   if (query) {

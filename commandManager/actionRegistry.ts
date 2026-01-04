@@ -58,8 +58,8 @@ export const actionRegistry = {
         where: { id: key }
       });
       return true;
-    } catch (error: any) {
-      if (error?.code === 'P2025') {
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'P2025') {
         // Record not found
         return false;
       }

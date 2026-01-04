@@ -64,6 +64,7 @@ export async function initGlobals() {
       globals[key as keyof typeof defaultGlobals] !== null &&
       globals[key as keyof typeof defaultGlobals] !== undefined
     ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (defaultGlobals as any)[key as keyof typeof defaultGlobals] =
         globals[key as keyof typeof defaultGlobals];
     }

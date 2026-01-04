@@ -7,7 +7,7 @@ test("ebay scanner", async () => {
     //args: ["--no-sandbox"],
     headless: false,
   });
-  let page = await browser.newPage();
+  const page = await browser.newPage();
   page.setUserAgent(
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
   );

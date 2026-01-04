@@ -78,7 +78,7 @@ export async function getSalvosValues(page: Page, item: Salvos) {
 
 let index = 0;
 async function getSalvosQuery() {
-  let query = await db.salvos.findFirst({
+  const query = await db.salvos.findFirst({
     skip: index++,
   });
   if (query) {
