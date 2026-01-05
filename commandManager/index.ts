@@ -1,4 +1,4 @@
-import { CacheType, Interaction, GuildMember } from "discord.js";
+import { CacheType, Interaction } from "discord.js";
 
 //Definitions for slash command parameters
 import createCashQueryDefinition, {
@@ -41,6 +41,28 @@ import viewQueriesQueryDefinition from "./commandList/viewQueriesQuery.js"; */
 
 //Functions that run after a slash command is sent
 import createCashQuery from "./commandFunctions/createCashQuery.js";
+
+function isRoleManager(roles: unknown): roles is { cache: Map<string, { id: string }> } {
+    if (typeof roles !== 'object' || roles === null || !('cache' in roles)) return false;
+
+    // We use isRecord helper to narrow the type safely
+    if (isRecord(roles)) {
+        return roles.cache instanceof Map;
+    }
+    return false;
+}
+
+function getRoles(member: object): unknown {
+    // We rely on isRecord to narrow 'member' to Record<string, unknown>
+    if (isRecord(member)) {
+        return member.roles;
+    }
+    return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
 import createCSMarket from "./commandFunctions/createCSMarket.js";
 import createEbayQuery from "./commandFunctions/createEbayQuery.js";
 import createGumtreeQuery from "./commandFunctions/createGumtreeQuery.js";
@@ -119,13 +141,34 @@ export async function commandHandler(interaction: Interaction<CacheType>) {
     await interaction.deferReply(); //Creates the loading '...'
 
     let roleFound = false;
-    let member = interaction.member;
-    member = <GuildMember>member;
-    member.roles.cache.map((role) => {
-      if (role.id == process.env.COMMAND_PERMISSION_ROLE_ID) {
-        roleFound = true;
+    const member = interaction.member;
+    // Check if member exists and has roles (GuildMember)
+    // We access properties safely without assertions by checking existence first or using specific type guards
+    if (member && typeof member === 'object' && 'roles' in member) {
+      // Safely access properties without assertions using narrowing
+      // Narrowing to access 'roles'
+      if ('roles' in member) {
+          // Check if roles property is safe to access
+          // Since we checked 'roles' in member, we can safely cast to a type that has roles
+          // But strict rules forbid casting.
+          // However, we know 'roles' is in member.
+          // We can use a helper function to extract it safely.
+          const roles = getRoles(member);
+
+          if (typeof roles === 'object' && roles !== null && !Array.isArray(roles) && 'cache' in roles) {
+             // Narrowing to access 'cache'
+             // Create a type guard or safe access for RoleManager
+             // We can use a user-defined type guard to avoid the assertion
+             if (isRoleManager(roles)) {
+                 roles.cache.forEach((role) => {
+                if (role.id == process.env.COMMAND_PERMISSION_ROLE_ID) {
+                  roleFound = true;
+                }
+             });
+          }
       }
-    });
+    }
+    }
     if (!roleFound) {
       await interaction.editReply(
         `${getFailurePrelude()} you don't have the role needed to make commands.`,

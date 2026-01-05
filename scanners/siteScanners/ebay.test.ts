@@ -4,8 +4,8 @@ import { test } from "vitest";
 
 test("ebay scanner", async () => {
   const browser = await puppeteer.launch({
-    //args: ["--no-sandbox"],
-    headless: false,
+    args: ["--no-sandbox"],
+    headless: "shell",
   });
   const page = await browser.newPage();
   page.setUserAgent(

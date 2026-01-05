@@ -55,9 +55,17 @@ export async function getCSDealsItems(page: Page) {
   });
 
   if (!foundResponse) return;
-  foundResponse = <HTTPResponse>foundResponse;
+  // foundResponse is inferred as HTTPResponse | undefined by Puppeteer types usually,
+  // but if it was 'let foundResponse;' it is any/unknown initially.
+  // We need to type guard it.
 
-  return (await foundResponse.json()).response; //.response.items[730];
+  if (isHTTPResponse(foundResponse)) {
+    return (await foundResponse.json()).response;
+  }
+}
+
+function isHTTPResponse(response: unknown): response is HTTPResponse {
+    return typeof response === 'object' && response !== null && 'json' in response;
 }
 
 /* 
