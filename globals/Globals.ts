@@ -11,7 +11,9 @@ const requiredEnvVars = [
   "TURSO_AUTH_TOKEN",
 ] as const;
 
-function getRequiredEnv(name: (typeof requiredEnvVars)[number]): Result<string, Error> {
+function getRequiredEnv(
+  name: (typeof requiredEnvVars)[number],
+): Result<string, Error> {
   const value = process.env[name];
   if (!value) return err(new Error(`${name} is not defined in .env`));
   return ok(value);
@@ -55,8 +57,6 @@ const defaultGlobals = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN,
 };
 
-export const MONGO_URI = process.env.MONGO_URI;
-
 export async function initGlobals() {
   const globals = await db.globals.findFirst();
 
@@ -73,7 +73,10 @@ export async function initGlobals() {
   }
 }
 
-function isKeyOf<T extends object>(key: string | number | symbol, obj: T): key is keyof T {
+function isKeyOf<T extends object>(
+  key: string | number | symbol,
+  obj: T,
+): key is keyof T {
   return key in obj;
 }
 
