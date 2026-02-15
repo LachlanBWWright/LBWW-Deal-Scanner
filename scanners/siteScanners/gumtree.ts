@@ -17,6 +17,7 @@ export async function scanGumtree(page: Page) {
   setStatus("Scanning Gumtree");
 
   const item = await getGumtreeQuery();
+  if (!item) return;
 
   const result = await getGumtreeValues(page, item);
   if (!result) return;
@@ -38,7 +39,7 @@ export async function scanGumtree(page: Page) {
 
     if (result.foundImg) payload.files = [result.foundImg];
 
-    sendToChannel(globals.GUMTREE_CHANNEL_ID, message, payload);
+    await sendToChannel(globals.GUMTREE_CHANNEL_ID, message, payload);
   }
 }
 
@@ -55,7 +56,7 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
     "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
   ); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
 
-  if (!result) throw new Error("No ressult");
+  if (!result) return null;
 
   //This uses a discrete solution instead of a selector race
   //Gumtree has rows of different categories (e.g. ads, out of area, ETC. This finds actual results, if it exists)
@@ -64,13 +65,13 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
     "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span",
     (res) => res.textContent,
   );
-  if (!foundName) throw new Error();
+  if (!foundName) return null;
 
   const resPrice = await result.$eval(
     "div.user-ad-row-new-design__right-content > div:nth-child(1) > div > span.user-ad-price-new-design__price",
     (res) => res.textContent,
   );
-  if (!resPrice) throw new Error();
+  if (!resPrice) return null;
   const foundPrice = resPrice.includes("Free")
     ? 0
     : parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));
@@ -90,5 +91,5 @@ async function getGumtreeQuery() {
     return query;
   }
   index = 1; //Will find the first query in the line below
-  return await db.gumtree.findFirstOrThrow();
+  return await db.gumtree.findFirst();
 }

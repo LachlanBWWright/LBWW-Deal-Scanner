@@ -32,7 +32,7 @@ export async function scanCSTrade() {
         if (
           await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_TRADE)
         ) {
-          sendToChannel(
+          await sendToChannel(
             globals.CS_CHANNEL_ID,
             `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
               foundItem.market_hash_name

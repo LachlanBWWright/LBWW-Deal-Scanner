@@ -8,17 +8,10 @@ export default async function selectorRace(
   noItemSelector: string,
 ) {
   return await Promise.race<ElementHandle<Element> | null>([
-    new Promise((res) => {
-      page
-        .waitForSelector(foundSelector)
-        .then((selector) => res(selector))
-        .catch(() => res(null));
-    }),
-    new Promise((res) => {
-      page
-        .waitForSelector(noItemSelector)
-        .then(() => res(null))
-        .catch(() => res(null));
-    }),
+    page.waitForSelector(foundSelector).catch(() => null),
+    page
+      .waitForSelector(noItemSelector)
+      .then(() => null)
+      .catch(() => null),
   ]);
 }

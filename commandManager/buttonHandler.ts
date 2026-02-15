@@ -207,8 +207,13 @@ async function handleConfirmDelete(
         deleted = true;
         break;
       }
-      default:
-        throw new Error(`Unknown query type: ${queryType}`);
+      default: {
+        await interaction.editReply({
+          content: `${getFailurePrelude()} Unknown query type: ${queryType}`,
+          components: [],
+        });
+        return;
+      }
     }
 
     // Remove the confirm action and its related pending action

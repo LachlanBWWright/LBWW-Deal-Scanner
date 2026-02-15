@@ -38,10 +38,15 @@ export default async function sendToChannel(
 
   const channel = await client.channels.fetch(channelId);
 
-  if (!channel) throw new Error(`Channel with id ${channelId} not found`);
+  if (!channel) {
+    console.error(`Channel with id ${channelId} not found`);
+    return;
+  }
 
-  if (channel.type !== ChannelType.GuildText)
-    throw new Error(`Channel with id ${channelId} is not a text channel`);
+  if (channel.type !== ChannelType.GuildText) {
+    console.error(`Channel with id ${channelId} is not a text channel`);
+    return;
+  }
 
   const messageOptions: MessagePayloadOption = {
     content: message,

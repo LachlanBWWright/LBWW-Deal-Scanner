@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import { test } from "vitest";
+import { expect, test } from "vitest";
 import { getCsQueryString, getQueryResults } from "./steamMarket";
 
 test("steam query scanner", async () => {
@@ -25,7 +25,16 @@ test("steam query scanner", async () => {
 
 import { describe, it } from "vitest";
 describe("steamMarket.ts", () => {
-  it("should ...", () => {
-    // TODO: implement test
+  it("returns empty string for invalid steam search urls", async () => {
+    const browser = await puppeteer.launch({
+      headless: "shell",
+      args: ["--no-sandbox"],
+    });
+    const page = await browser.newPage();
+    const url = await getCsQueryString(page, "https://example.com");
+    await page.close();
+    await browser.close();
+
+    expect(url).toBe("");
   });
 });

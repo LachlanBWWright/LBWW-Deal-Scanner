@@ -82,7 +82,7 @@ export async function scanTradeIt() {
               )
             ) {
               //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
-              sendToChannel(
+              await sendToChannel(
                 globals.CS_CHANNEL_ID,
                 `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
                   foundItem.name

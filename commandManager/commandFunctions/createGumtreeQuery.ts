@@ -26,5 +26,5 @@ export default async function (interaction: ChatInputCommandInteraction) {
       `${getResponsePrelude()} the search has been created${dmOnly ? " (DM only)" : ""}: ${search.toString()}`,
     );
   } else
-    interaction.editReply(`${getFailurePrelude()} your search was invalid!`);
+    await interaction.editReply(`${getFailurePrelude()} your search was invalid!`);
 }

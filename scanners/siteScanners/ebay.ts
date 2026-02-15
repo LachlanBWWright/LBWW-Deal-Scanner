@@ -18,14 +18,15 @@ export async function scanEbay(page: Page) {
   else setStatus("Scanning eBay (USD)");
 
   const item = await getEbayQuery();
-  await getEbayValues(page, item);
+  if (!item) return;
 
   const { foundName, foundPrice, foundImage } = await getEbayValues(page, item);
+  if (!foundName || !foundPrice || !foundImage) return;
 
   if (foundPrice > item.maxPrice) return;
 
   if (await checkIfNew(foundName, SCANNER.EBAY)) {
-    sendToChannel(
+    await sendToChannel(
       globals.EBAY_CHANNEL_ID,
       `<@&${
         globals.EBAY_ROLE_ID
@@ -55,14 +56,14 @@ export async function getEbayValues(page: Page, item: Ebay) {
     "div[class='srp-river']",
     ".srp-save-null-search__heading",
   );
-  if (!selector) throw new Error("Missing eBay selector");
+  if (!selector) return { foundName: null, foundPrice: null, foundImage: null };
 
   console.log("test 2");
 
   const result = await selector.$(
     `div[class="su-card-container su-card-container--horizontal"]`,
   );
-  if (!result) throw new Error("Missing eBay");
+  if (!result) return { foundName: null, foundPrice: null, foundImage: null };
 
   const foundName = await result.$eval('div[role="heading"]', (res) => {
     if (res.textContent?.startsWith("New listing"))
@@ -90,8 +91,9 @@ export async function getEbayValues(page: Page, item: Ebay) {
   const foundImage = await foundImgContainer?.$eval("img", (img) => img.src);
 
   console.log(foundName, foundPrice, foundImage);
-  if (!foundName || !foundPrice || !foundImage)
-    throw new Error("Could not find name, price, or img");
+  if (!foundName || !foundPrice || !foundImage) {
+    return { foundName: null, foundPrice: null, foundImage: null };
+  }
 
   return { foundName, foundPrice, foundImage };
 }
@@ -105,5 +107,5 @@ async function getEbayQuery() {
     return query;
   }
   index = 1; //Will find the first query in the line below
-  return await db.ebay.findFirstOrThrow();
+  return await db.ebay.findFirst();
 }

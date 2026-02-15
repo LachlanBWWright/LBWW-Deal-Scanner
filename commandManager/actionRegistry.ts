@@ -1,8 +1,16 @@
 import { randomBytes } from "crypto";
+import { err, ok } from "neverthrow";
 import { db } from "../globals/PrismaClient.js";
 
+type ActionType =
+  | "delete"
+  | "confirm_delete"
+  | "cancel_delete"
+  | "subscribe_dm"
+  | "unsubscribe_dm";
+
 export interface ActionData {
-  type: "delete" | "confirm_delete" | "cancel_delete";
+  type: ActionType;
   queryType?: string;
   queryId?: string;
   userId?: string;
@@ -19,11 +27,14 @@ export const actionRegistry = {
     
     if (!action) return undefined;
     
-    // Validate type against allowed values
-    const type = action.type;
-    if (type !== "delete" && type !== "confirm_delete" && type !== "cancel_delete") {
-      throw new Error(`Invalid action type in DB: ${type}`);
-    }
+    const type = parseActionType(action.type).match(
+      (value) => value,
+      (error) => {
+        console.error(error.message);
+        return undefined;
+      },
+    );
+    if (!type) return undefined;
 
     return {
       type,
@@ -69,18 +80,23 @@ export const actionRegistry = {
         // Record not found
         return false;
       }
-      throw error;
+      console.error("Failed to delete action registry entry:", error);
+      return false;
     }
   },
 
   async entries(): Promise<[string, ActionData][]> {
     const actions = await db.actionRegistry.findMany();
-    return actions.map(action => {
-      const type = action.type;
-      if (type !== "delete" && type !== "confirm_delete" && type !== "cancel_delete") {
-        throw new Error(`Invalid action type in DB: ${type}`);
-      }
-      return [
+    return actions.flatMap((action) => {
+      const type = parseActionType(action.type).match(
+        (value) => value,
+        (error) => {
+          console.error(error.message);
+          return undefined;
+        },
+      );
+      if (!type) return [];
+      return [[
         action.id,
         {
           type,
@@ -90,7 +106,7 @@ export const actionRegistry = {
           timestamp: Number(action.timestamp),
           relatedKey: action.relatedKey || undefined,
         }
-      ];
+      ]];
     });
   },
 
@@ -113,4 +129,17 @@ export function generateRandomKey(): string {
 
 function isPrismaError(error: unknown): error is { code: unknown } {
   return typeof error === 'object' && error !== null && 'code' in error;
+}
+
+function parseActionType(type: string) {
+  if (
+    type === "delete" ||
+    type === "confirm_delete" ||
+    type === "cancel_delete" ||
+    type === "subscribe_dm" ||
+    type === "unsubscribe_dm"
+  ) {
+    return ok(type);
+  }
+  return err(new Error(`Invalid action type in DB: ${type}`));
 }

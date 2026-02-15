@@ -10,30 +10,32 @@ async function run() {
   await initGlobals(); //Creates the bot's /commands
   const commands = [...commandList].map((command) => command.toJSON());
   const rest = new REST({ version: "9" }).setToken(`${globals.DISCORD_TOKEN}`);
-  rest
-    .put(
-      Routes.applicationGuildCommands(
-        `${globals.BOT_CLIENT_ID}`,
-        `${globals.DISCORD_GUILD_ID}`,
-      ),
-      { body: commands },
-    )
-    .then(() => console.log("Registered the bot's commands successfully"))
-    .catch(console.error);
+  await rest.put(
+    Routes.applicationGuildCommands(
+      `${globals.BOT_CLIENT_ID}`,
+      `${globals.DISCORD_GUILD_ID}`,
+    ),
+    { body: commands },
+  );
+  console.log("Registered the bot's commands successfully");
 
-  client.once("ready", runScan);
+  client.once("ready", () => {
+    void runScan();
+  });
 
   //Runs upon a user creating a command
-  client.on(Events.InteractionCreate, async (interaction) => {
+  client.on(Events.InteractionCreate, (interaction) => {
     if (interaction.isChatInputCommand()) {
-      await commandHandler(interaction);
+      void commandHandler(interaction);
     } else if (interaction.isButton()) {
-      await buttonInteractionHandler(interaction);
+      void buttonInteractionHandler(interaction);
     }
   });
 
   //Starts DiscordJS server
-  client.login(globals.DISCORD_TOKEN);
+  await client.login(globals.DISCORD_TOKEN);
 }
 
-run();
+run().catch((error: unknown) => {
+  console.error(error);
+});

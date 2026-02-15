@@ -30,12 +30,10 @@ export default async function () {
     console.time("Cycle Time (2000ms minimum)");
 
     //Scans performed every iteration
-    await scanCashConverters(page).catch((err) =>
-      handleError(err, "Cash Converters"),
-    );
-    await scanEbay(page).catch((err) => handleError(err, "Ebay"));
-    await scanGumtree(page).catch((err) => handleError(err, "Gumtree"));
-    await scanSalvos(page).catch((err) => handleError(err, "Salvos"));
+    await handleScan(() => scanCashConverters(page), "Cash Converters");
+    await handleScan(() => scanEbay(page), "Ebay");
+    await handleScan(() => scanGumtree(page), "Gumtree");
+    await handleScan(() => scanSalvos(page), "Salvos");
 
     //Scans performed at limited intervals
     if (steamScanCnt >= 55) {
@@ -44,9 +42,9 @@ export default async function () {
     }
     if (csTradeScanCnt >= 100) {
       //All these are all at once, only done every 100 cycles
-      await scanCSTrade().catch((err) => handleError(err, "CS Trade"));
-      await scanLootFarm().catch((err) => handleError(err, "Loot Farm"));
-      await scanTradeIt().catch((err) => handleError(err, "Trade It"));
+      await handleScan(scanCSTrade, "CS Trade");
+      await handleScan(scanLootFarm, "Loot Farm");
+      await handleScan(scanTradeIt, "Trade It");
       csTradeScanCnt = 0;
     }
 
@@ -59,5 +57,13 @@ export default async function () {
     //Throttle
     await throttler;
     console.timeEnd("Cycle Time (2000ms minimum)");
+  }
+}
+
+async function handleScan(scan: () => Promise<void>, name: string) {
+  try {
+    await scan();
+  } catch (error) {
+    handleError(error, name);
   }
 }

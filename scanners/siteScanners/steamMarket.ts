@@ -1,4 +1,5 @@
 import axios from "axios";
+import { ResultAsync } from "neverthrow";
 import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
@@ -20,14 +21,16 @@ export async function scanSteamQuery() {
 
   try {
     const item = await getSteamQuery();
+    if (!item) return;
 
     await sleep(3000);
 
     const results = await getQueryResults(item.name);
+    if (results.length === 0) return;
     const result = results[0];
     const price = parseFloat(result.sell_price) / 100.0;
     if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
-      sendToChannel(
+      await sendToChannel(
         globals.STEAM_QUERY_CHANNEL_ID,
         `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
           result.name
@@ -53,9 +56,19 @@ export async function scanSteamQuery() {
 }
 
 export async function getQueryResults(url: string) {
-  const res = await axios.get(url);
-  if (res.status !== 200) throw new Error("Steam query failed");
-  return res.data.results;
+  return ResultAsync.fromPromise(
+    axios.get(url),
+    () => new Error("Steam query failed"),
+  )
+    .andThen((response) =>
+      response.status === 200
+        ? ResultAsync.fromSafePromise(Promise.resolve(response.data.results))
+        : ResultAsync.fromSafePromise(Promise.resolve([])),
+    )
+    .match(
+      (results) => results,
+      () => [],
+    );
 }
 
 //NOTE: This is depreciated currently due to increased ratelimits
@@ -65,6 +78,7 @@ export async function scanCs() {
 
   try {
     const item = await getCsMarketQuery();
+    if (!item) return;
 
     await sleep(3000);
     let res = await axios.get(`${item.url}`);
@@ -88,7 +102,7 @@ export async function scanCs() {
         res.data.iteminfo.floatvalue < item.maxFloat &&
         price <= item.maxPrice
       ) {
-        sendToChannel(
+        await sendToChannel(
           globals.CS_CHANNEL_ID,
           `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
             res.data.iteminfo.full_item_name
@@ -108,54 +122,6 @@ export async function scanCs() {
       i++;
     }
 
-    //TODO: Refactor callback
-    await axios
-      .get(`${item.url}`)
-      .then(async (res) => {
-        let i = 0;
-        for (const skin in res.data.listinginfo) {
-          const query = "https://api.csgofloat.com/?url="
-            .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
-            .replace("%listingid%", res.data.listinginfo[skin].listingid)
-            .replace("%assetid%", res.data.listinginfo[skin].asset.id);
-
-          const price =
-            (res.data.listinginfo[skin].converted_price_per_unit +
-              res.data.listinginfo[skin].converted_fee_per_unit) /
-            100.0;
-
-          //Only calls the API if the skin isn't in the map, and the item is in the first 10
-          if (!itemsFound.has(query) && i < 10)
-            await axios
-              .get(query)
-            .then((innerRes) => {
-                if (
-                innerRes.data.iteminfo.floatvalue < item.maxFloat &&
-                  price <= item.maxPrice
-                ) {
-                  sendToChannel(
-                    globals.CS_CHANNEL_ID ?? "",
-                    `${getNotificationPrelude()} a ${
-                    innerRes.data.iteminfo.full_item_name
-                    } with float ${
-                    innerRes.data.iteminfo.floatvalue
-                    } is available for $${price} USD at: ${item.displayUrl}`,
-                    {
-                      queryId: item.url,
-                      queryType: 'csMarket'
-                    },
-                  );
-                }
-              })
-              .catch((e) => console.error(e));
-          if (i < 10) itemsFound.set(query, 20);
-          //Puts the query into the map, or resets its TTL if the API was called for it
-          else if (itemsFound.has(query)) itemsFound.set(query, 20); //Resets its TTL if it's already been called once
-          i++;
-        }
-      })
-      .catch((e) => console.error(e));
-
     //Decrement the TTL in the map
   for (const [key, value] of itemsFound) {
     const newValue = value - 1;
@@ -169,11 +135,11 @@ export async function scanCs() {
 
 export async function getCsQueryString(page: Page, oldQuery: string) {
   if (!oldQuery.includes("https://steamcommunity.com/market/search")) {
-    throw new Error("Invalid query");
+    return "";
   }
 
   //Deliberately not awaited, as response will resolve (and become unavailable) before waitForResponse
-  page.goto(new URL(oldQuery).toString());
+  void page.goto(new URL(oldQuery).toString());
 
   //Promise resolves when response handling function returns true
   const response = await page.waitForResponse(
@@ -242,7 +208,7 @@ async function getSteamQuery() {
     return query;
   }
   steamQueryIndex = 1; //Will find the first query in the line below
-  return await db.steamMarket.findFirstOrThrow();
+  return await db.steamMarket.findFirst();
 }
 
 let csMarketIndex = 0;
@@ -254,5 +220,5 @@ async function getCsMarketQuery() {
     return query;
   }
   csMarketIndex = 1; //Will find the first query in the line below
-  return await db.csMarket.findFirstOrThrow();
+  return await db.csMarket.findFirst();
 }

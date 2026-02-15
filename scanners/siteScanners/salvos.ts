@@ -13,6 +13,7 @@ export async function scanSalvos(page: Page) {
   setStatus("Scanning Salvos");
 
   const item = await getSalvosQuery();
+  if (!item) return;
   let notificationSent = false;
 
   const result = await getSalvosValues(page, item);
@@ -21,7 +22,7 @@ export async function scanSalvos(page: Page) {
   if (result.price > item.maxPrice || result.price < item.minPrice) return;
 
   if ((await checkIfNew(result.image, SCANNER.SALVOS)) && !notificationSent) {
-    sendToChannel(
+    await sendToChannel(
       globals.SALVOS_CHANNEL_ID,
       `<@&${globals.SALVOS_ROLE_ID}> ${getNotificationPrelude()} a ${
         result.name
@@ -85,7 +86,7 @@ async function getSalvosQuery() {
     return query;
   }
   index = 1; //Will find the first query in the line below
-  return await db.salvos.findFirstOrThrow();
+  return await db.salvos.findFirst();
 }
 
 /* 
@@ -96,7 +97,7 @@ function getUrlCode(e: string) {
   const n = D(e);
   const r = /(\w+):([\da-f-]+)/.exec(n);
   if (!r) return null;
-  if (t && t !== r[1]) throw new Error("Schema is not correct");
+  if (t && t !== r[1]) return null;
   return r[2];
 }
 

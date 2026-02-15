@@ -4,6 +4,7 @@ import {
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
+import { err, ok } from "neverthrow";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   try {
@@ -11,13 +12,27 @@ export default async function (interaction: ChatInputCommandInteraction) {
     const minPrice = interaction.options.getNumber("minprice") ?? 0;
     const maxPrice = interaction.options.getNumber("maxprice") ?? 99999;
     const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
-    if (!query || minPrice == null || maxPrice == null) {
-      throw new Error("Invalid query paramaters.");
-    }
-    if (URL.canParse(query)) {
-      throw new Error(
-        "Do not enter a URL, set the content to what you would enter in the search box.",
+    const validationResult = validateSalvosQuery(query, minPrice, maxPrice);
+    const validationErrorMessage = validationResult.match(
+      () => null,
+      (error) => error.message,
+    );
+    if (validationErrorMessage) {
+      await interaction.editReply(
+        `${getFailurePrelude()} your search was invalid! \n\n${validationErrorMessage}`,
       );
+      return;
+    }
+    const validatedQuery = validationResult.match(
+      (value) => value,
+      () => "",
+    );
+
+    if (URL.canParse(validatedQuery)) {
+      await interaction.editReply(
+        `${getFailurePrelude()} your search was invalid! \n\nDo not enter a URL, set the content to what you would enter in the search box.`,
+      );
+      return;
     }
 
     // Create Query first, then link it to Salvos
@@ -26,7 +41,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
         dmOnly,
         salvos: {
           create: {
-            name: query.toString(),
+            name: validatedQuery.toString(),
             minPrice,
             maxPrice,
           },
@@ -36,18 +51,29 @@ export default async function (interaction: ChatInputCommandInteraction) {
 
     await interaction.editReply(
       `${getResponsePrelude()} the search has been created${dmOnly ? " (DM only)" : ""}: https://www.salvosstores.com.au/search?search=${encodeURIComponent(
-        query,
+        validatedQuery,
       )}`,
     );
   } catch (e) {
     if (e instanceof Error) {
-      interaction.editReply(
+      await interaction.editReply(
         `${getFailurePrelude()} your search was invalid! \n\n${e.message}`,
       );
     } else {
-      interaction.editReply(
+      await interaction.editReply(
         `${getFailurePrelude()} your search was invalid! \n\n${e}`,
       );
     }
   }
+}
+
+function validateSalvosQuery(
+  query: string | null,
+  minPrice: number | null,
+  maxPrice: number | null,
+) {
+  if (!query || minPrice == null || maxPrice == null) {
+    return err(new Error("Invalid query paramaters."));
+  }
+  return ok(query);
 }

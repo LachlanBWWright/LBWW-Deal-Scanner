@@ -36,7 +36,7 @@ export async function scanLootFarm() {
             if (
               await checkIfNewCsItem(searchItem.name, item.f, CsSite.LOOT_FARM)
             ) {
-              sendToChannel(
+              await sendToChannel(
                 globals.CS_CHANNEL_ID,
                 `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
                   items[skinType].n

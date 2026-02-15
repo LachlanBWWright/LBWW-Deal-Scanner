@@ -19,11 +19,12 @@ export async function scanCashConverters(page: Page) {
   setStatus("Scanning Cash Converters");
 
   const item = await getCashQuery();
+  if (!item) return;
   const foundItem = await getCashConvertersValues(page, item);
   if (!foundItem) return;
 
   if (await checkIfNew(foundItem.itemName, SCANNER.CASH_CONVERTERS)) {
-    sendToChannel(
+    await sendToChannel(
       globals.CASH_CONVERTERS_CHANNEL_ID,
       `<@&${globals.CASH_CONVERTERS_ROLE_ID}> ${getNotificationPrelude()} a ${
         foundItem.itemName
@@ -83,5 +84,5 @@ async function getCashQuery() {
     return query;
   }
   index = 1; //Will find the first query in the line below
-  return await db.cashConverters.findFirstOrThrow();
+  return await db.cashConverters.findFirst();
 }

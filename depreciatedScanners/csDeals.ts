@@ -28,7 +28,7 @@ export async function scanCSDeals(page: Page) {
         foundItem.i <= searchItem.maxPrice
       ) {
         if (await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_DEALS))
-          sendToChannel(
+          await sendToChannel(
             globals.CS_CHANNEL_ID,
             `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
               foundItem.c
