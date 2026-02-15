@@ -7,7 +7,7 @@ test("cash converters scanner", async () => {
     headless: "shell",
     args: ["--no-sandbox"],
   });
-  let page = await browser.newPage();
+  const page = await browser.newPage();
   const result = await getCashConvertersValues(page, {
     url: "https://www.cashconverters.com.au/search-results?Sort=default&page=1&f%5Bcategory%5D%5B0%5D=all&f%5Blocations%5D%5B0%5D=all&query=xbox",
     requiredPhrases: "",

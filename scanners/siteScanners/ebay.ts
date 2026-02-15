@@ -98,7 +98,7 @@ export async function getEbayValues(page: Page, item: Ebay) {
 
 let index = 0;
 async function getEbayQuery() {
-  let query = await db.ebay.findFirst({
+  const query = await db.ebay.findFirst({
     skip: index++,
   });
   if (query) {

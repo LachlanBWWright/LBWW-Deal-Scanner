@@ -13,7 +13,7 @@ test("salvos scanner", async () => {
     headless: "shell",
     args: ["--no-sandbox"],
   });
-  let page = await browser.newPage();
+  const page = await browser.newPage();
   const results = await getSalvosValues(page, {
     name: "shirt",
     minPrice: 0,

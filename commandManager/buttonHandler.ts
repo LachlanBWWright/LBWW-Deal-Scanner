@@ -8,7 +8,6 @@ import { db } from "../globals/PrismaClient.js";
 import {
   actionRegistry,
   generateRandomKey,
-  ActionData,
 } from "./actionRegistry.js";
 import {
   getResponsePrelude,
@@ -17,6 +16,24 @@ import {
 
 // Global action registry for button actions
 // Use shared actionRegistry and generateRandomKey from actionRegistry.ts
+
+function isPrismaError(error: unknown): error is { code: unknown } {
+  return typeof error === 'object' && error !== null && 'code' in error;
+}
+
+function isErrorWithMessage(error: unknown): error is { message: string } {
+  if (typeof error !== 'object' || error === null) return false;
+  if (!('message' in error)) return false;
+
+  if (isRecord(error)) {
+      return typeof error.message === 'string';
+  }
+  return false;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
 
 export async function buttonInteractionHandler(interaction: ButtonInteraction) {
   try {
@@ -141,48 +158,55 @@ async function handleConfirmDelete(
     let deleted = false;
 
     switch (queryType) {
-      case "ebay":
-        const ebayResult = await db.ebay.delete({
+      case "ebay": {
+        await db.ebay.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
-      case "gumtree":
-        const gumtreeResult = await db.gumtree.delete({
+      }
+      case "gumtree": {
+        await db.gumtree.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
-      case "cashConverters":
-        const cashResult = await db.cashConverters.delete({
+      }
+      case "cashConverters": {
+        await db.cashConverters.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
-      case "salvos":
-        const salvosResult = await db.salvos.delete({
+      }
+      case "salvos": {
+        await db.salvos.delete({
           where: { name: queryId },
         });
         deleted = true;
         break;
-      case "steamMarket":
-        const steamResult = await db.steamMarket.delete({
+      }
+      case "steamMarket": {
+        await db.steamMarket.delete({
           where: { name: queryId },
         });
         deleted = true;
         break;
-      case "csTradeBot":
-        const csTradeBotResult = await db.csTradeBot.delete({
+      }
+      case "csTradeBot": {
+        await db.csTradeBot.delete({
           where: { name: queryId },
         });
         deleted = true;
         break;
-      case "csMarket":
-        const csMarketResult = await db.csMarket.delete({
+      }
+      case "csMarket": {
+        await db.csMarket.delete({
           where: { url: queryId },
         });
         deleted = true;
         break;
+      }
       default:
         throw new Error(`Unknown query type: ${queryType}`);
     }
@@ -202,17 +226,17 @@ async function handleConfirmDelete(
     console.error("Delete query error:", error);
 
     // Narrow error shape for Prisma
-    const errAny = error as { code?: string; message?: string } | undefined;
-    if (errAny?.code === "P2025") {
+    if (isPrismaError(error) && error.code === "P2025") {
       // Prisma record not found error
       await interaction.editReply({
         content: `${getFailurePrelude()} Query not found. It may have already been deleted.`,
         components: [],
       });
     } else {
+      const message = isErrorWithMessage(error) ? error.message : "Unknown error";
       await interaction.editReply({
         content: `${getFailurePrelude()} Failed to delete query: ${
-          errAny?.message || "Unknown error"
+          message
         }`,
         components: [],
       });
@@ -290,10 +314,10 @@ async function handleSubscribeDM(
     });
   } catch (error: unknown) {
     console.error("Subscribe DM error:", error);
-    const errAny = error as { message?: string } | undefined;
+    const message = isErrorWithMessage(error) ? error.message : "Unknown error";
     await interaction.editReply({
       content: `${getFailurePrelude()} Failed to subscribe: ${
-        errAny?.message || "Unknown error"
+        message
       }`,
     });
   }
@@ -341,17 +365,17 @@ async function handleUnsubscribeDM(
     });
   } catch (error: unknown) {
     console.error("Unsubscribe DM error:", error);
-    const errAny = error as { code?: string; message?: string } | undefined;
     
-    if (errAny?.code === "P2025") {
+    if (isPrismaError(error) && error.code === "P2025") {
       // Prisma record not found error
       await interaction.editReply({
         content: `${getFailurePrelude()} You are not subscribed to this query.`,
       });
     } else {
+      const message = isErrorWithMessage(error) ? error.message : "Unknown error";
       await interaction.editReply({
         content: `${getFailurePrelude()} Failed to unsubscribe: ${
-          errAny?.message || "Unknown error"
+          message
         }`,
       });
     }

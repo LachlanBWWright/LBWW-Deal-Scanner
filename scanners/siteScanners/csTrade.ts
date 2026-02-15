@@ -14,7 +14,7 @@ export async function scanCSTrade() {
     return;
   setStatus("Scanning CS.Trade");
 
-  const res = await axios.get(
+  await axios.get(
     "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
   );
 

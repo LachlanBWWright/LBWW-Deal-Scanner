@@ -8,14 +8,14 @@ function generateRandomKey(): string {
 }
 
 // Type definition for testing
-export type ActionData = {
+export interface ActionData {
   type: "delete" | "confirm_delete" | "cancel_delete";
   queryType?: string;
   queryId?: string;
   userId?: string;
   timestamp: number;
   relatedKey?: string;
-};
+}
 
 describe("ActionRegistry Key Generation", () => {
   it("should generate unique random keys", () => {

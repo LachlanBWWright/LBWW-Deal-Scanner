@@ -6,9 +6,9 @@ import {
 import { db } from "../../globals/PrismaClient.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
-  let query = interaction.options.getString("query") || "placeholder";
+  const query = interaction.options.getString("query") || "placeholder";
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
-  let search = new URL(query);
+  const search = new URL(query);
   if (search.toString().includes("https://www.cashconverters.com.au/")) {
     await db.query.create({
       data: {

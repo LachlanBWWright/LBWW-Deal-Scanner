@@ -76,7 +76,7 @@ export async function getCashConvertersValues(
 
 let index = 0;
 async function getCashQuery() {
-  let query = await db.cashConverters.findFirst({
+  const query = await db.cashConverters.findFirst({
     skip: index++,
   });
   if (query) {

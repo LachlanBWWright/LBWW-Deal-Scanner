@@ -1,5 +1,5 @@
 import axios from "axios";
-import puppeteer, { Page } from "puppeteer";
+import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
@@ -7,7 +7,7 @@ import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
 
 //For general market queries and CS Items
-let itemsFound = new Map<string, number>();
+const itemsFound = new Map<string, number>();
 
 export async function scanSteamQuery() {
   if (
@@ -25,7 +25,7 @@ export async function scanSteamQuery() {
 
     const results = await getQueryResults(item.name);
     const result = results[0];
-    let price = parseFloat(result.sell_price) / 100.0;
+    const price = parseFloat(result.sell_price) / 100.0;
     if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
       sendToChannel(
         globals.STEAM_QUERY_CHANNEL_ID,
@@ -53,7 +53,7 @@ export async function scanSteamQuery() {
 }
 
 export async function getQueryResults(url: string) {
-  let res = await axios.get(url);
+  const res = await axios.get(url);
   if (res.status !== 200) throw new Error("Steam query failed");
   return res.data.results;
 }
@@ -70,13 +70,13 @@ export async function scanCs() {
     let res = await axios.get(`${item.url}`);
     if (res.status !== 200) return;
     let i = 0;
-    for (let skin in res.data.listinginfo) {
-      let query = "https://api.csgofloat.com/?url="
+    for (const skin in res.data.listinginfo) {
+      const query = "https://api.csgofloat.com/?url="
         .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
         .replace("%listingid%", res.data.listinginfo[skin].listingid)
         .replace("%assetid%", res.data.listinginfo[skin].asset.id);
 
-      let price =
+      const price =
         (res.data.listinginfo[skin].converted_price_per_unit +
           res.data.listinginfo[skin].converted_fee_per_unit) /
         100.0;
@@ -113,13 +113,13 @@ export async function scanCs() {
       .get(`${item.url}`)
       .then(async (res) => {
         let i = 0;
-        for (let skin in res.data.listinginfo) {
-          let query = "https://api.csgofloat.com/?url="
+        for (const skin in res.data.listinginfo) {
+          const query = "https://api.csgofloat.com/?url="
             .concat(res.data.listinginfo[skin].asset.market_actions[0].link)
             .replace("%listingid%", res.data.listinginfo[skin].listingid)
             .replace("%assetid%", res.data.listinginfo[skin].asset.id);
 
-          let price =
+          const price =
             (res.data.listinginfo[skin].converted_price_per_unit +
               res.data.listinginfo[skin].converted_fee_per_unit) /
             100.0;
@@ -128,17 +128,17 @@ export async function scanCs() {
           if (!itemsFound.has(query) && i < 10)
             await axios
               .get(query)
-              .then((res) => {
+            .then((innerRes) => {
                 if (
-                  res.data.iteminfo.floatvalue < item.maxFloat &&
+                innerRes.data.iteminfo.floatvalue < item.maxFloat &&
                   price <= item.maxPrice
                 ) {
                   sendToChannel(
                     globals.CS_CHANNEL_ID ?? "",
                     `${getNotificationPrelude()} a ${
-                      res.data.iteminfo.full_item_name
+                    innerRes.data.iteminfo.full_item_name
                     } with float ${
-                      res.data.iteminfo.floatvalue
+                    innerRes.data.iteminfo.floatvalue
                     } is available for $${price} USD at: ${item.displayUrl}`,
                     {
                       queryId: item.url,
@@ -157,9 +157,10 @@ export async function scanCs() {
       .catch((e) => console.error(e));
 
     //Decrement the TTL in the map
-    for (let [key, value] of itemsFound) {
-      value--;
-      if (value <= 0) itemsFound.delete(key);
+  for (const [key, value] of itemsFound) {
+    const newValue = value - 1;
+    if (newValue <= 0) itemsFound.delete(key);
+    else itemsFound.set(key, newValue);
     }
   } catch (e) {
     console.error(e);
@@ -190,13 +191,13 @@ export async function createCs(
   oldQuery: string,
   maxPrice: number,
   maxFloat: number,
-  dmOnly: boolean = false,
+  dmOnly = false,
 ) {
   //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
   //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
   try {
     if (oldQuery.includes("https://steamcommunity.com/market/listings/730/")) {
-      let search = new URL(
+      const search = new URL(
         oldQuery
           .concat(
             "/render/?query=&start=0&count=20&country=AU&language=english&currency=1",
@@ -234,7 +235,7 @@ function sleep(ms: number) {
 
 let steamQueryIndex = 0;
 async function getSteamQuery() {
-  let query = await db.steamMarket.findFirst({
+  const query = await db.steamMarket.findFirst({
     skip: steamQueryIndex++,
   });
   if (query) {
@@ -246,7 +247,7 @@ async function getSteamQuery() {
 
 let csMarketIndex = 0;
 async function getCsMarketQuery() {
-  let query = await db.csMarket.findFirst({
+  const query = await db.csMarket.findFirst({
     skip: csMarketIndex++,
   });
   if (query) {

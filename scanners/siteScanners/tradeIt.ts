@@ -38,9 +38,19 @@ export async function scanTradeIt() {
           },
         },
       );
-      itemsArray = [...itemsArray, ...(res.data.items as TradeItItem[])];
-      if (res.data.items.length < 750) break; //Breaks the loop if it's reached the end of the item list
-    } catch {}
+      // Validate items structure
+      const items = res.data.items;
+      if (Array.isArray(items)) {
+         const validItems = items.filter((item: unknown): item is TradeItItem =>
+            typeof item === 'object' && item !== null && 'price' in item && 'name' in item
+         );
+
+         itemsArray = [...itemsArray, ...validItems];
+         if (items.length < 750) break;
+      }
+    } catch {
+      // Ignore errors
+    }
   }
   try {
     const foundItems = itemsArray;
@@ -55,9 +65,9 @@ export async function scanTradeIt() {
           let bestFloat = 1;
           if (foundItem.floatValue) bestFloat = foundItem.floatValue;
           else if (foundItem.floatValues) {
-            for (let x = 0; x < foundItem.floatValues.length; x++) {
-              if (foundItem.floatValues[x] < bestFloat)
-                bestFloat = foundItem.floatValues[x];
+            for (const floatVal of foundItem.floatValues) {
+              if (floatVal < bestFloat)
+                bestFloat = floatVal;
             }
           }
           if (

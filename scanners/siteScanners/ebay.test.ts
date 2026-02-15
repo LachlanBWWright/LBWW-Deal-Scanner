@@ -4,10 +4,10 @@ import { test } from "vitest";
 
 test("ebay scanner", async () => {
   const browser = await puppeteer.launch({
-    //args: ["--no-sandbox"],
-    headless: false,
+    args: ["--no-sandbox"],
+    headless: "shell",
   });
-  let page = await browser.newPage();
+  const page = await browser.newPage();
   page.setUserAgent(
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
   );
