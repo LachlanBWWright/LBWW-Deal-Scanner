@@ -48,9 +48,14 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
   await page.setUserAgent(
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
   );
-  await page.waitForSelector(
-    "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
-  );
+  try {
+    await page.waitForSelector(
+      "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
+      { timeout: 10000 },
+    );
+  } catch {
+    return null;
+  }
 
   const result = await page.$(
     "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",

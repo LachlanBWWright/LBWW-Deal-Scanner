@@ -43,7 +43,11 @@ export async function scanEbay(page: Page) {
 }
 
 export async function getEbayValues(page: Page, item: Ebay) {
-  await page.goto(item.url);
+  try {
+    await page.goto(item.url, { waitUntil: "domcontentloaded", timeout: 10000 });
+  } catch {
+    return { foundName: null, foundPrice: null, foundImage: null };
+  }
 
   console.log("test 1");
   console.log(page);

@@ -8,6 +8,12 @@ import client from "./globals/DiscordJSClient.js";
 //Main function
 async function run() {
   await initGlobals(); //Creates the bot's /commands
+  if (!globals.DISCORD_TOKEN || !globals.BOT_CLIENT_ID || !globals.DISCORD_GUILD_ID) {
+    console.warn(
+      "Missing Discord configuration, skipping Discord startup.",
+    );
+    return;
+  }
   const commands = [...commandList].map((command) => command.toJSON());
   const rest = new REST({ version: "9" }).setToken(`${globals.DISCORD_TOKEN}`);
   await rest.put(

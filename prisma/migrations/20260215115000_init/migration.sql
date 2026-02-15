@@ -1,4 +1,16 @@
 -- CreateTable
+CREATE TABLE "ActionRegistry" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "type" TEXT NOT NULL,
+    "queryType" TEXT,
+    "queryId" TEXT,
+    "userId" TEXT,
+    "timestamp" BIGINT NOT NULL,
+    "relatedKey" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
 CREATE TABLE "Globals" (
     "id" TEXT NOT NULL,
     "BOT_CLIENT_ID" TEXT NOT NULL,
@@ -42,10 +54,29 @@ CREATE TABLE "TtlItem" (
 );
 
 -- CreateTable
+CREATE TABLE "Query" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "dmOnly" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
+CREATE TABLE "UserQuery" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "queryId" TEXT NOT NULL,
+    "queryType" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UserQuery_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "CashConverters" (
     "url" TEXT NOT NULL,
     "requiredPhrases" TEXT NOT NULL DEFAULT '',
-    "excludePhrases" TEXT NOT NULL DEFAULT ''
+    "excludePhrases" TEXT NOT NULL DEFAULT '',
+    "queryId" TEXT,
+    CONSTRAINT "CashConverters_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -54,7 +85,9 @@ CREATE TABLE "CsMarket" (
     "displayUrl" TEXT NOT NULL,
     "maxPrice" REAL NOT NULL,
     "maxFloat" REAL NOT NULL,
-    "lastPrice" REAL NOT NULL
+    "lastPrice" REAL NOT NULL,
+    "queryId" TEXT,
+    CONSTRAINT "CsMarket_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -62,26 +95,34 @@ CREATE TABLE "CsTradeBot" (
     "name" TEXT NOT NULL,
     "maxPrice" REAL NOT NULL,
     "minFloat" REAL NOT NULL,
-    "maxFloat" REAL NOT NULL
+    "maxFloat" REAL NOT NULL,
+    "queryId" TEXT,
+    CONSTRAINT "CsTradeBot_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "Ebay" (
     "url" TEXT NOT NULL,
-    "maxPrice" REAL NOT NULL
+    "maxPrice" REAL NOT NULL,
+    "queryId" TEXT,
+    CONSTRAINT "Ebay_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "Gumtree" (
     "url" TEXT NOT NULL,
-    "maxPrice" REAL NOT NULL
+    "maxPrice" REAL NOT NULL,
+    "queryId" TEXT,
+    CONSTRAINT "Gumtree_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
 CREATE TABLE "Salvos" (
     "name" TEXT NOT NULL,
     "minPrice" REAL NOT NULL,
-    "maxPrice" REAL NOT NULL
+    "maxPrice" REAL NOT NULL,
+    "queryId" TEXT,
+    CONSTRAINT "Salvos_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -89,7 +130,9 @@ CREATE TABLE "SteamMarket" (
     "name" TEXT NOT NULL,
     "displayUrl" TEXT NOT NULL,
     "maxPrice" REAL NOT NULL,
-    "lastPrice" REAL NOT NULL
+    "lastPrice" REAL NOT NULL,
+    "queryId" TEXT,
+    CONSTRAINT "SteamMarket_queryId_fkey" FOREIGN KEY ("queryId") REFERENCES "Query" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex
@@ -102,22 +145,47 @@ CREATE UNIQUE INDEX "TtlItem_itemId_key" ON "TtlItem"("itemId");
 CREATE UNIQUE INDEX "TtlItem_scanner_itemId_key" ON "TtlItem"("scanner", "itemId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserQuery_userId_queryId_key" ON "UserQuery"("userId", "queryId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "CashConverters_url_key" ON "CashConverters"("url");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CashConverters_queryId_key" ON "CashConverters"("queryId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CsMarket_url_key" ON "CsMarket"("url");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "CsMarket_queryId_key" ON "CsMarket"("queryId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "CsTradeBot_name_key" ON "CsTradeBot"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CsTradeBot_queryId_key" ON "CsTradeBot"("queryId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Ebay_url_key" ON "Ebay"("url");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Ebay_queryId_key" ON "Ebay"("queryId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Gumtree_url_key" ON "Gumtree"("url");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Gumtree_queryId_key" ON "Gumtree"("queryId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Salvos_name_key" ON "Salvos"("name");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Salvos_queryId_key" ON "Salvos"("queryId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "SteamMarket_name_key" ON "SteamMarket"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SteamMarket_queryId_key" ON "SteamMarket"("queryId");
+

@@ -38,13 +38,18 @@ export async function scanSalvos(page: Page) {
 }
 
 export async function getSalvosValues(page: Page, item: Salvos) {
-  await page.goto(
-    `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(
-      item.name,
-    )}&sorting=newestFirst&price=${item.minPrice ?? 0}-${
-      item.maxPrice ?? 99999
-    }`,
-  );
+  try {
+    await page.goto(
+      `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(
+        item.name,
+      )}&sorting=newestFirst&price=${item.minPrice ?? 0}-${
+        item.maxPrice ?? 99999
+      }`,
+      { waitUntil: "domcontentloaded", timeout: 10000 },
+    );
+  } catch {
+    return;
+  }
 
   const grid = await page.$(
     "div[class='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-10']",
@@ -55,21 +60,18 @@ export async function getSalvosValues(page: Page, item: Salvos) {
 
   if (!pageItem) return;
 
-  const name = await pageItem.$eval(
+  const linkElement = await pageItem.$(
     "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
-    (el) => el.textContent,
   );
-  const link = await pageItem.$eval(
-    "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
-    (el) => el.href,
-  );
+  const name = await linkElement?.evaluate((el) => el.textContent);
+  const link = await linkElement?.evaluate((el) => el.href);
 
-  const price = await pageItem.$eval(
-    "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price']",
-    (el) => {
-      return el.textContent ? parseFloat(el.textContent.substring(1)) : null; //Remove leading $1
-    },
-  );
+  const priceElement =
+    (await pageItem.$(
+      "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price']",
+    )) ?? (await pageItem.$("[class*='product-price']"));
+  const priceText = await priceElement?.evaluate((el) => el.textContent ?? "");
+  const price = priceText ? parseFloat(priceText.replace(/[^0-9.]/g, "")) : null;
 
   const image = await pageItem.$eval("img", (img) => img.src);
 

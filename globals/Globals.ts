@@ -58,7 +58,13 @@ const defaultGlobals = {
 };
 
 export async function initGlobals() {
-  const globals = await db.globals.findFirst();
+  let globals;
+  try {
+    globals = await db.globals.findFirst();
+  } catch (error) {
+    console.warn("Unable to load globals from database, using env defaults.", error);
+    return;
+  }
 
   if (!globals) return;
 

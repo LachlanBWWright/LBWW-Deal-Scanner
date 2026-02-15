@@ -6,11 +6,12 @@ export default async function selectorRace(
   page: Page,
   foundSelector: string,
   noItemSelector: string,
+  timeoutMs = 10000,
 ) {
   return await Promise.race<ElementHandle<Element> | null>([
-    page.waitForSelector(foundSelector).catch(() => null),
+    page.waitForSelector(foundSelector, { timeout: timeoutMs }).catch(() => null),
     page
-      .waitForSelector(noItemSelector)
+      .waitForSelector(noItemSelector, { timeout: timeoutMs })
       .then(() => null)
       .catch(() => null),
   ]);
