@@ -1,5 +1,5 @@
 import Dotenv from "dotenv";
-import { err, Result } from "neverthrow";
+import { err, ok, Result } from "neverthrow";
 import { db } from "./PrismaClient.js";
 Dotenv.config();
 

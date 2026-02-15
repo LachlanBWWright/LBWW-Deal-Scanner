@@ -73,7 +73,7 @@ function validateSalvosQuery(
   maxPrice: number | null,
 ) {
   if (!query || minPrice == null || maxPrice == null) {
-    return err(new Error("Invalid query paramaters."));
+    return err(new Error("Invalid query parameters."));
   }
   return ok(query);
 }
