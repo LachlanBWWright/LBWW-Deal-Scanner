@@ -7,7 +7,7 @@ test("steam query scanner", async () => {
     headless: "shell",
     args: ["--no-sandbox"],
   });
-  let page = await browser.newPage();
+  const page = await browser.newPage();
 
   const url = await getCsQueryString(
     page,

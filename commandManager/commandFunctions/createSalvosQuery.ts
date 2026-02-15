@@ -21,7 +21,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     }
 
     // Create Query first, then link it to Salvos
-    const queryRecord = await db.query.create({
+    await db.query.create({
       data: {
         dmOnly,
         salvos: {

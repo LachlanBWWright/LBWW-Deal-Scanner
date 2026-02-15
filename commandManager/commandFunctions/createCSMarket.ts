@@ -6,13 +6,13 @@ import {
 } from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
-  let query = interaction.options.getString("query") || "placeholder";
-  let maxFloat = interaction.options.getNumber("maxfloat") || 1;
-  let maxPrice = interaction.options.getNumber("maxprice") || 1;
+  const query = interaction.options.getString("query") || "placeholder";
+  const maxFloat = interaction.options.getNumber("maxfloat") || 1;
+  const maxPrice = interaction.options.getNumber("maxprice") || 1;
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
 
   try {
-    let response = await createCs(query, maxPrice, maxFloat, dmOnly);
+    const response = await createCs(query, maxPrice, maxFloat, dmOnly);
     if (response != "")
       await interaction.editReply(
         `${getResponsePrelude()} a search has been created${dmOnly ? " (DM only)" : ""} with the URL: ${response}`,
@@ -21,7 +21,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
       await interaction.editReply(
         `${getFailurePrelude()} the url was invalid!`,
       );
-  } catch (e) {
+  } catch {
     await interaction.editReply(`${getFailurePrelude()} the url was invalid!`);
   }
 }

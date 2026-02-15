@@ -8,15 +8,15 @@ import { db } from "../../globals/PrismaClient.js";
 import puppeteer from "puppeteer";
 
 export default async function (interaction: ChatInputCommandInteraction) {
-  let query = interaction.options.getString("query") || "placeholder";
-  let maxPrice = interaction.options.getNumber("maxprice") || 1;
+  const query = interaction.options.getString("query") || "placeholder";
+  const maxPrice = interaction.options.getNumber("maxprice") || 1;
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
 
   const browser = await puppeteer.launch({
     headless: "shell",
     args: ["--no-sandbox"],
   });
-  let page = await browser.newPage();
+  const page = await browser.newPage();
   try {
     const newUrl = await getCsQueryString(page, query);
 
@@ -40,7 +40,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
       );
     else
       await interaction.editReply(`${getFailurePrelude()} the URL is invalid!`);
-  } catch (e) {
+  } catch {
     await interaction.editReply(`${getFailurePrelude()} the URL is invalid!`);
   }
   await page.close();

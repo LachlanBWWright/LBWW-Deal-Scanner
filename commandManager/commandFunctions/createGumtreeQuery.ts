@@ -6,10 +6,10 @@ import {
 } from "../../functions/messagePreludes.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
-  let query = interaction.options.getString("query") || "placeholder";
-  let maxPrice = interaction.options.getNumber("maxprice") || 1000;
+  const query = interaction.options.getString("query") || "placeholder";
+  const maxPrice = interaction.options.getNumber("maxprice") || 1000;
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
-  let search = new URL(query);
+  const search = new URL(query);
   if (search.toString().includes("https://www.gumtree.com.au/")) {
     await db.query.create({
       data: {
