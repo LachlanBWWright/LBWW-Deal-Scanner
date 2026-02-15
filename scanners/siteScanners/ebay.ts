@@ -45,7 +45,8 @@ export async function scanEbay(page: Page) {
 export async function getEbayValues(page: Page, item: Ebay) {
   try {
     await page.goto(item.url, { waitUntil: "domcontentloaded", timeout: 10000 });
-  } catch {
+  } catch (error) {
+    console.warn("eBay navigation failed:", error);
     return { foundName: null, foundPrice: null, foundImage: null };
   }
 

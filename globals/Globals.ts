@@ -62,7 +62,7 @@ export async function initGlobals() {
   try {
     globals = await db.globals.findFirst();
   } catch (error) {
-    console.warn("Unable to load globals from database, using env defaults.", error);
+    console.warn("Unable to load globals from database.", error);
     return;
   }
 

@@ -53,7 +53,8 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
       "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
       { timeout: 10000 },
     );
-  } catch {
+  } catch (error) {
+    console.warn("Gumtree selector lookup failed:", error);
     return null;
   }
 

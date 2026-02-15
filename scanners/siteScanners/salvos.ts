@@ -47,7 +47,8 @@ export async function getSalvosValues(page: Page, item: Salvos) {
       }`,
       { waitUntil: "domcontentloaded", timeout: 10000 },
     );
-  } catch {
+  } catch (error) {
+    console.warn("Salvos navigation failed:", error);
     return;
   }
 
