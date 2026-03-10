@@ -8,10 +8,12 @@ import client from "./globals/DiscordJSClient.js";
 //Main function
 async function run() {
   await initGlobals(); //Creates the bot's /commands
-  if (!globals.DISCORD_TOKEN || !globals.BOT_CLIENT_ID || !globals.DISCORD_GUILD_ID) {
-    console.warn(
-      "Missing Discord configuration, skipping Discord startup.",
-    );
+  if (
+    !globals.DISCORD_TOKEN ||
+    !globals.BOT_CLIENT_ID ||
+    !globals.DISCORD_GUILD_ID
+  ) {
+    console.warn("Missing Discord configuration, skipping Discord startup.");
     return;
   }
   const commands = [...commandList].map((command) => command.toJSON());
@@ -25,7 +27,7 @@ async function run() {
   );
   console.log("Registered the bot's commands successfully");
 
-  client.once("ready", () => {
+  client.once("clientReady", () => {
     void runScan();
   });
 
