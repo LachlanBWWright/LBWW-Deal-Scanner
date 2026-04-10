@@ -1,0 +1,11 @@
+node_modules
+frontend/node_modules
+server/node_modules
+build
+dist
+frontend/dist
+.vite
+web
+.codex
+.env
+.env.template

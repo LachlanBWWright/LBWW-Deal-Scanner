@@ -4,7 +4,7 @@ import nodeExternals from "vite-plugin-node-externals";
 export default defineConfig({
   plugins: [nodeExternals()],
   // ensure that `process.env` references are left intact during bundling
-  // dotenv will populate the real `process.env` at runtime.  By default
+  // dotenv will populate the real `process.env` at runtime. By default
   // esbuild replaces `process.env` with an empty object, which is what
   // caused our configuration values to vanish after building.
   define: {

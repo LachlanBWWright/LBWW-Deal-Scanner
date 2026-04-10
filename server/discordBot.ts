@@ -1,22 +1,28 @@
-import { REST, Routes, Events } from "discord.js";
-import globals, { initGlobals } from "./globals/Globals.js";
-import runScan from "./scanners/index.js";
-import { commandHandler, commandList } from "./commandManager/index.js";
-import { buttonInteractionHandler } from "./commandManager/buttonHandler.js";
-import client from "./globals/DiscordJSClient.js";
+import { Events, REST, Routes } from "discord.js";
 
-//Main function
-async function run() {
-  await initGlobals(); //Creates the bot's /commands
+import client from "./globals/DiscordJSClient.js";
+import globals, { initGlobals } from "./globals/Globals.js";
+import { buttonInteractionHandler } from "./commandManager/buttonHandler.js";
+import { commandHandler, commandList } from "./commandManager/index.js";
+import { setBotStatus, setCommandNames } from "./controlState.js";
+import { startBackgroundScanLoop } from "./scannerRuntime.js";
+
+export async function startDiscordBot() {
+  await initGlobals();
+
   if (
     !globals.DISCORD_TOKEN ||
     !globals.BOT_CLIENT_ID ||
     !globals.DISCORD_GUILD_ID
   ) {
+    setBotStatus("disabled", "Missing Discord configuration");
     console.warn("Missing Discord configuration, skipping Discord startup.");
     return;
   }
+
   const commands = [...commandList].map((command) => command.toJSON());
+  setCommandNames(commands.map((command) => command.name));
+
   const rest = new REST({ version: "9" }).setToken(`${globals.DISCORD_TOKEN}`);
   await rest.put(
     Routes.applicationGuildCommands(
@@ -28,10 +34,10 @@ async function run() {
   console.log("Registered the bot's commands successfully");
 
   client.once("clientReady", () => {
-    void runScan();
+    setBotStatus("ready");
+    void startBackgroundScanLoop();
   });
 
-  //Runs upon a user creating a command
   client.on(Events.InteractionCreate, (interaction) => {
     if (interaction.isChatInputCommand()) {
       void commandHandler(interaction);
@@ -40,10 +46,9 @@ async function run() {
     }
   });
 
-  //Starts DiscordJS server
+  client.on("error", (error) => {
+    setBotStatus("error", error.message);
+  });
+
   await client.login(globals.DISCORD_TOKEN);
 }
-
-run().catch((error: unknown) => {
-  console.error(error);
-});

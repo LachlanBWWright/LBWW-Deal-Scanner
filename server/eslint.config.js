@@ -5,7 +5,17 @@ import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default [
-  { ignores: ["dist", "build", "coverage", ".cache", "dev.db", "node_modules"] },
+  {
+    ignores: [
+      "dist",
+      "build",
+      "coverage",
+      ".cache",
+      "dev.db",
+      "node_modules",
+      "web",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strict,
   ...tseslint.configs.stylistic,

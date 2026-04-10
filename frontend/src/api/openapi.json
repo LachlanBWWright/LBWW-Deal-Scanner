@@ -1,0 +1,278 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DealScanner Control API",
+    "description": "Fastify control API for the DealScanner bot and scanner runtime.",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {}
+  },
+  "paths": {
+    "/api/status": {
+      "get": {
+        "summary": "Read runtime status",
+        "tags": [
+          "control"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "api": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "startedAt": {
+                          "type": "string"
+                        },
+                        "port": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "startedAt",
+                        "port"
+                      ]
+                    },
+                    "bot": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "starting",
+                            "ready",
+                            "disabled",
+                            "error"
+                          ]
+                        },
+                        "connected": {
+                          "type": "boolean"
+                        },
+                        "lastReadyAt": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        },
+                        "lastError": {
+                          "type": [
+                            "null",
+                            "string"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "connected",
+                        "lastReadyAt",
+                        "lastError"
+                      ]
+                    },
+                    "scanner": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "running",
+                            "error"
+                          ]
+                        },
+                        "loopRunning": {
+                          "type": "boolean"
+                        },
+                        "lastRun": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "mode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "loop",
+                                    "manual"
+                                  ]
+                                },
+                                "startedAt": {
+                                  "type": "string"
+                                },
+                                "finishedAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "durationMs": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "error": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "mode",
+                                "startedAt",
+                                "finishedAt",
+                                "durationMs",
+                                "error"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "loopRunning",
+                        "lastRun"
+                      ]
+                    },
+                    "commands": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "api",
+                    "bot",
+                    "scanner",
+                    "commands"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/commands": {
+      "get": {
+        "summary": "List registered Discord commands",
+        "tags": [
+          "control"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "commands": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "commands"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scans/run": {
+      "post": {
+        "summary": "Run a manual scan pass",
+        "tags": [
+          "control"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean"
+                    },
+                    "startedAt": {
+                      "type": "string"
+                    },
+                    "finishedAt": {
+                      "type": "string"
+                    },
+                    "durationMs": {
+                      "type": "number"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "manual"
+                      ]
+                    },
+                    "error": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accepted",
+                    "startedAt",
+                    "finishedAt",
+                    "durationMs",
+                    "mode",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000"
+    }
+  ]
+}

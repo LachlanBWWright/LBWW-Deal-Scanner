@@ -3,9 +3,9 @@ FROM node:22
 RUN mkdir /app
 WORKDIR /app
 
-
-COPY package.json package-lock.json ./
-RUN npm i
+COPY server/package.json server/package-lock.json ./server/
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN npm --prefix server install && npm --prefix frontend install
 COPY ./ ./
 
 #Puppeteer dependencies
@@ -16,9 +16,9 @@ RUN apt-get update && apt-get install gnupg wget -y && \
     apt-get install google-chrome-stable -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-RUN npm i @libsql/linux-x64-gnu
+RUN npm --prefix server install @libsql/linux-x64-gnu
 
-RUN npx prisma generate
-RUN npm run build
+RUN npm --prefix server run build
+RUN npm --prefix frontend run build
 
-CMD ["npm", "run", "start"]
+CMD ["npm", "--prefix", "server", "run", "start"]
