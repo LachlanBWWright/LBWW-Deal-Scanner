@@ -28,10 +28,21 @@ export default [
       },
     },
     rules: {
-      "@typescript-eslint/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+      "@typescript-eslint/consistent-type-assertions": [
+        "error",
+        { assertionStyle: "never" },
+      ],
       "@typescript-eslint/unified-signatures": "off",
       "no-constant-condition": ["error", { checkLoops: false }],
-    }
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "TryStatement",
+          message:
+            "Use neverthrow Result/ResultAsync flows instead of try/catch.",
+        },
+      ],
+    },
   },
   {
     files: ["**/*.ts"],
@@ -46,5 +57,5 @@ export default [
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
     },
-  }
+  },
 ];

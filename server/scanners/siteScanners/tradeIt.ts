@@ -8,10 +8,13 @@ import {
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export async function scanTradeIt() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
+  const csChannelId = globals.CS_CHANNEL_ID;
+  const csRoleId = globals.CS_ROLE_ID;
   setStatus("Scanning tradeit.gg");
 
   interface TradeItItem {
@@ -26,33 +29,43 @@ export async function scanTradeIt() {
   let itemsArray: TradeItItem[] = [];
   for (let i = 0; i < 20; i++) {
     //Has to make multiple searches due to a size limit.
-    try {
-      const res = await axios.get(
-        `https://tradeit.gg/api/v2/inventory/data?gameId=730&offset=${
-          i * 1000
-        }&limit=1000&sortType=(CSGO)+Best+Float&searchValue=&minPrice=0&maxPrice=100000&minFloat=0&maxFloat=1&hideTradeLock=false&fresh=true`,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
+    const batchResult = await fromThrowableAsync(
+      () =>
+        axios.get(
+          `https://tradeit.gg/api/v2/inventory/data?gameId=730&offset=${
+            i * 1000
+          }&limit=1000&sortType=(CSGO)+Best+Float&searchValue=&minPrice=0&maxPrice=100000&minFloat=0&maxFloat=1&hideTradeLock=false&fresh=true`,
+          {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion",
+            },
           },
-        },
-      );
-      // Validate items structure
-      const items = res.data.items;
-      if (Array.isArray(items)) {
-         const validItems = items.filter((item: unknown): item is TradeItItem =>
-            typeof item === 'object' && item !== null && 'price' in item && 'name' in item
-         );
+        ),
+      "Failed to fetch tradeit batch",
+    );
 
-         itemsArray = [...itemsArray, ...validItems];
-         if (items.length < 750) break;
-      }
-    } catch {
-      // Ignore errors
+    if (batchResult.isErr()) {
+      continue;
+    }
+
+    const res = batchResult.value;
+    // Validate items structure
+    const items = res.data.items;
+    if (Array.isArray(items)) {
+      const validItems = items.filter(
+        (item: unknown): item is TradeItItem =>
+          typeof item === "object" &&
+          item !== null &&
+          "price" in item &&
+          "name" in item,
+      );
+
+      itemsArray = [...itemsArray, ...validItems];
+      if (items.length < 750) break;
     }
   }
-  try {
+  const scanResult = await fromThrowableAsync(async () => {
     const foundItems = itemsArray;
     const searchItems = await getAllTradeBotItems();
 
@@ -66,10 +79,10 @@ export async function scanTradeIt() {
           if (foundItem.floatValue) bestFloat = foundItem.floatValue;
           else if (foundItem.floatValues) {
             for (const floatVal of foundItem.floatValues) {
-              if (floatVal < bestFloat)
-                bestFloat = floatVal;
+              if (floatVal < bestFloat) bestFloat = floatVal;
             }
           }
+
           if (
             bestFloat >= searchItem.minFloat &&
             bestFloat <= searchItem.maxFloat
@@ -81,10 +94,9 @@ export async function scanTradeIt() {
                 CsSite.LOOT_FARM,
               )
             ) {
-              //This stops repeated notification messages; the skin must not appear in a search for another message to be sent
               await sendToChannel(
-                globals.CS_CHANNEL_ID,
-                `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
+                csChannelId,
+                `<@&${csRoleId}> ${getNotificationPrelude()} a ${
                   foundItem.name
                 } with a float of ${bestFloat} is available for $${
                   foundItem.price / 100.0
@@ -99,8 +111,10 @@ export async function scanTradeIt() {
         }
       }
     }
-  } catch (e) {
-    console.error(e);
+  }, "TradeIt scan failed");
+
+  if (scanResult.isErr()) {
+    console.error(scanResult.error.message);
   }
 }
 

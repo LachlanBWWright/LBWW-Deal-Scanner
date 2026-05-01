@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { err, ok } from "neverthrow";
 import { db } from "../globals/PrismaClient.js";
+import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
 
 type ActionType =
   | "delete"
@@ -22,11 +23,11 @@ export interface ActionData {
 export const actionRegistry = {
   async get(key: string): Promise<ActionData | undefined> {
     const action = await db.actionRegistry.findUnique({
-      where: { id: key }
+      where: { id: key },
     });
-    
+
     if (!action) return undefined;
-    
+
     const type = parseActionType(action.type).match(
       (value) => value,
       (error) => {
@@ -70,19 +71,24 @@ export const actionRegistry = {
   },
 
   async delete(key: string): Promise<boolean> {
-    try {
-      await db.actionRegistry.delete({
-        where: { id: key }
-      });
-      return true;
-    } catch (error) {
-      if (isPrismaError(error) && error.code === 'P2025') {
-        // Record not found
+    const deleteResult = await fromThrowableAsync(
+      () =>
+        db.actionRegistry.delete({
+          where: { id: key },
+        }),
+      "Failed to delete action registry entry",
+    );
+
+    if (deleteResult.isErr()) {
+      const error = deleteResult.error;
+      if (isPrismaError(error) && error.code === "P2025") {
         return false;
       }
-      console.error("Failed to delete action registry entry:", error);
+      console.error("Failed to delete action registry entry:", error.message);
       return false;
     }
+
+    return true;
   },
 
   async entries(): Promise<[string, ActionData][]> {
@@ -96,17 +102,19 @@ export const actionRegistry = {
         },
       );
       if (!type) return [];
-      return [[
-        action.id,
-        {
-          type,
-          queryType: action.queryType || undefined,
-          queryId: action.queryId || undefined,
-          userId: action.userId || undefined,
-          timestamp: Number(action.timestamp),
-          relatedKey: action.relatedKey || undefined,
-        }
-      ]];
+      return [
+        [
+          action.id,
+          {
+            type,
+            queryType: action.queryType || undefined,
+            queryId: action.queryId || undefined,
+            userId: action.userId || undefined,
+            timestamp: Number(action.timestamp),
+            relatedKey: action.relatedKey || undefined,
+          },
+        ],
+      ];
     });
   },
 
@@ -115,11 +123,11 @@ export const actionRegistry = {
     await db.actionRegistry.deleteMany({
       where: {
         timestamp: {
-          lt: cutoffTime
-        }
-      }
+          lt: cutoffTime,
+        },
+      },
     });
-  }
+  },
 };
 
 export function generateRandomKey(): string {
@@ -128,7 +136,7 @@ export function generateRandomKey(): string {
 }
 
 function isPrismaError(error: unknown): error is { code: unknown } {
-  return typeof error === 'object' && error !== null && 'code' in error;
+  return typeof error === "object" && error !== null && "code" in error;
 }
 
 function parseActionType(type: string) {

@@ -4,6 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function deleteSCMQuery(
   interaction: ChatInputCommandInteraction,
@@ -14,22 +15,36 @@ export default async function deleteSCMQuery(
     return;
   }
 
-  try {
-    const existing = await db.steamMarket.findUnique({ where: { name: id } });
-    if (!existing) {
-      await interaction.editReply(
-        `${getFailurePrelude()} no saved SCM query found with that id.`,
-      );
-      return;
-    }
-
-    await db.steamMarket.delete({ where: { name: id } });
+  const existingResult = await fromThrowableAsync(
+    () => db.steamMarket.findUnique({ where: { name: id } }),
+    "Failed to load existing query",
+  );
+  if (existingResult.isErr()) {
     await interaction.editReply(
-      `${getResponsePrelude()} deleted SCM query: ${id}`,
+      `${getFailurePrelude()} database error while deleting: ${existingResult.error.message}`,
     );
-  } catch (err) {
-    await interaction.editReply(
-  `${getFailurePrelude()} database error while deleting: ${err}`,
-    );
+    return;
   }
+
+  if (!existingResult.value) {
+    await interaction.editReply(
+      `${getFailurePrelude()} no saved SCM query found with that id.`,
+    );
+    return;
+  }
+
+  const deleteResult = await fromThrowableAsync(
+    () => db.steamMarket.delete({ where: { name: id } }),
+    "Failed to delete query",
+  );
+  if (deleteResult.isErr()) {
+    await interaction.editReply(
+      `${getFailurePrelude()} database error while deleting: ${deleteResult.error.message}`,
+    );
+    return;
+  }
+
+  await interaction.editReply(
+    `${getResponsePrelude()} deleted SCM query: ${id}`,
+  );
 }

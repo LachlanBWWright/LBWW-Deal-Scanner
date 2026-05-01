@@ -42,26 +42,29 @@ import viewQueriesQueryDefinition from "./commandList/viewQueriesQuery.js"; */
 //Functions that run after a slash command is sent
 import createCashQuery from "./commandFunctions/createCashQuery.js";
 
-function isRoleManager(roles: unknown): roles is { cache: Map<string, { id: string }> } {
-    if (typeof roles !== 'object' || roles === null || !('cache' in roles)) return false;
-
-    // We use isRecord helper to narrow the type safely
-    if (isRecord(roles)) {
-        return roles.cache instanceof Map;
-    }
+function isRoleManager(
+  roles: unknown,
+): roles is { cache: Map<string, { id: string }> } {
+  if (typeof roles !== "object" || roles === null || !("cache" in roles))
     return false;
+
+  // We use isRecord helper to narrow the type safely
+  if (isRecord(roles)) {
+    return roles.cache instanceof Map;
+  }
+  return false;
 }
 
 function getRoles(member: object): unknown {
-    // We rely on isRecord to narrow 'member' to Record<string, unknown>
-    if (isRecord(member)) {
-        return member.roles;
-    }
-    return undefined;
+  // We rely on isRecord to narrow 'member' to Record<string, unknown>
+  if (isRecord(member)) {
+    return member.roles;
+  }
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }
 import createCSMarket from "./commandFunctions/createCSMarket.js";
 import createEbayQuery from "./commandFunctions/createEbayQuery.js";
@@ -99,6 +102,7 @@ import editSalvosQuery from "./commandFunctions/editSalvosQuery.js";
 import deleteSalvosQuery from "./commandFunctions/deleteSalvosQuery.js";
 import viewSalvosQueries from "./commandFunctions/viewSalvosQueries.js";
 import { getFailurePrelude } from "../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
 
 //Command handler code
 export const commandList = [
@@ -137,37 +141,42 @@ export const commandList = [
 
 export async function commandHandler(interaction: Interaction<CacheType>) {
   if (!interaction.isChatInputCommand()) return; //Cancels if not a command
-  try {
+  const commandResult = await fromThrowableAsync(async () => {
     await interaction.deferReply(); //Creates the loading '...'
 
     let roleFound = false;
     const member = interaction.member;
     // Check if member exists and has roles (GuildMember)
     // We access properties safely without assertions by checking existence first or using specific type guards
-    if (member && typeof member === 'object' && 'roles' in member) {
+    if (member && typeof member === "object" && "roles" in member) {
       // Safely access properties without assertions using narrowing
       // Narrowing to access 'roles'
-      if ('roles' in member) {
-          // Check if roles property is safe to access
-          // Since we checked 'roles' in member, we can safely cast to a type that has roles
-          // But strict rules forbid casting.
-          // However, we know 'roles' is in member.
-          // We can use a helper function to extract it safely.
-          const roles = getRoles(member);
+      if ("roles" in member) {
+        // Check if roles property is safe to access
+        // Since we checked 'roles' in member, we can safely cast to a type that has roles
+        // But strict rules forbid casting.
+        // However, we know 'roles' is in member.
+        // We can use a helper function to extract it safely.
+        const roles = getRoles(member);
 
-          if (typeof roles === 'object' && roles !== null && !Array.isArray(roles) && 'cache' in roles) {
-             // Narrowing to access 'cache'
-             // Create a type guard or safe access for RoleManager
-             // We can use a user-defined type guard to avoid the assertion
-             if (isRoleManager(roles)) {
-                 roles.cache.forEach((role) => {
-                if (role.id == process.env.COMMAND_PERMISSION_ROLE_ID) {
-                  roleFound = true;
-                }
-             });
+        if (
+          typeof roles === "object" &&
+          roles !== null &&
+          !Array.isArray(roles) &&
+          "cache" in roles
+        ) {
+          // Narrowing to access 'cache'
+          // Create a type guard or safe access for RoleManager
+          // We can use a user-defined type guard to avoid the assertion
+          if (isRoleManager(roles)) {
+            roles.cache.forEach((role) => {
+              if (role.id == process.env.COMMAND_PERMISSION_ROLE_ID) {
+                roleFound = true;
+              }
+            });
           }
+        }
       }
-    }
     }
     if (!roleFound) {
       await interaction.editReply(
@@ -237,10 +246,12 @@ export async function commandHandler(interaction: Interaction<CacheType>) {
       await deleteQueryQuery(interaction);
     else if (interaction.commandName === "viewqueries")
       await viewQueriesQuery(interaction); */
-  } catch (err) {
-    console.error(err);
+  }, "Command handler failed");
+
+  if (commandResult.isErr()) {
+    console.error(commandResult.error.message);
     await interaction.editReply(
-      `${getFailurePrelude()} an error has occurred: ${err}`,
+      `${getFailurePrelude()} an error has occurred: ${commandResult.error.message}`,
     );
   }
 }

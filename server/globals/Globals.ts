@@ -1,6 +1,7 @@
 import Dotenv from "dotenv";
 import { err, ok, Result } from "neverthrow";
 import { db } from "./PrismaClient.js";
+import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
 Dotenv.config();
 
 const requiredEnvVars = [
@@ -58,13 +59,15 @@ const defaultGlobals = {
 };
 
 export async function initGlobals() {
-  let globals;
-  try {
-    globals = await db.globals.findFirst();
-  } catch (error) {
-    console.warn("Unable to load globals from database.", error);
+  const globalsResult = await fromThrowableAsync(
+    () => db.globals.findFirst(),
+    "Unable to load globals from database",
+  );
+  if (globalsResult.isErr()) {
+    console.warn(globalsResult.error.message);
     return;
   }
+  const globals = globalsResult.value;
 
   if (!globals) return;
 

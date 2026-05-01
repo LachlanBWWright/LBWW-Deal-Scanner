@@ -4,6 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function editSalvosQuery(
   interaction: ChatInputCommandInteraction,
@@ -20,26 +21,42 @@ export default async function editSalvosQuery(
     return;
   }
 
-  try {
-    const existing = await db.salvos.findUnique({ where: { name: id } });
-    if (!existing) {
-      await interaction.editReply(
-        `${getFailurePrelude()} no saved Salvos query found with that id.`,
-      );
-      return;
-    }
-
-    const data: Partial<{ name: string; minPrice: number; maxPrice: number }> =
-      { name: query };
-    if (typeof minPrice === "number") data.minPrice = minPrice;
-    if (typeof maxPrice === "number") data.maxPrice = maxPrice;
-    await db.salvos.update({ where: { name: id }, data });
+  const existingResult = await fromThrowableAsync(
+    () => db.salvos.findUnique({ where: { name: id } }),
+    "Failed to load existing query",
+  );
+  if (existingResult.isErr()) {
     await interaction.editReply(
-      `${getResponsePrelude()} updated Salvos query to ${query}`,
+      `${getFailurePrelude()} database error while updating: ${existingResult.error.message}`,
     );
-  } catch (err) {
-    await interaction.editReply(
-  `${getFailurePrelude()} database error while updating: ${err}`,
-    );
+    return;
   }
+
+  if (!existingResult.value) {
+    await interaction.editReply(
+      `${getFailurePrelude()} no saved Salvos query found with that id.`,
+    );
+    return;
+  }
+
+  const data: Partial<{ name: string; minPrice: number; maxPrice: number }> = {
+    name: query,
+  };
+  if (typeof minPrice === "number") data.minPrice = minPrice;
+  if (typeof maxPrice === "number") data.maxPrice = maxPrice;
+
+  const updateResult = await fromThrowableAsync(
+    () => db.salvos.update({ where: { name: id }, data }),
+    "Failed to update query",
+  );
+  if (updateResult.isErr()) {
+    await interaction.editReply(
+      `${getFailurePrelude()} database error while updating: ${updateResult.error.message}`,
+    );
+    return;
+  }
+
+  await interaction.editReply(
+    `${getResponsePrelude()} updated Salvos query to ${query}`,
+  );
 }

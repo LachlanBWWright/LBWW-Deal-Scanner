@@ -4,6 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function deleteCSMarket(
   interaction: ChatInputCommandInteraction,
@@ -14,22 +15,36 @@ export default async function deleteCSMarket(
     return;
   }
 
-  try {
-    const existing = await db.csMarket.findUnique({ where: { url: id } });
-    if (!existing) {
-      await interaction.editReply(
-        `${getFailurePrelude()} no saved CS Market query found with that id.`,
-      );
-      return;
-    }
-
-    await db.csMarket.delete({ where: { url: id } });
+  const existingResult = await fromThrowableAsync(
+    () => db.csMarket.findUnique({ where: { url: id } }),
+    "Failed to load existing query",
+  );
+  if (existingResult.isErr()) {
     await interaction.editReply(
-      `${getResponsePrelude()} deleted CS Market query: ${id}`,
+      `${getFailurePrelude()} database error while deleting: ${existingResult.error.message}`,
     );
-  } catch (err) {
-    await interaction.editReply(
-  `${getFailurePrelude()} database error while deleting: ${err}`,
-    );
+    return;
   }
+
+  if (!existingResult.value) {
+    await interaction.editReply(
+      `${getFailurePrelude()} no saved CS Market query found with that id.`,
+    );
+    return;
+  }
+
+  const deleteResult = await fromThrowableAsync(
+    () => db.csMarket.delete({ where: { url: id } }),
+    "Failed to delete query",
+  );
+  if (deleteResult.isErr()) {
+    await interaction.editReply(
+      `${getFailurePrelude()} database error while deleting: ${deleteResult.error.message}`,
+    );
+    return;
+  }
+
+  await interaction.editReply(
+    `${getResponsePrelude()} deleted CS Market query: ${id}`,
+  );
 }

@@ -4,31 +4,37 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function viewMultiSearchQueries(
   interaction: ChatInputCommandInteraction,
 ) {
-  try {
-    const results = await db.csTradeBot.findMany();
-    if (!results || results.length === 0) {
-      await interaction.editReply(
-        `${getResponsePrelude()} there are no saved multi-search queries.`,
-      );
-      return;
-    }
-
-    const list = results
-      .map(
-        (r) =>
-          `- ${r.name} (min ${r.minFloat} max ${r.maxFloat} maxPrice ${r.maxPrice})`,
-      )
-      .join("\n");
+  const resultsResult = await fromThrowableAsync(
+    () => db.csTradeBot.findMany(),
+    "Failed to fetch saved queries",
+  );
+  if (resultsResult.isErr()) {
     await interaction.editReply(
-      `${getResponsePrelude()} saved multi-search queries:\n${list}`,
+      `${getFailurePrelude()} database error while fetching queries: ${resultsResult.error.message}`,
     );
-  } catch (err) {
-    await interaction.editReply(
-  `${getFailurePrelude()} database error while fetching queries: ${err}`,
-    );
+    return;
   }
+
+  const results = resultsResult.value;
+  if (!results || results.length === 0) {
+    await interaction.editReply(
+      `${getResponsePrelude()} there are no saved multi-search queries.`,
+    );
+    return;
+  }
+
+  const list = results
+    .map(
+      (r) =>
+        `- ${r.name} (min ${r.minFloat} max ${r.maxFloat} maxPrice ${r.maxPrice})`,
+    )
+    .join("\n");
+  await interaction.editReply(
+    `${getResponsePrelude()} saved multi-search queries:\n${list}`,
+  );
 }

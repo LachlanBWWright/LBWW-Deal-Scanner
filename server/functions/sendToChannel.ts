@@ -12,6 +12,7 @@ import {
   generateRandomKey,
 } from "../commandManager/actionRegistry.js";
 import { db } from "../globals/PrismaClient.js";
+import { fromThrowableAsync } from "./neverthrowUtils.js";
 
 interface sendToChannelOptions {
   files?: string[];
@@ -27,7 +28,7 @@ export default async function sendToChannel(
   // First, send DMs to subscribed users
   if (queryId && queryType) {
     await sendDMsToSubscribedUsers(queryId, queryType, message, files);
-    
+
     // Check if this query is DM-only
     const query = await getQueryByTypeAndId(queryType, queryId);
     if (query?.query?.dmOnly) {
@@ -58,7 +59,7 @@ export default async function sendToChannel(
     const deleteActionKey = generateRandomKey();
     const subscribeDMActionKey = generateRandomKey();
     const now = Date.now();
-    
+
     await actionRegistry.set(deleteActionKey, {
       type: "delete",
       queryType,
@@ -115,9 +116,9 @@ async function sendDMsToSubscribedUsers(
   });
 
   for (const userQuery of userQueries) {
-    try {
+    const dmResult = await fromThrowableAsync(async () => {
       const user = await client.users.fetch(userQuery.userId);
-      
+
       const unsubscribeActionKey = generateRandomKey();
       await actionRegistry.set(unsubscribeActionKey, {
         type: "unsubscribe_dm",
@@ -140,8 +141,10 @@ async function sendDMsToSubscribedUsers(
         files: files,
         components: [row],
       });
-    } catch (error) {
-      console.error(`Failed to send DM to user ${userQuery.userId}:`, error);
+    }, `Failed to send DM to user ${userQuery.userId}`);
+
+    if (dmResult.isErr()) {
+      console.error(dmResult.error.message);
     }
   }
 }

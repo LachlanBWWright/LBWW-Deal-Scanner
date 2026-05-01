@@ -4,6 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function editMultiSearchQuery(
   interaction: ChatInputCommandInteraction,
@@ -26,32 +27,46 @@ export default async function editMultiSearchQuery(
     return;
   }
 
-  try {
-    const existing = await db.csTradeBot.findUnique({ where: { name: id } });
-    if (!existing) {
-      await interaction.editReply(
-        `${getFailurePrelude()} no saved multi-search query found with that id.`,
-      );
-      return;
-    }
-
-    const data: Partial<{
-      name: string;
-      maxPrice: number;
-      minFloat: number;
-      maxFloat: number;
-    }> = { name: query };
-    if (typeof maxPrice === "number") data.maxPrice = maxPrice;
-    if (typeof minFloat === "number") data.minFloat = minFloat;
-    if (typeof maxFloat === "number") data.maxFloat = maxFloat;
-
-    await db.csTradeBot.update({ where: { name: id }, data });
+  const existingResult = await fromThrowableAsync(
+    () => db.csTradeBot.findUnique({ where: { name: id } }),
+    "Failed to load existing query",
+  );
+  if (existingResult.isErr()) {
     await interaction.editReply(
-      `${getResponsePrelude()} updated multi-search query to ${query}`,
+      `${getFailurePrelude()} database error while updating: ${existingResult.error.message}`,
     );
-  } catch (err) {
-    await interaction.editReply(
-  `${getFailurePrelude()} database error while updating: ${err}`,
-    );
+    return;
   }
+
+  if (!existingResult.value) {
+    await interaction.editReply(
+      `${getFailurePrelude()} no saved multi-search query found with that id.`,
+    );
+    return;
+  }
+
+  const data: Partial<{
+    name: string;
+    maxPrice: number;
+    minFloat: number;
+    maxFloat: number;
+  }> = { name: query };
+  if (typeof maxPrice === "number") data.maxPrice = maxPrice;
+  if (typeof minFloat === "number") data.minFloat = minFloat;
+  if (typeof maxFloat === "number") data.maxFloat = maxFloat;
+
+  const updateResult = await fromThrowableAsync(
+    () => db.csTradeBot.update({ where: { name: id }, data }),
+    "Failed to update query",
+  );
+  if (updateResult.isErr()) {
+    await interaction.editReply(
+      `${getFailurePrelude()} database error while updating: ${updateResult.error.message}`,
+    );
+    return;
+  }
+
+  await interaction.editReply(
+    `${getResponsePrelude()} updated multi-search query to ${query}`,
+  );
 }

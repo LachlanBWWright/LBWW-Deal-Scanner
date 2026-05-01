@@ -6,6 +6,7 @@ import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Salvos } from "@prisma/client";
 import { Page } from "puppeteer";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export async function scanSalvos(page: Page) {
   if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
@@ -27,10 +28,10 @@ export async function scanSalvos(page: Page) {
       `<@&${globals.SALVOS_ROLE_ID}> ${getNotificationPrelude()} a ${
         result.name
       } is available for $${result.price} at ${result.link}`,
-      { 
+      {
         files: [result.image],
         queryId: item.name, // Use name as the unique identifier for salvos
-        queryType: 'salvos'
+        queryType: "salvos",
       },
     );
     notificationSent = true;
@@ -38,17 +39,20 @@ export async function scanSalvos(page: Page) {
 }
 
 export async function getSalvosValues(page: Page, item: Salvos) {
-  try {
-    await page.goto(
-      `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(
-        item.name,
-      )}&sorting=newestFirst&price=${item.minPrice ?? 0}-${
-        item.maxPrice ?? 99999
-      }`,
-      { waitUntil: "domcontentloaded", timeout: 10000 },
-    );
-  } catch (error) {
-    console.warn("Salvos navigation failed:", error);
+  const gotoResult = await fromThrowableAsync(
+    () =>
+      page.goto(
+        `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(
+          item.name,
+        )}&sorting=newestFirst&price=${item.minPrice ?? 0}-${
+          item.maxPrice ?? 99999
+        }`,
+        { waitUntil: "domcontentloaded", timeout: 10000 },
+      ),
+    "Salvos navigation failed",
+  );
+  if (gotoResult.isErr()) {
+    console.warn(gotoResult.error.message);
     return;
   }
 
@@ -72,7 +76,9 @@ export async function getSalvosValues(page: Page, item: Salvos) {
       "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price']",
     )) ?? (await pageItem.$("[class*='product-price']"));
   const priceText = await priceElement?.evaluate((el) => el.textContent ?? "");
-  const price = priceText ? parseFloat(priceText.replace(/[^0-9.]/g, "")) : null;
+  const price = priceText
+    ? parseFloat(priceText.replace(/[^0-9.]/g, ""))
+    : null;
 
   const image = await pageItem.$eval("img", (img) => img.src);
 

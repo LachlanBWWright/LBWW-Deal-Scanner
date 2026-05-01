@@ -3,9 +3,12 @@ import { computed, onMounted, ref } from "vue";
 
 import {
   apiClient,
+  getApiHeaders,
   type ApiRunScanResponse,
   type ApiStatus,
 } from "./api/client";
+import QueryManager from "./components/QueryManager.vue";
+import { fromThrowableAsync } from "./utils/neverthrowUtils";
 
 const runtime = ref<ApiStatus | null>(null);
 const commands = ref<string[]>([]);
@@ -77,38 +80,59 @@ async function refreshRuntime() {
   loading.value = true;
   errorMessage.value = null;
 
-  try {
+  const runtimeResult = await fromThrowableAsync(async () => {
     const [statusResponse, commandsResponse] = await Promise.all([
-      apiClient.GET("/api/status"),
-      apiClient.GET("/api/commands"),
+      apiClient.GET("/api/status", { headers: getApiHeaders() }),
+      apiClient.GET("/api/commands", { headers: getApiHeaders() }),
     ]);
 
-    runtime.value = statusResponse.data ?? null;
-    commands.value = commandsResponse.data?.commands ?? [];
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "Failed to load runtime state.";
-  } finally {
+    return {
+      runtime: statusResponse.data ?? null,
+      commands: commandsResponse.data?.commands ?? [],
+    };
+  }, "Failed to load runtime state");
+
+  if (runtimeResult.isErr()) {
+    errorMessage.value = runtimeResult.error.message;
     loading.value = false;
+    return;
   }
+
+  runtime.value = runtimeResult.value.runtime;
+  commands.value = runtimeResult.value.commands;
+  loading.value = false;
 }
 
 async function triggerManualScan() {
   runningScan.value = true;
   errorMessage.value = null;
 
-  try {
+  const runResult = await fromThrowableAsync(async () => {
     const response = await apiClient.POST("/api/scans/run", {
       body: { reason: "manual-ui" },
+      headers: getApiHeaders(),
     });
-    lastRun.value = response.data ?? null;
-    await refreshRuntime();
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "Manual scan failed.";
-  } finally {
+    return response.data ?? null;
+  }, "Manual scan failed");
+
+  if (runResult.isErr()) {
+    errorMessage.value = runResult.error.message;
     runningScan.value = false;
+    return;
   }
+
+  lastRun.value = runResult.value;
+  const refreshResult = await fromThrowableAsync(
+    () => refreshRuntime(),
+    "Manual scan failed",
+  );
+  if (refreshResult.isErr()) {
+    errorMessage.value = refreshResult.error.message;
+    runningScan.value = false;
+    return;
+  }
+
+  runningScan.value = false;
 }
 
 function openDocs() {
@@ -204,5 +228,7 @@ onMounted(() => {
         </ul>
       </article>
     </section>
+
+    <QueryManager />
   </main>
 </template>

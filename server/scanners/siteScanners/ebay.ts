@@ -7,6 +7,7 @@ import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Ebay } from "@prisma/client";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 let isAud = true;
 
@@ -43,10 +44,13 @@ export async function scanEbay(page: Page) {
 }
 
 export async function getEbayValues(page: Page, item: Ebay) {
-  try {
-    await page.goto(item.url, { waitUntil: "domcontentloaded", timeout: 10000 });
-  } catch (error) {
-    console.warn("eBay navigation failed:", error);
+  const gotoResult = await fromThrowableAsync(
+    () =>
+      page.goto(item.url, { waitUntil: "domcontentloaded", timeout: 10000 }),
+    "eBay navigation failed",
+  );
+  if (gotoResult.isErr()) {
+    console.warn(gotoResult.error.message);
     return { foundName: null, foundPrice: null, foundImage: null };
   }
 

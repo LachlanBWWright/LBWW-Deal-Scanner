@@ -6,6 +6,7 @@ import setStatus from "../../functions/setStatus.js";
 import sendToChannel from "../../functions/sendToChannel.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 //For general market queries and CS Items
 const itemsFound = new Map<string, number>();
@@ -19,7 +20,7 @@ export async function scanSteamQuery() {
     return;
   setStatus("Scanning the Steam Community Market");
 
-  try {
+  const scanResult = await fromThrowableAsync(async () => {
     const item = await getSteamQuery();
     if (!item) return;
 
@@ -37,12 +38,12 @@ export async function scanSteamQuery() {
         } is available for $${price} USD at: ${item.displayUrl}`,
         {
           queryId: item.name,
-          queryType: 'steamMarket'
+          queryType: "steamMarket",
         },
       );
     }
 
-    if (price != item.lastPrice) {
+    if (price !== item.lastPrice) {
       await db.steamMarket.update({
         where: { name: item.name },
         data: {
@@ -50,8 +51,10 @@ export async function scanSteamQuery() {
         },
       });
     }
-  } catch (e) {
-    console.error(e);
+  }, "Steam query scan failed");
+
+  if (scanResult.isErr()) {
+    console.error(scanResult.error.message);
   }
 }
 
@@ -76,7 +79,7 @@ export async function scanCs() {
   if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
     return;
 
-  try {
+  const scanResult = await fromThrowableAsync(async () => {
     const item = await getCsMarketQuery();
     if (!item) return;
 
@@ -95,7 +98,6 @@ export async function scanCs() {
           res.data.listinginfo[skin].converted_fee_per_unit) /
         100.0;
 
-      //Only calls the API if the skin isn't in the map, and the item is in the first 10
       if (!itemsFound.has(query) && i < 10) res = await axios.get(query);
 
       if (
@@ -111,25 +113,25 @@ export async function scanCs() {
           } is available for $${price} USD at: ${item.displayUrl}`,
           {
             queryId: item.url,
-            queryType: 'csMarket'
+            queryType: "csMarket",
           },
         );
       }
 
       if (i < 10) itemsFound.set(query, 20);
-      //Puts the query into the map, or resets its TTL if the API was called for it
-      else if (itemsFound.has(query)) itemsFound.set(query, 20); //Resets its TTL if it's already been called once
+      else if (itemsFound.has(query)) itemsFound.set(query, 20);
       i++;
     }
 
-    //Decrement the TTL in the map
-  for (const [key, value] of itemsFound) {
-    const newValue = value - 1;
-    if (newValue <= 0) itemsFound.delete(key);
-    else itemsFound.set(key, newValue);
+    for (const [key, value] of itemsFound) {
+      const newValue = value - 1;
+      if (newValue <= 0) itemsFound.delete(key);
+      else itemsFound.set(key, newValue);
     }
-  } catch (e) {
-    console.error(e);
+  }, "CS market scan failed");
+
+  if (scanResult.isErr()) {
+    console.error(scanResult.error.message);
   }
 }
 
@@ -161,38 +163,43 @@ export async function createCs(
 ) {
   //Init. Example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29
   //Conv. example: https://steamcommunity.com/market/listings/730/M4A1-S%20%7C%20Chantico%27s%20Fire%20%28Field-Tested%29/render/?query=&start=0&count=10&country=AU&language=english&currency=1
-  try {
-    if (oldQuery.includes("https://steamcommunity.com/market/listings/730/")) {
-      const search = new URL(
-        oldQuery
-          .concat(
-            "/render/?query=&start=0&count=20&country=AU&language=english&currency=1",
-          )
-          .trim(),
-      ).toString();
+  const createResult = await fromThrowableAsync(async () => {
+    if (!oldQuery.includes("https://steamcommunity.com/market/listings/730/")) {
+      return "";
+    }
 
-      await db.query.create({
-        data: {
-          dmOnly,
-          csMarket: {
-            create: {
-              url: search,
-              displayUrl: oldQuery,
-              maxPrice: maxPrice,
-              maxFloat: maxFloat,
-              lastPrice: 0,
-            },
+    const search = new URL(
+      oldQuery
+        .concat(
+          "/render/?query=&start=0&count=20&country=AU&language=english&currency=1",
+        )
+        .trim(),
+    ).toString();
+
+    await db.query.create({
+      data: {
+        dmOnly,
+        csMarket: {
+          create: {
+            url: search,
+            displayUrl: oldQuery,
+            maxPrice,
+            maxFloat,
+            lastPrice: 0,
           },
         },
-      });
+      },
+    });
 
-      return search;
-    }
-    return "";
-  } catch (e) {
-    console.error(e);
+    return search;
+  }, "Failed to create CS market query");
+
+  if (createResult.isErr()) {
+    console.error(createResult.error.message);
     return "";
   }
+
+  return createResult.value;
 }
 
 function sleep(ms: number) {

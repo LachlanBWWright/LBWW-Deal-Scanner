@@ -4,6 +4,10 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import {
+  fromThrowableAsync,
+  fromThrowableSync,
+} from "../../functions/neverthrowUtils.js";
 
 export default async function editSCMQuery(
   interaction: ChatInputCommandInteraction,
@@ -19,26 +23,51 @@ export default async function editSCMQuery(
     return;
   }
 
-  try {
-    const url = new URL(query).toString();
-    const existing = await db.steamMarket.findUnique({ where: { name: id } });
-    if (!existing) {
-      await interaction.editReply(
-        `${getFailurePrelude()} no saved SCM query found with that id.`,
-      );
-      return;
-    }
-
-    await db.steamMarket.update({
-      where: { name: id },
-      data: { name: url, displayUrl: query, maxPrice },
-    });
+  const urlResult = fromThrowableSync(
+    () => new URL(query).toString(),
+    "Invalid URL",
+  );
+  if (urlResult.isErr()) {
     await interaction.editReply(
-      `${getResponsePrelude()} updated SCM query to ${url}`,
+      `${getFailurePrelude()} invalid URL or database error: ${urlResult.error.message}`,
     );
-  } catch (err) {
-    await interaction.editReply(
-  `${getFailurePrelude()} invalid URL or database error: ${err}`,
-    );
+    return;
   }
+
+  const url = urlResult.value;
+  const existingResult = await fromThrowableAsync(
+    () => db.steamMarket.findUnique({ where: { name: id } }),
+    "Failed to load existing query",
+  );
+  if (existingResult.isErr()) {
+    await interaction.editReply(
+      `${getFailurePrelude()} invalid URL or database error: ${existingResult.error.message}`,
+    );
+    return;
+  }
+  if (!existingResult.value) {
+    await interaction.editReply(
+      `${getFailurePrelude()} no saved SCM query found with that id.`,
+    );
+    return;
+  }
+
+  const updateResult = await fromThrowableAsync(
+    () =>
+      db.steamMarket.update({
+        where: { name: id },
+        data: { name: url, displayUrl: query, maxPrice },
+      }),
+    "Failed to update query",
+  );
+  if (updateResult.isErr()) {
+    await interaction.editReply(
+      `${getFailurePrelude()} invalid URL or database error: ${updateResult.error.message}`,
+    );
+    return;
+  }
+
+  await interaction.editReply(
+    `${getResponsePrelude()} updated SCM query to ${url}`,
+  );
 }

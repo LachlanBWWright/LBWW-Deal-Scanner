@@ -5,38 +5,36 @@ import {
   ButtonStyle,
 } from "discord.js";
 import { db } from "../globals/PrismaClient.js";
-import {
-  actionRegistry,
-  generateRandomKey,
-} from "./actionRegistry.js";
+import { actionRegistry, generateRandomKey } from "./actionRegistry.js";
 import {
   getResponsePrelude,
   getFailurePrelude,
 } from "../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
 
 // Global action registry for button actions
 // Use shared actionRegistry and generateRandomKey from actionRegistry.ts
 
 function isPrismaError(error: unknown): error is { code: unknown } {
-  return typeof error === 'object' && error !== null && 'code' in error;
+  return typeof error === "object" && error !== null && "code" in error;
 }
 
 function isErrorWithMessage(error: unknown): error is { message: string } {
-  if (typeof error !== 'object' || error === null) return false;
-  if (!('message' in error)) return false;
+  if (typeof error !== "object" || error === null) return false;
+  if (!("message" in error)) return false;
 
   if (isRecord(error)) {
-      return typeof error.message === 'string';
+    return typeof error.message === "string";
   }
   return false;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }
 
 export async function buttonInteractionHandler(interaction: ButtonInteraction) {
-  try {
+  const handlerResult = await fromThrowableAsync(async () => {
     await interaction.deferReply({ ephemeral: true });
 
     const customId = interaction.customId;
@@ -64,14 +62,19 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
     } else if (action.type === "unsubscribe_dm") {
       await handleUnsubscribeDM(interaction, actionKey);
     }
-  } catch (error) {
-    console.error("Button interaction error:", error);
-    try {
-      await interaction.editReply({
-        content: `${getFailurePrelude()} An error occurred while processing your request.`,
-      });
-    } catch (e) {
-      console.error("Failed to send error message:", e);
+  }, "Button interaction error");
+
+  if (handlerResult.isErr()) {
+    console.error("Button interaction error:", handlerResult.error.message);
+    const replyResult = await fromThrowableAsync(
+      () =>
+        interaction.editReply({
+          content: `${getFailurePrelude()} An error occurred while processing your request.`,
+        }),
+      "Failed to send error message",
+    );
+    if (replyResult.isErr()) {
+      console.error("Failed to send error message:", replyResult.error.message);
     }
   }
 }
@@ -153,7 +156,7 @@ async function handleConfirmDelete(
 
   const { queryType, queryId } = actionData;
 
-  try {
+  const deleteResult = await fromThrowableAsync(async () => {
     // Delete from database based on query type
     let deleted = false;
 
@@ -218,7 +221,8 @@ async function handleConfirmDelete(
 
     // Remove the confirm action and its related pending action
     await actionRegistry.delete(actionKey);
-    if (actionData.relatedKey) await actionRegistry.delete(actionData.relatedKey);
+    if (actionData.relatedKey)
+      await actionRegistry.delete(actionData.relatedKey);
 
     if (deleted) {
       await interaction.editReply({
@@ -226,9 +230,12 @@ async function handleConfirmDelete(
         components: [],
       });
     }
-  } catch (error: unknown) {
+  }, "Delete query error");
+
+  if (deleteResult.isErr()) {
     await actionRegistry.delete(actionKey);
-    console.error("Delete query error:", error);
+    const error = deleteResult.error;
+    console.error("Delete query error:", error.message);
 
     // Narrow error shape for Prisma
     if (isPrismaError(error) && error.code === "P2025") {
@@ -238,11 +245,11 @@ async function handleConfirmDelete(
         components: [],
       });
     } else {
-      const message = isErrorWithMessage(error) ? error.message : "Unknown error";
+      const message = isErrorWithMessage(error)
+        ? error.message
+        : "Unknown error";
       await interaction.editReply({
-        content: `${getFailurePrelude()} Failed to delete query: ${
-          message
-        }`,
+        content: `${getFailurePrelude()} Failed to delete query: ${message}`,
         components: [],
       });
     }
@@ -276,7 +283,7 @@ async function handleSubscribeDM(
 
   const { queryType, queryId } = action;
 
-  try {
+  const subscribeResult = await fromThrowableAsync(async () => {
     // Get the Query record for this specific query
     const query = await getQueryByTypeAndId(queryType, queryId);
     if (!query?.queryId) {
@@ -317,13 +324,14 @@ async function handleSubscribeDM(
     await interaction.editReply({
       content: `${getResponsePrelude()} You have been subscribed to DM notifications for this ${queryType} query. You will receive a DM when new items are found.`,
     });
-  } catch (error: unknown) {
-    console.error("Subscribe DM error:", error);
+  }, "Subscribe DM error");
+
+  if (subscribeResult.isErr()) {
+    const error = subscribeResult.error;
+    console.error("Subscribe DM error:", error.message);
     const message = isErrorWithMessage(error) ? error.message : "Unknown error";
     await interaction.editReply({
-      content: `${getFailurePrelude()} Failed to subscribe: ${
-        message
-      }`,
+      content: `${getFailurePrelude()} Failed to subscribe: ${message}`,
     });
   }
 }
@@ -343,7 +351,7 @@ async function handleUnsubscribeDM(
 
   const { queryType, queryId } = action;
 
-  try {
+  const unsubscribeResult = await fromThrowableAsync(async () => {
     // Get the Query record for this specific query
     const query = await getQueryByTypeAndId(queryType, queryId);
     if (!query?.queryId) {
@@ -368,20 +376,23 @@ async function handleUnsubscribeDM(
     await interaction.editReply({
       content: `${getResponsePrelude()} You have been unsubscribed from DM notifications for this query.`,
     });
-  } catch (error: unknown) {
-    console.error("Unsubscribe DM error:", error);
-    
+  }, "Unsubscribe DM error");
+
+  if (unsubscribeResult.isErr()) {
+    const error = unsubscribeResult.error;
+    console.error("Unsubscribe DM error:", error.message);
+
     if (isPrismaError(error) && error.code === "P2025") {
       // Prisma record not found error
       await interaction.editReply({
         content: `${getFailurePrelude()} You are not subscribed to this query.`,
       });
     } else {
-      const message = isErrorWithMessage(error) ? error.message : "Unknown error";
+      const message = isErrorWithMessage(error)
+        ? error.message
+        : "Unknown error";
       await interaction.editReply({
-        content: `${getFailurePrelude()} Failed to unsubscribe: ${
-          message
-        }`,
+        content: `${getFailurePrelude()} Failed to unsubscribe: ${message}`,
       });
     }
   }

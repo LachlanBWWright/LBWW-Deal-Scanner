@@ -4,6 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   const query = interaction.options.getString("query") || "placeholder";
@@ -11,17 +12,22 @@ export default async function (interaction: ChatInputCommandInteraction) {
   const maxPrice = interaction.options.getNumber("maxprice") || 1;
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
 
-  try {
-    const response = await createCs(query, maxPrice, maxFloat, dmOnly);
-    if (response != "")
-      await interaction.editReply(
-        `${getResponsePrelude()} a search has been created${dmOnly ? " (DM only)" : ""} with the URL: ${response}`,
-      );
-    else
-      await interaction.editReply(
-        `${getFailurePrelude()} the url was invalid!`,
-      );
-  } catch {
+  const responseResult = await fromThrowableAsync(
+    () => createCs(query, maxPrice, maxFloat, dmOnly),
+    "Failed to create CS Market query",
+  );
+  if (responseResult.isErr()) {
     await interaction.editReply(`${getFailurePrelude()} the url was invalid!`);
+    return;
   }
+
+  const response = responseResult.value;
+  if (response !== "") {
+    await interaction.editReply(
+      `${getResponsePrelude()} a search has been created${dmOnly ? " (DM only)" : ""} with the URL: ${response}`,
+    );
+    return;
+  }
+
+  await interaction.editReply(`${getFailurePrelude()} the url was invalid!`);
 }

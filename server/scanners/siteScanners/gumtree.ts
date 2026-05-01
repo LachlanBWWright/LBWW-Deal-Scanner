@@ -6,6 +6,7 @@ import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Gumtree } from "@prisma/client";
+import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
 
 export async function scanGumtree(page: Page) {
   if (
@@ -48,13 +49,16 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
   await page.setUserAgent(
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
   );
-  try {
-    await page.waitForSelector(
-      "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
-      { timeout: 10000 },
-    );
-  } catch (error) {
-    console.warn("Gumtree selector lookup failed:", error);
+  const selectorResult = await fromThrowableAsync(
+    () =>
+      page.waitForSelector(
+        "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
+        { timeout: 10000 },
+      ),
+    "Gumtree selector lookup failed",
+  );
+  if (selectorResult.isErr()) {
+    console.warn(selectorResult.error.message);
     return null;
   }
 

@@ -9,6 +9,7 @@ import { scanGumtree } from "./siteScanners/gumtree.js";
 import handleError from "../functions/handleError.js";
 import puppeteer from "puppeteer";
 import { memoryUsage } from "node:process";
+import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
 
 export default async function () {
   console.log("Discord client is ready.");
@@ -61,9 +62,8 @@ export default async function () {
 }
 
 async function handleScan(scan: () => Promise<void>, name: string) {
-  try {
-    await scan();
-  } catch (error) {
-    handleError(error, name);
+  const result = await fromThrowableAsync(scan, `Scan failed for ${name}`);
+  if (result.isErr()) {
+    handleError(result.error, name);
   }
 }

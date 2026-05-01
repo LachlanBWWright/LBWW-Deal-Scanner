@@ -2,7 +2,12 @@ import puppeteer, { type Page } from "puppeteer";
 import { memoryUsage } from "node:process";
 
 import handleError from "./functions/handleError.js";
-import { beginScanRun, beginScanLoop, endScanLoop, finishScanRun } from "./controlState.js";
+import {
+  beginScanRun,
+  beginScanLoop,
+  endScanLoop,
+  finishScanRun,
+} from "./controlState.js";
 import { scanCSTrade } from "./scanners/siteScanners/csTrade.js";
 import { scanTradeIt } from "./scanners/siteScanners/tradeIt.js";
 import { scanLootFarm } from "./scanners/siteScanners/lootFarm.js";
@@ -11,28 +16,56 @@ import { scanCashConverters } from "./scanners/siteScanners/cashConverters.js";
 import { scanSalvos } from "./scanners/siteScanners/salvos.js";
 import { scanEbay } from "./scanners/siteScanners/ebay.js";
 import { scanGumtree } from "./scanners/siteScanners/gumtree.js";
+import { fromThrowableAsync } from "./functions/neverthrowUtils.js";
 
 let loopPromise: Promise<void> | null = null;
 
 export async function runScanOnce() {
   const record = beginScanRun("manual");
-  const browser = await puppeteer.launch({
-    args: ["--no-sandbox"],
-    headless: true,
-  });
-
-  try {
-    const page = await browser.newPage();
-    await runScanPass(page, record.mode);
-    await page.close();
-    finishScanRun(record);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown scan error";
-    finishScanRun(record, message);
-    throw error;
-  } finally {
-    await browser.close();
+  const browserResult = await fromThrowableAsync(
+    () =>
+      puppeteer.launch({
+        args: ["--no-sandbox"],
+        headless: true,
+      }),
+    "Failed to launch scan browser",
+  );
+  if (browserResult.isErr()) {
+    finishScanRun(record, browserResult.error.message);
+    throw browserResult.error;
   }
+  const browser = browserResult.value;
+
+  const pageResult = await fromThrowableAsync(
+    () => browser.newPage(),
+    "Failed to create scan page",
+  );
+  if (pageResult.isErr()) {
+    await fromThrowableAsync(
+      () => browser.close(),
+      "Failed to close scan browser",
+    );
+    finishScanRun(record, pageResult.error.message);
+    throw pageResult.error;
+  }
+  const page = pageResult.value;
+
+  const scanResult = await fromThrowableAsync(
+    () => runScanPass(page, record.mode),
+    "Scan pass failed",
+  );
+  await fromThrowableAsync(() => page.close(), "Failed to close scan page");
+  await fromThrowableAsync(
+    () => browser.close(),
+    "Failed to close scan browser",
+  );
+
+  if (scanResult.isErr()) {
+    finishScanRun(record, scanResult.error.message);
+    throw scanResult.error;
+  }
+
+  finishScanRun(record);
 
   return record;
 }
@@ -50,41 +83,75 @@ export function startBackgroundScanLoop() {
 }
 
 async function runLoop() {
-  const browser = await puppeteer.launch({
-    args: ["--no-sandbox"],
-    headless: true,
-  });
-  let page = await browser.newPage();
+  const browserResult = await fromThrowableAsync(
+    () =>
+      puppeteer.launch({
+        args: ["--no-sandbox"],
+        headless: true,
+      }),
+    "Failed to launch scan loop browser",
+  );
+  if (browserResult.isErr()) {
+    handleError(browserResult.error, "Scanner Runtime");
+    return;
+  }
+  const browser = browserResult.value;
+
+  const firstPageResult = await fromThrowableAsync(
+    () => browser.newPage(),
+    "Failed to create scan loop page",
+  );
+  if (firstPageResult.isErr()) {
+    handleError(firstPageResult.error, "Scanner Runtime");
+    await fromThrowableAsync(
+      () => browser.close(),
+      "Failed to close scan loop browser",
+    );
+    return;
+  }
+  let page = firstPageResult.value;
   let steamScanCnt = 0;
   let csTradeScanCnt = 0;
 
-  try {
-    while (true) {
-      console.log(memoryUsage());
-      const throttler = new Promise((resolve) => setTimeout(resolve, 2000));
-      console.time("Cycle Time (2000ms minimum)");
+  while (true) {
+    console.log(memoryUsage());
+    const throttler = new Promise((resolve) => setTimeout(resolve, 2000));
+    console.time("Cycle Time (2000ms minimum)");
 
-      const record = beginScanRun("loop");
-      try {
-        await runScanPass(page, "loop", steamScanCnt, csTradeScanCnt);
-        finishScanRun(record);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown scan error";
-        finishScanRun(record, message);
-      }
-
-      steamScanCnt++;
-      csTradeScanCnt++;
-
-      await page.close();
-      page = await browser.newPage();
-
-      await throttler;
-      console.timeEnd("Cycle Time (2000ms minimum)");
+    const record = beginScanRun("loop");
+    const scanResult = await fromThrowableAsync(
+      () => runScanPass(page, "loop", steamScanCnt, csTradeScanCnt),
+      "Scan pass failed",
+    );
+    if (scanResult.isErr()) {
+      finishScanRun(record, scanResult.error.message);
+    } else {
+      finishScanRun(record);
     }
-  } finally {
-    await page.close().catch(() => undefined);
-    await browser.close().catch(() => undefined);
+
+    steamScanCnt++;
+    csTradeScanCnt++;
+
+    await fromThrowableAsync(
+      () => page.close(),
+      "Failed to close scan loop page",
+    );
+    const nextPageResult = await fromThrowableAsync(
+      () => browser.newPage(),
+      "Failed to create scan loop page",
+    );
+    if (nextPageResult.isErr()) {
+      handleError(nextPageResult.error, "Scanner Runtime");
+      await fromThrowableAsync(
+        () => browser.close(),
+        "Failed to close scan loop browser",
+      );
+      return;
+    }
+    page = nextPageResult.value;
+
+    await throttler;
+    console.timeEnd("Cycle Time (2000ms minimum)");
   }
 }
 
@@ -122,9 +189,8 @@ async function runScanPass(
 }
 
 async function handleScan(scan: () => Promise<void>, name: string) {
-  try {
-    await scan();
-  } catch (error) {
-    handleError(error, name);
+  const result = await fromThrowableAsync(scan, `Scan failed for ${name}`);
+  if (result.isErr()) {
+    handleError(result.error, name);
   }
 }
