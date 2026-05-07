@@ -1,20 +1,19 @@
-import sendToChannel from "./sendToChannel.js";
-import globals from "../globals/Globals.js";
+import type { NotificationService } from "../notifications/types.js";
 
-export default function handleError(error: Error, name: string) {
+export default function handleError(
+  error: Error,
+  name: string,
+  notificationService?: NotificationService,
+) {
   console.error("An error has occurred in " + name + ":");
   console.error(error);
 
-  if (globals.ERROR_CHANNEL_ID) {
-    //An option of emitting the error to a discord channel may be added in future
-    void sendToChannel(
-      globals.ERROR_CHANNEL_ID,
-      "An error has occurred in " +
-        name +
-        ":\n\n" +
-        error.message +
-        "\n\n" +
-        error.stack,
-    );
+  if (notificationService) {
+    void notificationService.publish({
+      kind: "error",
+      source: name,
+      message: error.message,
+      stack: error.stack,
+    });
   }
 }

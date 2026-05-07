@@ -1,21 +1,21 @@
 import { HTTPResponse, Page } from "puppeteer";
 import globals from "../globals/Globals.js";
 import setStatus from "../functions/setStatus.js";
-import sendToChannel from "../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../functions/messagePreludes.js";
 import {
   checkIfNewCsItem,
   CsSite,
   getAllTradeBotItems,
 } from "../functions/csTradeBot.js";
+import type { DealNotification } from "../deals/types.js";
 
-export async function scanCSDeals(page: Page) {
-  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
-    return;
+export async function scanCSDeals(page: Page): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
   setStatus("Scanning CS Deals");
 
   const foundItems = await getCSDealsItems(page);
   const searchItems = await getAllTradeBotItems();
+
+  const notifications: DealNotification[] = [];
 
   for (const searchItem of searchItems) {
     for (const foundItem of foundItems) {
@@ -27,18 +27,20 @@ export async function scanCSDeals(page: Page) {
         foundItem.d1 > searchItem.minFloat &&
         foundItem.i <= searchItem.maxPrice
       ) {
-        if (await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_DEALS))
-          await sendToChannel(
-            globals.CS_CHANNEL_ID,
-            `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
-              foundItem.c
-            } with a float of ${foundItem.d1} is available for $${
-              foundItem.i
-            } USD at: https://cs.deals/trade-skins`,
-          );
+        if (await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_DEALS)) {
+          notifications.push({
+            kind: "deal",
+            source: "csTrade",
+            title: `a ${foundItem.c} with a float of ${foundItem.d1} is available for $${foundItem.i} USD at: https://cs.deals/trade-skins`,
+            url: "https://cs.deals/trade-skins",
+            price: foundItem.i,
+          });
+        }
       }
     }
   }
+
+  return notifications;
 }
 
 export async function getCSDealsItems(page: Page) {

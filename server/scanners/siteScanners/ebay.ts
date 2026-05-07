@@ -2,45 +2,45 @@ import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Ebay } from "@prisma/client";
 import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import type { DealNotification } from "../../deals/types.js";
 
 let isAud = true;
 
-export async function scanEbay(page: Page) {
-  if (!globals.EBAY || !globals.EBAY_CHANNEL_ID || !globals.EBAY_ROLE_ID)
-    return;
+export async function scanEbay(page: Page): Promise<DealNotification[]> {
+  if (!globals.EBAY) return [];
 
   if (isAud) setStatus("Scanning eBay");
   else setStatus("Scanning eBay (USD)");
 
   const item = await getEbayQuery();
-  if (!item) return;
+  if (!item) return [];
 
   const { foundName, foundPrice, foundImage } = await getEbayValues(page, item);
-  if (!foundName || !foundPrice || !foundImage) return;
+  if (!foundName || !foundPrice || !foundImage) return [];
 
-  if (foundPrice > item.maxPrice) return;
+  if (foundPrice > item.maxPrice) return [];
 
   if (await checkIfNew(foundName, SCANNER.EBAY)) {
-    await sendToChannel(
-      globals.EBAY_CHANNEL_ID,
-      `<@&${
-        globals.EBAY_ROLE_ID
-      }> ${getNotificationPrelude()} a ${foundName} priced at $${foundPrice} is available at ${
-        item.url
-      }`,
+    return [
       {
-        files: [foundImage],
-        queryId: item.url,
-        queryType: "ebay",
+        kind: "deal",
+        source: "ebay",
+        title: `a ${foundName} priced at $${foundPrice} is available at ${item.url}`,
+        url: item.url,
+        price: foundPrice,
+        imageUrl: foundImage,
+        query: {
+          type: "ebay",
+          id: item.url,
+        },
       },
-    );
+    ];
   }
+  return [];
 }
 
 export async function getEbayValues(page: Page, item: Ebay) {

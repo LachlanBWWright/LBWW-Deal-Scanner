@@ -10,6 +10,7 @@ import handleError from "../functions/handleError.js";
 import puppeteer from "puppeteer";
 import { memoryUsage } from "node:process";
 import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
+import type { DealNotification } from "../deals/types.js";
 
 export default async function () {
   console.log("Discord client is ready.");
@@ -38,7 +39,7 @@ export default async function () {
 
     //Scans performed at limited intervals
     if (steamScanCnt >= 55) {
-      await scanSteamQuery();
+      await handleScan(scanSteamQuery, "Steam Market");
       steamScanCnt = 0;
     }
     if (csTradeScanCnt >= 100) {
@@ -61,9 +62,13 @@ export default async function () {
   }
 }
 
-async function handleScan(scan: () => Promise<void>, name: string) {
+async function handleScan(
+  scan: () => Promise<DealNotification[]>,
+  name: string,
+) {
   const result = await fromThrowableAsync(scan, `Scan failed for ${name}`);
   if (result.isErr()) {
     handleError(result.error, name);
   }
 }
+

@@ -24,8 +24,20 @@ export interface RuntimeSnapshot {
     status: ScanStatus;
     loopRunning: boolean;
     lastRun: ScanRunRecord | null;
+    recentResults: SearchResultRecord[];
   };
   commands: string[];
+}
+
+export interface SearchResultRecord {
+  source: string;
+  title: string;
+  url: string;
+  price: number | null;
+  imageUrl: string | null;
+  queryType: string | null;
+  queryId: string | null;
+  foundAt: string;
 }
 
 const state: RuntimeSnapshot = {
@@ -43,9 +55,12 @@ const state: RuntimeSnapshot = {
     status: "idle",
     loopRunning: false,
     lastRun: null,
+    recentResults: [],
   },
   commands: [],
 };
+
+const MAX_RECENT_RESULTS = 100;
 
 export function setApiPort(port: number) {
   state.api.port = port;
@@ -95,6 +110,14 @@ export function finishScanRun(record: ScanRunRecord, error: string | null = null
   state.scanner.status = error ? "error" : "idle";
 }
 
+export function recordSearchResults(results: SearchResultRecord[]) {
+  if (results.length === 0) return;
+  state.scanner.recentResults = [
+    ...results,
+    ...state.scanner.recentResults,
+  ].slice(0, MAX_RECENT_RESULTS);
+}
+
 export function getRuntimeSnapshot(): RuntimeSnapshot {
   return {
     api: { ...state.api },
@@ -102,6 +125,7 @@ export function getRuntimeSnapshot(): RuntimeSnapshot {
     scanner: {
       ...state.scanner,
       lastRun: state.scanner.lastRun ? { ...state.scanner.lastRun } : null,
+      recentResults: state.scanner.recentResults.map((result) => ({ ...result })),
     },
     commands: [...state.commands],
   };

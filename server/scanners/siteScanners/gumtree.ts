@@ -1,47 +1,42 @@
 import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Gumtree } from "@prisma/client";
 import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import type { DealNotification } from "../../deals/types.js";
 
-export async function scanGumtree(page: Page) {
-  if (
-    !globals.GUMTREE ||
-    !globals.GUMTREE_CHANNEL_ID ||
-    !globals.GUMTREE_ROLE_ID
-  )
-    return;
+export async function scanGumtree(page: Page): Promise<DealNotification[]> {
+  if (!globals.GUMTREE) return [];
   setStatus("Scanning Gumtree");
 
   const item = await getGumtreeQuery();
-  if (!item) return;
+  if (!item) return [];
 
   const result = await getGumtreeValues(page, item);
-  if (!result) return;
+  if (!result) return [];
 
   //Skip if invalid price
-  if (result.foundPrice > item.maxPrice) return;
+  if (result.foundPrice > item.maxPrice) return [];
 
   if (await checkIfNew(result.foundName, SCANNER.GUMTREE)) {
-    const message = `<@&${
-      globals.GUMTREE_ROLE_ID
-    }>${getNotificationPrelude()} a ${result.foundName} priced at $${
-      result.foundPrice
-    } is available at ${item.url}`;
-
-    const payload: { queryId: string; queryType: string; files?: string[] } = {
-      queryId: item.url,
-      queryType: "gumtree",
-    };
-
-    if (result.foundImg) payload.files = [result.foundImg];
-
-    await sendToChannel(globals.GUMTREE_CHANNEL_ID, message, payload);
+    return [
+      {
+        kind: "deal",
+        source: "gumtree",
+        title: `a ${result.foundName} priced at $${result.foundPrice} is available at ${item.url}`,
+        url: item.url,
+        price: result.foundPrice,
+        ...(result.foundImg && { imageUrl: result.foundImg }),
+        query: {
+          type: "gumtree",
+          id: item.url,
+        },
+      },
+    ];
   }
+  return [];
 }
 
 export async function getGumtreeValues(page: Page, item: Gumtree) {

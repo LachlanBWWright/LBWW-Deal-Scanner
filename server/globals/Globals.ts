@@ -2,7 +2,7 @@ import Dotenv from "dotenv";
 import { err, ok, Result } from "neverthrow";
 import { db } from "./PrismaClient.js";
 import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
-Dotenv.config();
+Dotenv.config({ quiet: true });
 
 const requiredEnvVars = [
   "BOT_CLIENT_ID",

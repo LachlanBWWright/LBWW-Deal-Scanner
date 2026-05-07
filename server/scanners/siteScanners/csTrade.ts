@@ -1,17 +1,15 @@
 import axios from "axios";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import {
   checkIfNewCsItem,
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
+import type { DealNotification } from "../../deals/types.js";
 
-export async function scanCSTrade() {
-  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
-    return;
+export async function scanCSTrade(): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
   setStatus("Scanning CS.Trade");
 
   await axios.get(
@@ -20,6 +18,8 @@ export async function scanCSTrade() {
 
   const foundItems = await getCsTradeItems();
   const searchItems = await getAllTradeBotItems();
+
+  const notifications: DealNotification[] = [];
 
   for (const searchItem of searchItems) {
     for (const foundItem of foundItems) {
@@ -32,22 +32,23 @@ export async function scanCSTrade() {
         if (
           await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_TRADE)
         ) {
-          await sendToChannel(
-            globals.CS_CHANNEL_ID,
-            `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
-              foundItem.market_hash_name
-            } with a float of ${foundItem.wear} is available for $${
-              foundItem.price
-            } USD at: https://cs.trade/`,
-            {
-              queryId: searchItem.name,
-              queryType: 'csTradeBot'
+          notifications.push({
+            kind: "deal",
+            source: "csTrade",
+            title: `a ${foundItem.market_hash_name} with a float of ${foundItem.wear} is available for $${foundItem.price} USD at: https://cs.trade/`,
+            url: "https://cs.trade/",
+            price: foundItem.price,
+            query: {
+              type: "csTradeBot",
+              id: searchItem.name,
             },
-          );
+          });
         }
       }
     }
   }
+
+  return notifications;
 }
 
 export async function getCsTradeItems() {

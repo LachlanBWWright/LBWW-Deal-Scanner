@@ -1,22 +1,22 @@
 import axios from "axios";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import {
   checkIfNewCsItem,
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
+import type { DealNotification } from "../../deals/types.js";
 
-export async function scanLootFarm() {
-  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
-    return;
+export async function scanLootFarm(): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
   setStatus("Scanning loot.farm");
 
   const items = await getLootFarmItems();
 
   const searchItems = await getAllTradeBotItems();
+
+  const notifications: DealNotification[] = [];
 
   for (const searchItem of searchItems) {
     for (const skinType in items) {
@@ -36,24 +36,25 @@ export async function scanLootFarm() {
             if (
               await checkIfNewCsItem(searchItem.name, item.f, CsSite.LOOT_FARM)
             ) {
-              await sendToChannel(
-                globals.CS_CHANNEL_ID,
-                `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
-                  items[skinType].n
-                } with a float of ${itemFloat} is available for $${
-                  items[skinType].p / 100
-                } USD at: https://loot.farm/`,
-                {
-                  queryId: searchItem.name,
-                  queryType: 'csTradeBot'
+              notifications.push({
+                kind: "deal",
+                source: "lootFarm",
+                title: `a ${items[skinType].n} with a float of ${itemFloat} is available for $${items[skinType].p / 100} USD at: https://loot.farm/`,
+                url: "https://loot.farm/",
+                price: items[skinType].p / 100,
+                query: {
+                  type: "csTradeBot",
+                  id: searchItem.name,
                 },
-              );
+              });
             }
           }
         }
       }
     }
   }
+
+  return notifications;
 }
 
 export async function getLootFarmItems() {

@@ -2,7 +2,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import Fastify, {
+  type FastifyInstance,
+  type FastifyReply,
+  type FastifyRequest,
+} from "fastify";
 import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
@@ -11,6 +15,20 @@ import staticPlugin from "@fastify/static";
 import { getRuntimeSnapshot, setApiPort } from "./controlState.js";
 import { runScanOnce } from "./scannerRuntime.js";
 import { db } from "./globals/PrismaClient.js";
+import { getNotificationService } from "./notificationServiceRef.js";
+import globals from "./globals/Globals.js";
+import type {
+  TestingNotificationRequest,
+  ManualScannerInput,
+  ProviderOutcome,
+} from "./testing/types.js";
+import {
+  recordNotificationResult,
+  recordScanResult,
+  getNotificationHistory,
+  getScanHistory,
+} from "./testing/testingState.js";
+import type { DealNotification, ErrorNotification } from "./deals/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -234,6 +252,43 @@ const queryDeleteResponseSchema = {
   required: ["success"],
 } as const;
 
+const searchResultItemSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    source: { type: "string" },
+    title: { type: "string" },
+    url: { type: "string" },
+    price: { type: ["number", "null"] },
+    imageUrl: { type: ["string", "null"] },
+    queryType: { type: ["string", "null"] },
+    queryId: { type: ["string", "null"] },
+    foundAt: { type: "string" },
+  },
+  required: [
+    "source",
+    "title",
+    "url",
+    "price",
+    "imageUrl",
+    "queryType",
+    "queryId",
+    "foundAt",
+  ],
+} as const;
+
+const searchResultsResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    results: {
+      type: "array",
+      items: searchResultItemSchema,
+    },
+  },
+  required: ["results"],
+} as const;
+
 const commandListResponseSchema = {
   type: "object",
   additionalProperties: false,
@@ -277,16 +332,23 @@ function normalizeNumber(value: unknown, name: string) {
 async function listSavedQueries(type?: QueryType) {
   const allItems: QueryItem[] = [];
 
-  const [cashConverters, ebay, gumtree, salvos, csMarket, steamMarket, csTradeBot] =
-    await Promise.all([
-      db.cashConverters.findMany({ include: { query: true } }),
-      db.ebay.findMany({ include: { query: true } }),
-      db.gumtree.findMany({ include: { query: true } }),
-      db.salvos.findMany({ include: { query: true } }),
-      db.csMarket.findMany({ include: { query: true } }),
-      db.steamMarket.findMany({ include: { query: true } }),
-      db.csTradeBot.findMany({ include: { query: true } }),
-    ]);
+  const [
+    cashConverters,
+    ebay,
+    gumtree,
+    salvos,
+    csMarket,
+    steamMarket,
+    csTradeBot,
+  ] = await Promise.all([
+    db.cashConverters.findMany({ include: { query: true } }),
+    db.ebay.findMany({ include: { query: true } }),
+    db.gumtree.findMany({ include: { query: true } }),
+    db.salvos.findMany({ include: { query: true } }),
+    db.csMarket.findMany({ include: { query: true } }),
+    db.steamMarket.findMany({ include: { query: true } }),
+    db.csTradeBot.findMany({ include: { query: true } }),
+  ]);
 
   allItems.push(
     ...cashConverters.map((item) => ({
@@ -341,7 +403,7 @@ async function listSavedQueries(type?: QueryType) {
       id: item.name,
       dmOnly: item.query?.dmOnly ?? false,
       name: item.name,
-      minPrice: item.minFloat,
+      minFloat: item.minFloat,
       maxFloat: item.maxFloat,
       maxPrice: item.maxPrice,
     })),
@@ -350,7 +412,10 @@ async function listSavedQueries(type?: QueryType) {
   return type ? allItems.filter((item) => item.type === type) : allItems;
 }
 
-async function createSavedQuery(type: QueryType, payload: Record<string, unknown>) {
+async function createSavedQuery(
+  type: QueryType,
+  payload: Record<string, unknown>,
+) {
   const dmOnly = parseBoolean(payload.dmOnly);
 
   switch (type) {
@@ -515,7 +580,14 @@ async function updateSavedQuery(
           query: { update: { dmOnly } },
         },
       });
-      return { type, id: updated.url, dmOnly, url: updated.url, requiredPhrases, excludePhrases };
+      return {
+        type,
+        id: updated.url,
+        dmOnly,
+        url: updated.url,
+        requiredPhrases,
+        excludePhrases,
+      };
     }
     case "ebay": {
       const url = new URL(String(payload.url || id)).toString();
@@ -560,7 +632,14 @@ async function updateSavedQuery(
           query: { update: { dmOnly } },
         },
       });
-      return { type, id: updated.name, dmOnly, name: updated.name, minPrice, maxPrice };
+      return {
+        type,
+        id: updated.name,
+        dmOnly,
+        name: updated.name,
+        minPrice,
+        maxPrice,
+      };
     }
     case "csMarket": {
       const url = new URL(String(payload.url || id)).toString();
@@ -603,7 +682,14 @@ async function updateSavedQuery(
           query: { update: { dmOnly } },
         },
       });
-      return { type, id: updated.name, dmOnly, name: updated.name, displayUrl: updated.displayUrl, maxPrice };
+      return {
+        type,
+        id: updated.name,
+        dmOnly,
+        name: updated.name,
+        displayUrl: updated.displayUrl,
+        maxPrice,
+      };
     }
     case "csTradeBot": {
       const name = String(payload.name || id).trim();
@@ -628,7 +714,7 @@ async function updateSavedQuery(
         dmOnly,
         name: updated.name,
         maxPrice,
-        minPrice: updated.minFloat,
+        minFloat: updated.minFloat,
         maxFloat: updated.maxFloat,
       };
     }
@@ -661,9 +747,17 @@ async function deleteSavedQuery(type: QueryType, id: string) {
   }
 }
 
-export async function buildApiServer(): Promise<FastifyInstance> {
-  if (!apiSecret) {
-    throw new Error("API_SECRET environment variable is required to start the API server.");
+interface BuildApiServerOptions {
+  requireApiSecret?: boolean;
+}
+
+export async function buildApiServer({
+  requireApiSecret = true,
+}: BuildApiServerOptions = {}): Promise<FastifyInstance> {
+  if (requireApiSecret && !apiSecret) {
+    throw new Error(
+      "API_SECRET environment variable is required to start the API server.",
+    );
   }
 
   const app = Fastify({
@@ -757,6 +851,43 @@ export async function buildApiServer(): Promise<FastifyInstance> {
   );
 
   app.get(
+    "/api/search-results",
+    {
+      schema: {
+        tags: ["control"],
+        summary: "List recent scanner search results",
+        querystring: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            type: queryTypeEnumSchema,
+            queryId: { type: "string" },
+          },
+        },
+        response: {
+          200: searchResultsResponseSchema,
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Querystring: { type?: QueryType; queryId?: string };
+      }>,
+    ) => {
+      const snapshot = getRuntimeSnapshot();
+      const { type, queryId } = request.query;
+
+      const results = snapshot.scanner.recentResults.filter((item) => {
+        const typeMatches = !type || item.queryType === type;
+        const queryMatches = !queryId || item.queryId === queryId;
+        return typeMatches && queryMatches;
+      });
+
+      return { results };
+    },
+  );
+
+  app.get(
     "/api/queries",
     {
       schema: {
@@ -793,7 +924,11 @@ export async function buildApiServer(): Promise<FastifyInstance> {
         },
       },
     },
-    async (request: FastifyRequest<{ Body: { type: QueryType; payload: Record<string, unknown> } }>) => {
+    async (
+      request: FastifyRequest<{
+        Body: { type: QueryType; payload: Record<string, unknown> };
+      }>,
+    ) => {
       const body = request.body;
       const query = await createSavedQuery(body.type, body.payload);
       return { success: true, query };
@@ -821,7 +956,11 @@ export async function buildApiServer(): Promise<FastifyInstance> {
         },
       },
     },
-    async (request: FastifyRequest<{ Body: { type: QueryType; id: string; payload: Record<string, unknown> } }>) => {
+    async (
+      request: FastifyRequest<{
+        Body: { type: QueryType; id: string; payload: Record<string, unknown> };
+      }>,
+    ) => {
       const body = request.body;
       const query = await updateSavedQuery(body.type, body.id, body.payload);
       return { success: true, query };
@@ -840,10 +979,439 @@ export async function buildApiServer(): Promise<FastifyInstance> {
         },
       },
     },
-    async (request: FastifyRequest<{ Body: { type: QueryType; id: string } }>) => {
+    async (
+      request: FastifyRequest<{ Body: { type: QueryType; id: string } }>,
+    ) => {
       const body = request.body;
       await deleteSavedQuery(body.type, body.id);
       return { success: true };
+    },
+  );
+
+  // ─── Testing routes ──────────────────────────────────────────────────────────
+
+  const testingEnabled = process.env.ENABLE_TESTING_API === "true";
+
+  const providerOutcomeSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      provider: { type: "string" },
+      status: {
+        type: "string",
+        enum: ["sent", "skipped", "disabled", "failed"],
+      },
+      reason: { type: ["string", "null"] },
+    },
+    required: ["provider", "status"],
+  } as const;
+
+  const testingNotificationResultSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { type: "string" },
+      startedAt: { type: "string" },
+      finishedAt: { type: "string" },
+      durationMs: { type: "number" },
+      outcomes: { type: "array", items: providerOutcomeSchema },
+      error: { type: ["string", "null"] },
+    },
+    required: [
+      "id",
+      "startedAt",
+      "finishedAt",
+      "durationMs",
+      "outcomes",
+      "error",
+    ],
+  } as const;
+
+  const scannerNotificationResultSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      source: { type: "string" },
+      title: { type: "string" },
+      url: { type: "string" },
+      price: { type: ["number", "null"] },
+      imageUrl: { type: ["string", "null"] },
+    },
+    required: ["source", "title", "url", "price", "imageUrl"],
+  } as const;
+
+  const testingScanResultSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { type: "string" },
+      startedAt: { type: "string" },
+      finishedAt: { type: "string" },
+      durationMs: { type: "number" },
+      notifications: { type: "array", items: scannerNotificationResultSchema },
+      errors: { type: "array", items: { type: "string" } },
+      notificationsPublished: { type: "boolean" },
+    },
+    required: [
+      "id",
+      "startedAt",
+      "finishedAt",
+      "durationMs",
+      "notifications",
+      "errors",
+      "notificationsPublished",
+    ],
+  } as const;
+
+  const testingCapabilitiesSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      testingEnabled: { type: "boolean" },
+      notificationProviders: { type: "array", items: { type: "string" } },
+      discordConnected: { type: "boolean" },
+      availableQueryTypes: { type: "array", items: { type: "string" } },
+      availableScannerTypes: { type: "array", items: { type: "string" } },
+    },
+    required: [
+      "testingEnabled",
+      "notificationProviders",
+      "discordConnected",
+      "availableQueryTypes",
+      "availableScannerTypes",
+    ],
+  } as const;
+
+  const testingNotificationRequestSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      kind: { type: "string", enum: ["deal", "error"] },
+      source: { type: "string" },
+      title: { type: "string" },
+      url: { type: "string" },
+      price: { type: "number" },
+      imageUrl: { type: "string" },
+      query: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          type: queryTypeEnumSchema,
+          id: { type: "string" },
+          dmOnly: { type: "boolean" },
+        },
+        required: ["type", "id"],
+      },
+      tags: { type: "array", items: { type: "string" } },
+      message: { type: "string" },
+      deliveryMode: {
+        type: "string",
+        enum: ["normal", "guildChannelOnly", "subscribedDMs", "specificUserDM"],
+      },
+      targetDiscordUserId: { type: "string" },
+    },
+    required: ["kind"],
+  } as const;
+
+  const manualScanRequestSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      type: queryTypeEnumSchema,
+      payload: { type: "object", additionalProperties: true },
+      notify: { type: "boolean" },
+    },
+    required: ["type", "payload"],
+  } as const;
+
+  app.get(
+    "/api/testing/capabilities",
+    {
+      schema: {
+        tags: ["testing"],
+        summary: "Get testing API capabilities",
+        response: {
+          200: testingCapabilitiesSchema,
+        },
+      },
+    },
+    async () => {
+      const snapshot = getRuntimeSnapshot();
+      const svc = getNotificationService();
+      return {
+        testingEnabled,
+        notificationProviders: svc
+          ? ((
+              svc as unknown as { providers?: Array<{ name: string }> }
+            ).providers?.map((p) => p.name) ?? [])
+          : [],
+        discordConnected: snapshot.bot.connected,
+        availableQueryTypes: [...queryTypes],
+        availableScannerTypes: ["cashConverters", "ebay", "gumtree", "salvos"],
+      };
+    },
+  );
+
+  app.post(
+    "/api/testing/notifications",
+    {
+      schema: {
+        tags: ["testing"],
+        summary: "Send a test notification through NotificationService",
+        body: testingNotificationRequestSchema,
+        response: {
+          200: testingNotificationResultSchema,
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Body: TestingNotificationRequest }>,
+      reply: FastifyReply,
+    ) => {
+      if (!testingEnabled) {
+        return reply.code(403).send({ error: "Testing API is not enabled" });
+      }
+
+      const body = request.body;
+      const startedAt = new Date().toISOString();
+      const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const outcomes: ProviderOutcome[] = [];
+      let errorMessage: string | null = null;
+
+      try {
+        const svc = getNotificationService();
+        if (!svc) {
+          errorMessage = "NotificationService is not initialized";
+        } else {
+          let notification: DealNotification | ErrorNotification;
+
+          if (body.kind === "error") {
+            const errorNotif: ErrorNotification = {
+              kind: "error",
+              source: body.source ?? "TestingAPI",
+              message: body.message ?? "Test error notification",
+            };
+            notification = errorNotif;
+          } else {
+            const dealNotif: DealNotification = {
+              kind: "deal",
+              source: (body.source as DealNotification["source"]) ?? "ebay",
+              title: body.title ?? "Test deal notification",
+              url: body.url ?? "https://example.com",
+              ...(body.price !== undefined && { price: body.price }),
+              ...(body.imageUrl && { imageUrl: body.imageUrl }),
+              ...(body.query && { query: body.query }),
+              ...(body.tags && { tags: body.tags }),
+            };
+            notification = dealNotif;
+          }
+
+          await svc.publish(notification);
+          outcomes.push({ provider: "all", status: "sent" });
+        }
+      } catch (err) {
+        errorMessage = err instanceof Error ? err.message : String(err);
+        outcomes.push({
+          provider: "all",
+          status: "failed",
+          reason: errorMessage,
+        });
+      }
+
+      const finishedAt = new Date().toISOString();
+      const durationMs =
+        new Date(finishedAt).getTime() - new Date(startedAt).getTime();
+
+      const result = {
+        id,
+        startedAt,
+        finishedAt,
+        durationMs,
+        request: body,
+        outcomes,
+        error: errorMessage,
+      };
+
+      recordNotificationResult(result);
+
+      return {
+        id,
+        startedAt,
+        finishedAt,
+        durationMs,
+        outcomes,
+        error: errorMessage,
+      };
+    },
+  );
+
+  app.get(
+    "/api/testing/notifications",
+    {
+      schema: {
+        tags: ["testing"],
+        summary: "List recent test notification history",
+        response: {
+          200: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              results: {
+                type: "array",
+                items: testingNotificationResultSchema,
+              },
+            },
+            required: ["results"],
+          },
+        },
+      },
+    },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      if (!testingEnabled) {
+        return reply.code(403).send({ error: "Testing API is not enabled" });
+      }
+
+      const history = getNotificationHistory();
+      return {
+        results: history.map((r) => ({
+          id: r.id,
+          startedAt: r.startedAt,
+          finishedAt: r.finishedAt,
+          durationMs: r.durationMs,
+          outcomes: r.outcomes,
+          error: r.error,
+        })),
+      };
+    },
+  );
+
+  app.post(
+    "/api/testing/scans/run",
+    {
+      schema: {
+        tags: ["testing"],
+        summary: "Run a temporary scan without persisting a user query",
+        body: manualScanRequestSchema,
+        response: {
+          200: testingScanResultSchema,
+        },
+      },
+    },
+    async (
+      request: FastifyRequest<{ Body: ManualScannerInput }>,
+      reply: FastifyReply,
+    ) => {
+      if (!testingEnabled) {
+        return reply.code(403).send({ error: "Testing API is not enabled" });
+      }
+
+      const body = request.body;
+      const startedAt = new Date().toISOString();
+      const id = `scan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const errors: string[] = [];
+      const notifications: Array<{
+        source: string;
+        title: string;
+        url: string;
+        price: number | null;
+        imageUrl: string | null;
+      }> = [];
+      let notificationsPublished = false;
+
+      try {
+        const { runTemporaryScan } = await import("./testing/temporaryScan.js");
+        const result = await runTemporaryScan(body.type, body.payload);
+        notifications.push(
+          ...result.notifications.map((n) => ({
+            source: n.source,
+            title: n.title,
+            url: n.url,
+            price: n.price ?? null,
+            imageUrl: n.imageUrl ?? null,
+          })),
+        );
+        errors.push(...result.errors);
+
+        if (body.notify && notifications.length > 0) {
+          const svc = getNotificationService();
+          if (svc) {
+            for (const n of result.notifications) {
+              await svc.publish(n);
+            }
+            notificationsPublished = true;
+          }
+        }
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : String(err));
+      }
+
+      const finishedAt = new Date().toISOString();
+      const durationMs =
+        new Date(finishedAt).getTime() - new Date(startedAt).getTime();
+
+      const scanResult = {
+        id,
+        startedAt,
+        finishedAt,
+        durationMs,
+        request: body,
+        notifications,
+        errors,
+        notificationsPublished,
+      };
+
+      recordScanResult(scanResult);
+
+      return {
+        id,
+        startedAt,
+        finishedAt,
+        durationMs,
+        notifications,
+        errors,
+        notificationsPublished,
+      };
+    },
+  );
+
+  app.get(
+    "/api/testing/runs",
+    {
+      schema: {
+        tags: ["testing"],
+        summary: "List recent temporary scan run history",
+        response: {
+          200: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              results: {
+                type: "array",
+                items: testingScanResultSchema,
+              },
+            },
+            required: ["results"],
+          },
+        },
+      },
+    },
+    async (_request: FastifyRequest, reply: FastifyReply) => {
+      if (!testingEnabled) {
+        return reply.code(403).send({ error: "Testing API is not enabled" });
+      }
+
+      const history = getScanHistory();
+      return {
+        results: history.map((r) => ({
+          id: r.id,
+          startedAt: r.startedAt,
+          finishedAt: r.finishedAt,
+          durationMs: r.durationMs,
+          notifications: r.notifications,
+          errors: r.errors,
+          notificationsPublished: r.notificationsPublished,
+        })),
+      };
     },
   );
 

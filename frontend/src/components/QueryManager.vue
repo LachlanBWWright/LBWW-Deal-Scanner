@@ -5,6 +5,7 @@ import ApiHostControl from "./ApiHostControl.vue";
 import QueryTypePicker from "./QueryTypePicker.vue";
 import QueryEditor from "./QueryEditor.vue";
 import QueryList from "./QueryList.vue";
+import QueryResultsList from "./QueryResultsList.vue";
 
 const {
   supportedQueryTypes,
@@ -23,6 +24,7 @@ const {
   successMessage,
   form,
   filteredQueries,
+  searchResults,
   formFields,
   setApiHost,
   clearApiHost,
@@ -30,6 +32,7 @@ const {
   saveQuery,
   resetForm,
   refreshQueries,
+  refreshSearchResults,
   startEditing,
   deleteQuery,
 } = useQueryManager();
@@ -69,7 +72,7 @@ export default {};
 </script>
 
 <template>
-  <section class="panel query-manager">
+  <section class="query-manager">
     <div class="panel-head">
       <h2>Query manager</h2>
       <span>Manage saved watch queries and API settings.</span>
@@ -131,10 +134,41 @@ export default {};
       @edit="startEditing"
       @delete="deleteQuery"
     />
+
+    <QueryResultsList
+      :searchResults="searchResults"
+      :loading="loading"
+      @refresh="refreshSearchResults"
+    />
   </section>
 </template>
 
 <style>
+.query-manager {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 16px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.panel-head span {
+  color: rgba(126, 255, 212, 0.78);
+  font-size: 0.82rem;
+}
+
 .field-grid {
   display: grid;
   gap: 16px;
@@ -231,29 +265,30 @@ button {
 }
 
 .query-stats {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .query-stat-card {
-  display: grid;
-  gap: 2px;
-  border-radius: 16px;
-  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 6px 12px;
   border: 1px solid rgba(154, 173, 201, 0.12);
   background: rgba(255, 255, 255, 0.04);
 }
 
 .query-stat-card strong {
-  font-size: 1.3rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
 .query-stat-card span {
-  color: rgba(219, 227, 240, 0.86);
-  font-size: 0.86rem;
+  color: rgba(219, 227, 240, 0.7);
+  font-size: 0.78rem;
 }
 
 .query-review {

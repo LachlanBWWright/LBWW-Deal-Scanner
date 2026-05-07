@@ -1,41 +1,41 @@
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { Salvos } from "@prisma/client";
 import { Page } from "puppeteer";
 import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import type { DealNotification } from "../../deals/types.js";
 
-export async function scanSalvos(page: Page) {
-  if (!globals.SALVOS || !globals.SALVOS_CHANNEL_ID || !globals.SALVOS_ROLE_ID)
-    return;
+export async function scanSalvos(page: Page): Promise<DealNotification[]> {
+  if (!globals.SALVOS) return [];
   setStatus("Scanning Salvos");
 
   const item = await getSalvosQuery();
-  if (!item) return;
-  let notificationSent = false;
+  if (!item) return [];
 
   const result = await getSalvosValues(page, item);
-  if (!result) return;
+  if (!result) return [];
 
-  if (result.price > item.maxPrice || result.price < item.minPrice) return;
+  if (result.price > item.maxPrice || result.price < item.minPrice) return [];
 
-  if ((await checkIfNew(result.image, SCANNER.SALVOS)) && !notificationSent) {
-    await sendToChannel(
-      globals.SALVOS_CHANNEL_ID,
-      `<@&${globals.SALVOS_ROLE_ID}> ${getNotificationPrelude()} a ${
-        result.name
-      } is available for $${result.price} at ${result.link}`,
+  if (await checkIfNew(result.image, SCANNER.SALVOS)) {
+    return [
       {
-        files: [result.image],
-        queryId: item.name, // Use name as the unique identifier for salvos
-        queryType: "salvos",
+        kind: "deal",
+        source: "salvos",
+        title: `a ${result.name} is available for $${result.price} at ${result.link}`,
+        url: result.link,
+        price: result.price,
+        imageUrl: result.image,
+        query: {
+          type: "salvos",
+          id: item.name, // Use name as the unique identifier for salvos
+        },
       },
-    );
-    notificationSent = true;
+    ];
   }
+  return [];
 }
 
 export async function getSalvosValues(page: Page, item: Salvos) {

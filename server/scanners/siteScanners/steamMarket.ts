@@ -3,22 +3,18 @@ import { ResultAsync } from "neverthrow";
 import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
 import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import type { DealNotification } from "../../deals/types.js";
 
 //For general market queries and CS Items
 const itemsFound = new Map<string, number>();
 
-export async function scanSteamQuery() {
-  if (
-    !globals.STEAM_QUERY ||
-    !globals.STEAM_QUERY_CHANNEL_ID ||
-    !globals.STEAM_QUERY_ROLE_ID
-  )
-    return;
+export async function scanSteamQuery(): Promise<DealNotification[]> {
+  if (!globals.STEAM_QUERY) return [];
   setStatus("Scanning the Steam Community Market");
+
+  const notifications: DealNotification[] = [];
 
   const scanResult = await fromThrowableAsync(async () => {
     const item = await getSteamQuery();
@@ -31,16 +27,17 @@ export async function scanSteamQuery() {
     const result = results[0];
     const price = parseFloat(result.sell_price) / 100.0;
     if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
-      await sendToChannel(
-        globals.STEAM_QUERY_CHANNEL_ID,
-        `<@&${globals.STEAM_QUERY_ROLE_ID}> ${getNotificationPrelude()} a ${
-          result.name
-        } is available for $${price} USD at: ${item.displayUrl}`,
-        {
-          queryId: item.name,
-          queryType: "steamMarket",
+      notifications.push({
+        kind: "deal",
+        source: "steamMarket",
+        title: `a ${result.name} is available for $${price} USD at: ${item.displayUrl}`,
+        url: item.displayUrl,
+        price,
+        query: {
+          type: "steamMarket",
+          id: item.name,
         },
-      );
+      });
     }
 
     if (price !== item.lastPrice) {
@@ -56,6 +53,8 @@ export async function scanSteamQuery() {
   if (scanResult.isErr()) {
     console.error(scanResult.error.message);
   }
+
+  return notifications;
 }
 
 export async function getQueryResults(url: string) {
@@ -75,9 +74,10 @@ export async function getQueryResults(url: string) {
 }
 
 //NOTE: This is depreciated currently due to increased ratelimits
-export async function scanCs() {
-  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
-    return;
+export async function scanCs(): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
+
+  const notifications: DealNotification[] = [];
 
   const scanResult = await fromThrowableAsync(async () => {
     const item = await getCsMarketQuery();
@@ -104,18 +104,17 @@ export async function scanCs() {
         res.data.iteminfo.floatvalue < item.maxFloat &&
         price <= item.maxPrice
       ) {
-        await sendToChannel(
-          globals.CS_CHANNEL_ID,
-          `<@&${globals.CS_ROLE_ID}> ${getNotificationPrelude()} a ${
-            res.data.iteminfo.full_item_name
-          } with float ${
-            res.data.iteminfo.floatvalue
-          } is available for $${price} USD at: ${item.displayUrl}`,
-          {
-            queryId: item.url,
-            queryType: "csMarket",
+        notifications.push({
+          kind: "deal",
+          source: "steamMarket",
+          title: `a ${res.data.iteminfo.full_item_name} with float ${res.data.iteminfo.floatvalue} is available for $${price} USD at: ${item.displayUrl}`,
+          url: item.displayUrl,
+          price,
+          query: {
+            type: "csMarket",
+            id: item.url,
           },
-        );
+        });
       }
 
       if (i < 10) itemsFound.set(query, 20);
@@ -133,6 +132,8 @@ export async function scanCs() {
   if (scanResult.isErr()) {
     console.error(scanResult.error.message);
   }
+
+  return notifications;
 }
 
 export async function getCsQueryString(page: Page, oldQuery: string) {

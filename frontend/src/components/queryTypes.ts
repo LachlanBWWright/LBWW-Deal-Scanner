@@ -35,6 +35,17 @@ export interface QueryFormState {
   dmOnly: boolean;
 }
 
+export interface SearchResultItem {
+  source: string;
+  title: string;
+  url: string;
+  price: number | null;
+  imageUrl: string | null;
+  queryType: QueryType | null;
+  queryId: string | null;
+  foundAt: string;
+}
+
 export type FormField = {
   label: string;
   key: keyof QueryFormState;

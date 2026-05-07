@@ -1,13 +1,17 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
+const apiTarget =
+  process.env.VITE_API_TARGET ??
+  `http://127.0.0.1:${process.env.API_PORT ?? "3000"}`;
+
 export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      "/api": "http://127.0.0.1:3000",
-      "/docs": "http://127.0.0.1:3000",
-      "/openapi.json": "http://127.0.0.1:3000",
+      "/api": apiTarget,
+      "/docs": apiTarget,
+      "/openapi.json": apiTarget,
     },
   },
 });

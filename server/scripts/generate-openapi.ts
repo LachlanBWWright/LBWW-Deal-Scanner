@@ -14,7 +14,7 @@ const openApiPath = path.resolve(apiDir, "openapi.json");
 const typesPath = path.resolve(apiDir, "schema.d.ts");
 
 async function run() {
-  const app = await buildApiServer();
+  const app = await buildApiServer({ requireApiSecret: false });
   await app.ready();
 
   const spec = app.swagger();
@@ -22,11 +22,7 @@ async function run() {
   await writeFile(openApiPath, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
 
   const types = await openapiTS(pathToFileURL(openApiPath));
-  await writeFile(
-    typesPath,
-    `/* eslint-disable @typescript-eslint/consistent-indexed-object-style */\n\n${astToString(types)}\n`,
-    "utf8",
-  );
+  await writeFile(typesPath, `${astToString(types)}\n`, "utf8");
 
   await app.close();
 }

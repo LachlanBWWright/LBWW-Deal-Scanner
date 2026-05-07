@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import type { QueryType, QueryFormState, FormField } from "./queryTypes";
 
 const props = defineProps<{
@@ -16,25 +16,22 @@ const emit = defineEmits<{
   (e: "reset"): void;
 }>();
 
-const localForm = ref<QueryFormState>({ ...props.form });
-
-watch(
-  () => props.form,
-  (value) => {
-    localForm.value = { ...value };
-  },
-  { deep: true },
-);
-
-watch(
-  localForm,
-  (value) => {
-    emit("update:form", value);
-  },
-  { deep: true },
-);
-
 const title = computed(() => (props.editingQuery ? "Update query" : "Create query"));
+
+function updateField(field: FormField, rawValue: string) {
+  const value = field.type === "number" ? Number(rawValue) : rawValue;
+  emit("update:form", {
+    ...props.form,
+    [field.key]: value,
+  });
+}
+
+function updateDmOnly(value: boolean) {
+  emit("update:form", {
+    ...props.form,
+    dmOnly: value,
+  });
+}
 </script>
 <script lang="ts">
 export default {};
@@ -55,15 +52,20 @@ export default {};
         <input
           :id="field.key"
           :type="field.type"
-          v-model="localForm[field.key]"
+          :value="props.form[field.key] as string | number"
           :placeholder="field.key === 'displayUrl' ? 'Optional' : ''"
+          @input="updateField(field, ($event.target as HTMLInputElement).value)"
         />
       </div>
     </div>
 
     <div class="field-group">
       <label class="field-switch">
-        <input type="checkbox" v-model="localForm.dmOnly" />
+        <input
+          type="checkbox"
+          :checked="props.form.dmOnly"
+          @change="updateDmOnly(($event.target as HTMLInputElement).checked)"
+        />
         Send notifications as DM only
       </label>
     </div>

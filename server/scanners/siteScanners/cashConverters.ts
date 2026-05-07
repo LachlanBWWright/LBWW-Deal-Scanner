@@ -2,40 +2,38 @@ import { Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
-import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { formatPrice } from "../../functions/formatPrice.js";
+import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
 import { CashConverters } from "@prisma/client";
+import type { DealNotification } from "../../deals/types.js";
 
-export async function scanCashConverters(page: Page) {
-  if (
-    !globals.CASH_CONVERTERS ||
-    !globals.CASH_CONVERTERS_CHANNEL_ID ||
-    !globals.CASH_CONVERTERS_ROLE_ID
-  )
-    return;
+export async function scanCashConverters(page: Page): Promise<DealNotification[]> {
+  if (!globals.CASH_CONVERTERS) return [];
   setStatus("Scanning Cash Converters");
 
   const item = await getCashQuery();
-  if (!item) return;
+  if (!item) return [];
   const foundItem = await getCashConvertersValues(page, item);
-  if (!foundItem) return;
+  if (!foundItem) return [];
 
   if (await checkIfNew(foundItem.itemName, SCANNER.CASH_CONVERTERS)) {
-    await sendToChannel(
-      globals.CASH_CONVERTERS_CHANNEL_ID,
-      `<@&${globals.CASH_CONVERTERS_ROLE_ID}> ${getNotificationPrelude()} a ${
-        foundItem.itemName
-      } for ${formatPrice(foundItem.totalPrice)} is available at ${item.url}`,
-      { 
-        files: [foundItem.image],
-        queryId: item.url,
-        queryType: 'cashConverters'
+    return [
+      {
+        kind: "deal",
+        source: "cashConverters",
+        title: `a ${foundItem.itemName} for ${formatPrice(foundItem.totalPrice)} is available at ${item.url}`,
+        url: item.url,
+        price: foundItem.totalPrice,
+        imageUrl: foundItem.image,
+        query: {
+          type: "cashConverters",
+          id: item.url,
+        },
       },
-    );
+    ];
   }
+  return [];
 }
 
 export async function getCashConvertersValues(

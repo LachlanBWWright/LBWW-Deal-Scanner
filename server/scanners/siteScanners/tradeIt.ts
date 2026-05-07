@@ -1,20 +1,16 @@
 import axios from "axios";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import sendToChannel from "../../functions/sendToChannel.js";
-import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 import {
   checkIfNewCsItem,
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
 import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import type { DealNotification } from "../../deals/types.js";
 
-export async function scanTradeIt() {
-  if (!globals.CS_ITEMS || !globals.CS_CHANNEL_ID || !globals.CS_ROLE_ID)
-    return;
-  const csChannelId = globals.CS_CHANNEL_ID;
-  const csRoleId = globals.CS_ROLE_ID;
+export async function scanTradeIt(): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
   setStatus("Scanning tradeit.gg");
 
   interface TradeItItem {
@@ -65,6 +61,9 @@ export async function scanTradeIt() {
       if (items.length < 750) break;
     }
   }
+
+  const notifications: DealNotification[] = [];
+
   const scanResult = await fromThrowableAsync(async () => {
     const foundItems = itemsArray;
     const searchItems = await getAllTradeBotItems();
@@ -94,18 +93,17 @@ export async function scanTradeIt() {
                 CsSite.LOOT_FARM,
               )
             ) {
-              await sendToChannel(
-                csChannelId,
-                `<@&${csRoleId}> ${getNotificationPrelude()} a ${
-                  foundItem.name
-                } with a float of ${bestFloat} is available for $${
-                  foundItem.price / 100.0
-                } USD at: https://tradeit.gg/csgo/trade`,
-                {
-                  queryId: searchItem.name,
-                  queryType: "csTradeBot",
+              notifications.push({
+                kind: "deal",
+                source: "tradeIt",
+                title: `a ${foundItem.name} with a float of ${bestFloat} is available for $${foundItem.price / 100.0} USD at: https://tradeit.gg/csgo/trade`,
+                url: "https://tradeit.gg/csgo/trade",
+                price: foundItem.price / 100.0,
+                query: {
+                  type: "csTradeBot",
+                  id: searchItem.name,
                 },
-              );
+              });
             }
           }
         }
@@ -116,6 +114,8 @@ export async function scanTradeIt() {
   if (scanResult.isErr()) {
     console.error(scanResult.error.message);
   }
+
+  return notifications;
 }
 
 /* {

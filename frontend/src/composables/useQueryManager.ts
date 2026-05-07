@@ -5,6 +5,7 @@ import {
   type QueryItem,
   type QueryFormState,
   type FormField,
+  type SearchResultItem,
 } from "../components/queryTypes";
 import { fromThrowableAsync } from "../utils/neverthrowUtils";
 
@@ -19,6 +20,7 @@ export function useQueryManager() {
   const querySearch = ref("");
   const selectedType = ref<QueryType>("ebay");
   const editingQuery = ref<QueryItem | null>(null);
+  const searchResults = ref<SearchResultItem[]>([]);
   const lastSyncedAt = ref<string | null>(null);
   const loading = ref(false);
   const saving = ref(false);
@@ -250,7 +252,43 @@ export function useQueryManager() {
 
     queries.value = dataResult.value.queries ?? [];
     lastSyncedAt.value = new Date().toISOString();
+
+    await refreshSearchResults();
+
     loading.value = false;
+  }
+
+  async function refreshSearchResults() {
+    const responseResult = await fromThrowableAsync(
+      () =>
+        fetch(getApiUrl("/api/search-results"), {
+          method: "GET",
+          headers: buildFetchHeaders(),
+        }),
+      "Failed to load recent search results",
+    );
+
+    if (responseResult.isErr()) {
+      errorMessage.value = responseResult.error.message;
+      return;
+    }
+
+    const response = responseResult.value;
+    if (!response.ok) {
+      errorMessage.value = `Failed to load recent search results (${response.status})`;
+      return;
+    }
+
+    const dataResult = await fromThrowableAsync(
+      () => response.json() as Promise<{ results: SearchResultItem[] }>,
+      "Failed to parse recent search results",
+    );
+    if (dataResult.isErr()) {
+      errorMessage.value = dataResult.error.message;
+      return;
+    }
+
+    searchResults.value = dataResult.value.results ?? [];
   }
 
   async function saveQuery() {
@@ -413,6 +451,7 @@ export function useQueryManager() {
     successMessage,
     form,
     filteredQueries,
+    searchResults,
     formFields,
     setApiHost,
     clearApiHost,
@@ -420,6 +459,7 @@ export function useQueryManager() {
     saveQuery,
     resetForm,
     refreshQueries,
+    refreshSearchResults,
     startEditing,
     deleteQuery,
   };
