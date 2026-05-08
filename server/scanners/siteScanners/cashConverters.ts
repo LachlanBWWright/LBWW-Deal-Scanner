@@ -5,8 +5,11 @@ import selectorRace from "../../functions/selectorRace.js";
 import { formatPrice } from "../../functions/formatPrice.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
-import { CashConverters } from "@prisma/client";
 import type { DealNotification } from "../../deals/types.js";
+
+interface CashConvertersQueryInput {
+  url: string;
+}
 
 export async function scanCashConverters(page: Page): Promise<DealNotification[]> {
   if (!globals.CASH_CONVERTERS) return [];
@@ -38,7 +41,7 @@ export async function scanCashConverters(page: Page): Promise<DealNotification[]
 
 export async function getCashConvertersValues(
   page: Page,
-  item: CashConverters,
+  item: CashConvertersQueryInput,
 ) {
   await page.goto(item.url);
   const selector = await selectorRace(

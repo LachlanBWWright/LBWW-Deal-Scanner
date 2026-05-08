@@ -40,7 +40,8 @@
     "fastify": "^5.8.4",
     "neverthrow": "^8.2.0",
     "puppeteer": "^24.37.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

@@ -10,14 +10,14 @@ export function toError(error: unknown, context?: string): Error {
   return new Error(`${context}: ${base.message}`);
 }
 
-export function fromThrowableSync<T>(
+export function resultSync<T>(
   operation: () => T,
   context?: string,
 ): Result<T, Error> {
   return fromThrowable(operation, (error) => toError(error, context))();
 }
 
-export function fromThrowableAsync<T>(
+export function resultAsync<T>(
   operation: () => Promise<T>,
   context?: string,
 ): ResultAsync<T, Error> {

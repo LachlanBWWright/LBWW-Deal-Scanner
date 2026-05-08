@@ -12,7 +12,7 @@ import {
   generateRandomKey,
 } from "../commandManager/actionRegistry.js";
 import { db } from "../globals/PrismaClient.js";
-import { fromThrowableAsync } from "./neverthrowUtils.js";
+import { resultAsync } from "./neverthrowUtils.js";
 
 interface sendToChannelOptions {
   files?: string[];
@@ -116,7 +116,7 @@ async function sendDMsToSubscribedUsers(
   });
 
   for (const userQuery of userQueries) {
-    const dmResult = await fromThrowableAsync(async () => {
+    const dmResult = await resultAsync(async () => {
       const user = await client.users.fetch(userQuery.userId);
 
       const unsubscribeActionKey = generateRandomKey();

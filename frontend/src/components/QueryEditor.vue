@@ -32,6 +32,23 @@ function updateDmOnly(value: boolean) {
     dmOnly: value,
   });
 }
+
+function onFieldInput(field: FormField, event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  if (!target) return;
+  updateField(field, target.value);
+}
+
+function onDmOnlyChange(event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  if (!target) return;
+  updateDmOnly(target.checked);
+}
+
+function fieldValue(key: FormField["key"]): string | number {
+  const value = props.form[key];
+  return typeof value === "boolean" ? Number(value) : value;
+}
 </script>
 <script lang="ts">
 export default {};
@@ -52,9 +69,9 @@ export default {};
         <input
           :id="field.key"
           :type="field.type"
-          :value="props.form[field.key] as string | number"
+          :value="fieldValue(field.key)"
           :placeholder="field.key === 'displayUrl' ? 'Optional' : ''"
-          @input="updateField(field, ($event.target as HTMLInputElement).value)"
+          @input="onFieldInput(field, $event)"
         />
       </div>
     </div>
@@ -64,7 +81,7 @@ export default {};
         <input
           type="checkbox"
           :checked="props.form.dmOnly"
-          @change="updateDmOnly(($event.target as HTMLInputElement).checked)"
+          @change="onDmOnlyChange($event)"
         />
         Send notifications as DM only
       </label>

@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { err, ok } from "neverthrow";
 import { db } from "../globals/PrismaClient.js";
-import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
+import { resultAsync } from "../functions/neverthrowUtils.js";
 
 type ActionType =
   | "delete"
@@ -71,7 +71,7 @@ export const actionRegistry = {
   },
 
   async delete(key: string): Promise<boolean> {
-    const deleteResult = await fromThrowableAsync(
+    const deleteResult = await resultAsync(
       () =>
         db.actionRegistry.delete({
           where: { id: key },

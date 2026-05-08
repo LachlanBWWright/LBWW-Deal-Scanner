@@ -5,8 +5,8 @@ import {
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 import {
-  fromThrowableAsync,
-  fromThrowableSync,
+  resultAsync,
+  resultSync,
 } from "../../functions/neverthrowUtils.js";
 
 export default async function editEbayQuery(
@@ -23,7 +23,7 @@ export default async function editEbayQuery(
     return;
   }
 
-  const urlResult = fromThrowableSync(
+  const urlResult = resultSync(
     () => new URL(query).toString(),
     "Invalid URL",
   );
@@ -35,7 +35,7 @@ export default async function editEbayQuery(
   }
 
   const url = urlResult.value;
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.ebay.findUnique({ where: { url: id } }),
     "Failed to load existing query",
   );
@@ -52,7 +52,7 @@ export default async function editEbayQuery(
     return;
   }
 
-  const updateResult = await fromThrowableAsync(
+  const updateResult = await resultAsync(
     () => db.ebay.update({ where: { url: id }, data: { url, maxPrice } }),
     "Failed to update query",
   );

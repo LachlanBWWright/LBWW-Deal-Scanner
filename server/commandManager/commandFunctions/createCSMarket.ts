@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   const query = interaction.options.getString("query") || "placeholder";
@@ -12,7 +12,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
   const maxPrice = interaction.options.getNumber("maxprice") || 1;
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
 
-  const responseResult = await fromThrowableAsync(
+  const responseResult = await resultAsync(
     () => createCs(query, maxPrice, maxFloat, dmOnly),
     "Failed to create CS Market query",
   );

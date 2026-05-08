@@ -16,7 +16,8 @@ import { getRuntimeSnapshot, setApiPort } from "./controlState.js";
 import { runScanOnce } from "./scannerRuntime.js";
 import { db } from "./globals/PrismaClient.js";
 import { getNotificationService } from "./notificationServiceRef.js";
-import globals from "./globals/Globals.js";
+import { ResultAsync, errAsync } from "neverthrow";
+import { toError } from "./functions/neverthrowUtils.js";
 import type {
   TestingNotificationRequest,
   ManualScannerInput,
@@ -1140,11 +1141,7 @@ export async function buildApiServer({
       const svc = getNotificationService();
       return {
         testingEnabled,
-        notificationProviders: svc
-          ? ((
-              svc as unknown as { providers?: Array<{ name: string }> }
-            ).providers?.map((p) => p.name) ?? [])
-          : [],
+        notificationProviders: svc ? svc.getProviderNames() : [],
         discordConnected: snapshot.bot.connected,
         availableQueryTypes: [...queryTypes],
         availableScannerTypes: ["cashConverters", "ebay", "gumtree", "salvos"],
@@ -1178,24 +1175,17 @@ export async function buildApiServer({
       const outcomes: ProviderOutcome[] = [];
       let errorMessage: string | null = null;
 
-      try {
-        const svc = getNotificationService();
-        if (!svc) {
-          errorMessage = "NotificationService is not initialized";
-        } else {
-          let notification: DealNotification | ErrorNotification;
-
-          if (body.kind === "error") {
-            const errorNotif: ErrorNotification = {
+      const svc = getNotificationService();
+      const notification: DealNotification | ErrorNotification =
+        body.kind === "error"
+          ? {
               kind: "error",
               source: body.source ?? "TestingAPI",
               message: body.message ?? "Test error notification",
-            };
-            notification = errorNotif;
-          } else {
-            const dealNotif: DealNotification = {
+            }
+          : {
               kind: "deal",
-              source: (body.source as DealNotification["source"]) ?? "ebay",
+              source: body.source ?? "ebay",
               title: body.title ?? "Test deal notification",
               url: body.url ?? "https://example.com",
               ...(body.price !== undefined && { price: body.price }),
@@ -1203,19 +1193,23 @@ export async function buildApiServer({
               ...(body.query && { query: body.query }),
               ...(body.tags && { tags: body.tags }),
             };
-            notification = dealNotif;
-          }
 
-          await svc.publish(notification);
-          outcomes.push({ provider: "all", status: "sent" });
-        }
-      } catch (err) {
-        errorMessage = err instanceof Error ? err.message : String(err);
+      const publishResult = svc
+        ? await ResultAsync.fromThrowable(
+            () => svc.publish(notification),
+            (error) => toError(error, "Failed to publish test notification"),
+          )()
+        : await errAsync(new Error("NotificationService is not initialized"));
+
+      if (publishResult.isErr()) {
+        errorMessage = publishResult.error.message;
         outcomes.push({
           provider: "all",
           status: "failed",
           reason: errorMessage,
         });
+      } else {
+        outcomes.push({ provider: "all", status: "sent" });
       }
 
       const finishedAt = new Date().toISOString();
@@ -1309,25 +1303,36 @@ export async function buildApiServer({
       const startedAt = new Date().toISOString();
       const id = `scan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const errors: string[] = [];
-      const notifications: Array<{
+      const notifications: {
         source: string;
         title: string;
         url: string;
-        price: number | null;
-        imageUrl: string | null;
-      }> = [];
+        price?: number;
+        imageUrl?: string;
+      }[] = [];
       let notificationsPublished = false;
 
-      try {
-        const { runTemporaryScan } = await import("./testing/temporaryScan.js");
-        const result = await runTemporaryScan(body.type, body.payload);
+      const runScanResult = await ResultAsync.fromPromise(
+        import("./testing/temporaryScan.js"),
+        (error) => toError(error, "Failed to import temporary scan module"),
+      ).andThen(({ runTemporaryScan }) =>
+        ResultAsync.fromPromise(
+          runTemporaryScan(body.type, body.payload),
+          (error) => toError(error, "Failed to run temporary scan"),
+        ),
+      );
+
+      if (runScanResult.isErr()) {
+        errors.push(runScanResult.error.message);
+      } else {
+        const result = runScanResult.value;
         notifications.push(
           ...result.notifications.map((n) => ({
             source: n.source,
             title: n.title,
             url: n.url,
-            price: n.price ?? null,
-            imageUrl: n.imageUrl ?? null,
+            price: n.price,
+            imageUrl: n.imageUrl,
           })),
         );
         errors.push(...result.errors);
@@ -1335,14 +1340,17 @@ export async function buildApiServer({
         if (body.notify && notifications.length > 0) {
           const svc = getNotificationService();
           if (svc) {
-            for (const n of result.notifications) {
-              await svc.publish(n);
+            const publishResult = await ResultAsync.fromPromise(
+              Promise.all(result.notifications.map((n) => svc.publish(n))),
+              (error) =>
+                toError(error, "Failed to publish temporary scan notifications"),
+            );
+            notificationsPublished = publishResult.isOk();
+            if (publishResult.isErr()) {
+              errors.push(publishResult.error.message);
             }
-            notificationsPublished = true;
           }
         }
-      } catch (err) {
-        errors.push(err instanceof Error ? err.message : String(err));
       }
 
       const finishedAt = new Date().toISOString();

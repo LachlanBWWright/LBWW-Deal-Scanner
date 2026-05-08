@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function editSalvosQuery(
   interaction: ChatInputCommandInteraction,
@@ -21,7 +21,7 @@ export default async function editSalvosQuery(
     return;
   }
 
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.salvos.findUnique({ where: { name: id } }),
     "Failed to load existing query",
   );
@@ -45,7 +45,7 @@ export default async function editSalvosQuery(
   if (typeof minPrice === "number") data.minPrice = minPrice;
   if (typeof maxPrice === "number") data.maxPrice = maxPrice;
 
-  const updateResult = await fromThrowableAsync(
+  const updateResult = await resultAsync(
     () => db.salvos.update({ where: { name: id }, data }),
     "Failed to update query",
   );

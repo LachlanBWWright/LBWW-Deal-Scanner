@@ -5,8 +5,8 @@ import {
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 import {
-  fromThrowableAsync,
-  fromThrowableSync,
+  resultAsync,
+  resultSync,
 } from "../../functions/neverthrowUtils.js";
 
 export default async function editCashQuery(
@@ -21,7 +21,7 @@ export default async function editCashQuery(
     return;
   }
 
-  const urlResult = fromThrowableSync(
+  const urlResult = resultSync(
     () => new URL(query).toString(),
     "Invalid URL",
   );
@@ -33,7 +33,7 @@ export default async function editCashQuery(
   }
 
   const url = urlResult.value;
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.cashConverters.findUnique({ where: { url: id } }),
     "Failed to load existing query",
   );
@@ -51,7 +51,7 @@ export default async function editCashQuery(
     return;
   }
 
-  const updateResult = await fromThrowableAsync(
+  const updateResult = await resultAsync(
     () => db.cashConverters.update({ where: { url: id }, data: { url } }),
     "Failed to update query",
   );

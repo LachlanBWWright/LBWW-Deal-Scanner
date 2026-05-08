@@ -2,10 +2,15 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
-import { Salvos } from "@prisma/client";
 import { Page } from "puppeteer";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 import type { DealNotification } from "../../deals/types.js";
+
+interface SalvosQueryInput {
+  name: string;
+  minPrice: number;
+  maxPrice: number;
+}
 
 export async function scanSalvos(page: Page): Promise<DealNotification[]> {
   if (!globals.SALVOS) return [];
@@ -38,8 +43,8 @@ export async function scanSalvos(page: Page): Promise<DealNotification[]> {
   return [];
 }
 
-export async function getSalvosValues(page: Page, item: Salvos) {
-  const gotoResult = await fromThrowableAsync(
+export async function getSalvosValues(page: Page, item: SalvosQueryInput) {
+  const gotoResult = await resultAsync(
     () =>
       page.goto(
         `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(

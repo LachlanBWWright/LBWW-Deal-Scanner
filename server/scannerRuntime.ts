@@ -17,7 +17,7 @@ import { scanCashConverters } from "./scanners/siteScanners/cashConverters.js";
 import { scanSalvos } from "./scanners/siteScanners/salvos.js";
 import { scanEbay } from "./scanners/siteScanners/ebay.js";
 import { scanGumtree } from "./scanners/siteScanners/gumtree.js";
-import { fromThrowableAsync } from "./functions/neverthrowUtils.js";
+import { resultAsync } from "./functions/neverthrowUtils.js";
 import type { DealNotification } from "./deals/types.js";
 import type { NotificationService } from "./notifications/types.js";
 import { setSharedNotificationService } from "./notificationServiceRef.js";
@@ -32,7 +32,7 @@ export function setNotificationService(service: NotificationService) {
 
 export async function runScanOnce() {
   const record = beginScanRun("manual");
-  const browserResult = await fromThrowableAsync(
+  const browserResult = await resultAsync(
     () =>
       puppeteer.launch({
         args: ["--no-sandbox"],
@@ -46,12 +46,12 @@ export async function runScanOnce() {
   }
   const browser = browserResult.value;
 
-  const pageResult = await fromThrowableAsync(
+  const pageResult = await resultAsync(
     () => browser.newPage(),
     "Failed to create scan page",
   );
   if (pageResult.isErr()) {
-    await fromThrowableAsync(
+    await resultAsync(
       () => browser.close(),
       "Failed to close scan browser",
     );
@@ -60,12 +60,12 @@ export async function runScanOnce() {
   }
   const page = pageResult.value;
 
-  const scanResult = await fromThrowableAsync(
+  const scanResult = await resultAsync(
     () => runScanPass(page, record.mode),
     "Scan pass failed",
   );
-  await fromThrowableAsync(() => page.close(), "Failed to close scan page");
-  await fromThrowableAsync(
+  await resultAsync(() => page.close(), "Failed to close scan page");
+  await resultAsync(
     () => browser.close(),
     "Failed to close scan browser",
   );
@@ -93,7 +93,7 @@ export function startBackgroundScanLoop() {
 }
 
 async function runLoop() {
-  const browserResult = await fromThrowableAsync(
+  const browserResult = await resultAsync(
     () =>
       puppeteer.launch({
         args: ["--no-sandbox"],
@@ -111,7 +111,7 @@ async function runLoop() {
   }
   const browser = browserResult.value;
 
-  const firstPageResult = await fromThrowableAsync(
+  const firstPageResult = await resultAsync(
     () => browser.newPage(),
     "Failed to create scan loop page",
   );
@@ -121,7 +121,7 @@ async function runLoop() {
       "Scanner Runtime",
       notificationService ?? undefined,
     );
-    await fromThrowableAsync(
+    await resultAsync(
       () => browser.close(),
       "Failed to close scan loop browser",
     );
@@ -137,7 +137,7 @@ async function runLoop() {
     console.time("Cycle Time (2000ms minimum)");
 
     const record = beginScanRun("loop");
-    const scanResult = await fromThrowableAsync(
+    const scanResult = await resultAsync(
       () => runScanPass(page, "loop", steamScanCnt, csTradeScanCnt),
       "Scan pass failed",
     );
@@ -150,11 +150,11 @@ async function runLoop() {
     steamScanCnt++;
     csTradeScanCnt++;
 
-    await fromThrowableAsync(
+    await resultAsync(
       () => page.close(),
       "Failed to close scan loop page",
     );
-    const nextPageResult = await fromThrowableAsync(
+    const nextPageResult = await resultAsync(
       () => browser.newPage(),
       "Failed to create scan loop page",
     );
@@ -164,7 +164,7 @@ async function runLoop() {
         "Scanner Runtime",
         notificationService ?? undefined,
       );
-      await fromThrowableAsync(
+      await resultAsync(
         () => browser.close(),
         "Failed to close scan loop browser",
       );
@@ -234,7 +234,7 @@ async function handleScan(
   scan: () => Promise<DealNotification[]>,
   name: string,
 ) {
-  const result = await fromThrowableAsync(scan, `Scan failed for ${name}`);
+  const result = await resultAsync(scan, `Scan failed for ${name}`);
   if (result.isErr()) {
     handleError(result.error, name, notificationService ?? undefined);
   } else {

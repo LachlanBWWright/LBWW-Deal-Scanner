@@ -9,7 +9,7 @@ import { scanGumtree } from "./siteScanners/gumtree.js";
 import handleError from "../functions/handleError.js";
 import puppeteer from "puppeteer";
 import { memoryUsage } from "node:process";
-import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
+import { resultAsync } from "../functions/neverthrowUtils.js";
 import type { DealNotification } from "../deals/types.js";
 
 export default async function () {
@@ -66,7 +66,7 @@ async function handleScan(
   scan: () => Promise<DealNotification[]>,
   name: string,
 ) {
-  const result = await fromThrowableAsync(scan, `Scan failed for ${name}`);
+  const result = await resultAsync(scan, `Scan failed for ${name}`);
   if (result.isErr()) {
     handleError(result.error, name);
   }

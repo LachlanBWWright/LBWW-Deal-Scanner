@@ -1,4 +1,3 @@
-import axios from "axios";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import {
@@ -6,60 +5,92 @@ import {
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
+import { fetchLootFarmItems } from "../../functions/lootFarmFetcher.js";
 import type { DealNotification } from "../../deals/types.js";
+import type { LootFarmSkin } from "../../functions/apiValidators.js";
+
+async function checkLootFarmItem(
+  searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
+  skin: LootFarmSkin,
+  skinPriceCents: number,
+  botNumber: string,
+  notifications: DealNotification[]
+) {
+  const item = skin.u[botNumber][0];
+  if (!item?.f) return;
+
+  const itemFloat = parseInt(item.f) / 100000;
+
+  const meetsFloatCriteria =
+    itemFloat >= searchItem.minFloat && itemFloat <= searchItem.maxFloat;
+  const meetsStatTrakCriteria =
+    !searchItem.name.includes("StatTrak") || item.st != null;
+
+  if (!meetsFloatCriteria || !meetsStatTrakCriteria) return;
+
+  const isNew = await checkIfNewCsItem(
+    searchItem.name,
+    itemFloat,
+    CsSite.LOOT_FARM
+  );
+  if (!isNew) return;
+
+  notifications.push({
+    kind: "deal",
+    source: "lootFarm",
+    title: `a ${skin.n} with a float of ${itemFloat} is available for $${skinPriceCents / 100} USD at: https://loot.farm/`,
+    url: "https://loot.farm/",
+    price: skinPriceCents / 100,
+    query: {
+      type: "csTradeBot",
+      id: searchItem.name,
+    },
+  });
+}
 
 export async function scanLootFarm(): Promise<DealNotification[]> {
   if (!globals.CS_ITEMS) return [];
   setStatus("Scanning loot.farm");
 
-  const items = await getLootFarmItems();
+  const itemsResult = await fetchLootFarmItems();
+  if (itemsResult.isErr()) {
+    console.error("Failed to fetch loot.farm items:", itemsResult.error.message);
+    return [];
+  }
 
+  const items = itemsResult.value.result;
   const searchItems = await getAllTradeBotItems();
-
   const notifications: DealNotification[] = [];
 
   for (const searchItem of searchItems) {
     for (const skinType in items) {
+      const skin = items[skinType];
+      if (typeof skin.p !== "number") {
+        continue;
+      }
+
+      const skinPriceCents = skin.p;
+
       if (
-        searchItem.name.includes(items[skinType].n) &&
-        items[skinType].p / 100 <= searchItem.maxPrice
+        !searchItem.name.includes(skin.n)
+        || skinPriceCents / 100 > searchItem.maxPrice
       ) {
-        for (const botNumber in items[skinType].u) {
-          const item = items[skinType].u[botNumber][0];
-          const itemFloat = parseInt(item.f) / 100000;
-          if (
-            itemFloat >= searchItem.minFloat &&
-            itemFloat <= searchItem.maxFloat &&
-            /* If searchItem is StatTrak, check that the found item is also StatTrak */
-            (!searchItem.name.includes("StatTrak") || item.st != undefined)
-          ) {
-            if (
-              await checkIfNewCsItem(searchItem.name, item.f, CsSite.LOOT_FARM)
-            ) {
-              notifications.push({
-                kind: "deal",
-                source: "lootFarm",
-                title: `a ${items[skinType].n} with a float of ${itemFloat} is available for $${items[skinType].p / 100} USD at: https://loot.farm/`,
-                url: "https://loot.farm/",
-                price: items[skinType].p / 100,
-                query: {
-                  type: "csTradeBot",
-                  id: searchItem.name,
-                },
-              });
-            }
-          }
-        }
+        continue;
+      }
+
+      for (const botNumber in skin.u) {
+        await checkLootFarmItem(
+          searchItem,
+          skin,
+          skinPriceCents,
+          botNumber,
+          notifications,
+        );
       }
     }
   }
 
   return notifications;
-}
-
-export async function getLootFarmItems() {
-  const res = await axios.get("https://loot.farm/botsInventory_730.json");
-  return res.data.result;
 }
 
 /* "27623861":{

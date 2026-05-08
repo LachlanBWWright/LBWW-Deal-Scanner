@@ -1,4 +1,3 @@
-import axios from "axios";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import {
@@ -6,45 +5,71 @@ import {
   CsSite,
   getAllTradeBotItems,
 } from "../../functions/csTradeBot.js";
+import {
+  fetchCsTradeItems,
+  warmupCsTradeCache,
+} from "../../functions/csTraceFetcher.js";
 import type { DealNotification } from "../../deals/types.js";
+import type { CsTradeItem } from "../../functions/apiValidators.js";
+
+async function checkCsTradeMatch(
+  searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
+  foundItem: CsTradeItem,
+  notifications: DealNotification[]
+) {
+  const itemWear = foundItem.wear;
+  if (
+    foundItem.price > searchItem.maxPrice
+    || itemWear < searchItem.minFloat
+    || itemWear > searchItem.maxFloat
+    || foundItem.market_hash_name !== searchItem.name
+  ) {
+    return;
+  }
+
+  const isNew = await checkIfNewCsItem(
+    foundItem.market_hash_name,
+    itemWear,
+    CsSite.CS_TRADE
+  );
+  if (!isNew) return;
+
+  notifications.push({
+    kind: "deal",
+    source: "csTrade",
+    title: `a ${foundItem.market_hash_name} with a float of ${foundItem.wear} is available for $${foundItem.price} USD at: https://cs.trade/`,
+    url: "https://cs.trade/",
+    price: foundItem.price,
+    query: {
+      type: "csTradeBot",
+      id: searchItem.name,
+    },
+  });
+}
 
 export async function scanCSTrade(): Promise<DealNotification[]> {
   if (!globals.CS_ITEMS) return [];
   setStatus("Scanning CS.Trade");
 
-  await axios.get(
-    "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
-  );
+  // Warmup cache
+  const warmupResult = await warmupCsTradeCache();
+  if (warmupResult.isErr()) {
+    console.warn("CS.Trade cache warmup failed:", warmupResult.error.message);
+  }
 
-  const foundItems = await getCsTradeItems();
+  const itemsResult = await fetchCsTradeItems();
+  if (itemsResult.isErr()) {
+    console.error("Failed to fetch CS.Trade items:", itemsResult.error.message);
+    return [];
+  }
+
+  const foundItems = itemsResult.value;
   const searchItems = await getAllTradeBotItems();
-
   const notifications: DealNotification[] = [];
 
   for (const searchItem of searchItems) {
     for (const foundItem of foundItems) {
-      if (
-        foundItem.price <= searchItem.maxPrice &&
-        foundItem.wear >= searchItem.minFloat &&
-        foundItem.wear <= searchItem.maxFloat &&
-        foundItem.market_hash_name === searchItem.name
-      ) {
-        if (
-          await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_TRADE)
-        ) {
-          notifications.push({
-            kind: "deal",
-            source: "csTrade",
-            title: `a ${foundItem.market_hash_name} with a float of ${foundItem.wear} is available for $${foundItem.price} USD at: https://cs.trade/`,
-            url: "https://cs.trade/",
-            price: foundItem.price,
-            query: {
-              type: "csTradeBot",
-              id: searchItem.name,
-            },
-          });
-        }
-      }
+      await checkCsTradeMatch(searchItem, foundItem, notifications);
     }
   }
 
@@ -52,13 +77,13 @@ export async function scanCSTrade(): Promise<DealNotification[]> {
 }
 
 export async function getCsTradeItems() {
-  const res = await axios.get(
-    "https://cdn.cs.trade:8443/api/getInventory?order_by=price_desc&bot=all&_=1651756783463",
-  );
+  const itemsResult = await fetchCsTradeItems();
+  if (itemsResult.isErr()) {
+    console.error("Failed to fetch CS.Trade items:", itemsResult.error.message);
+    return [];
+  }
 
-  return res.data.inventory.filter(
-    (item: { app_id: number }) => item.app_id == 730,
-  );
+  return itemsResult.value;
 }
 
 /* {

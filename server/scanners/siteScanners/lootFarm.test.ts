@@ -1,23 +1,25 @@
-import { test } from "vitest";
-import { getLootFarmItems } from "./lootFarm";
+import { describe, expect, it, test } from "vitest";
+import { fetchLootFarmItems } from "../../functions/lootFarmFetcher.js";
 
 test("loot farm scanner", async () => {
-  const results = await getLootFarmItems();
-  for (const result in results) {
-    if (results[result].n === "M4A4 | Temukau") {
-      //console.log(results[result]);
-      console.log("Results: ", result);
-      console.dir(results[result], { depth: 10 });
-      //console.log(results[result].u);
-      //console.log(results[result].u["3"]["s"]);
-      //break;
-    }
+  const result = await fetchLootFarmItems();
+
+  if (result.isErr()) {
+    expect(result.error.message).toBe("");
+    return;
   }
+
+  expect(Object.keys(result.value.result).length).toBeGreaterThan(0);
 });
 
-import { describe, it } from "vitest";
 describe("lootFarm.ts", () => {
-  it("should ...", () => {
+  it("exports a live fetcher", () => {
+    expect(fetchLootFarmItems).toBeTypeOf("function");
+  });
+});
+
+describe("lootFarm.ts", () => {
+  it("should fetch and validate items", () => {
     // TODO: implement test
   });
 });

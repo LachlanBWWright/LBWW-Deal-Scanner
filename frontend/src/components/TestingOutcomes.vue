@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { ResultAsync } from "neverthrow";
 import { useTestingConsole } from "../composables/useTestingConsole";
 import { apiClient, getApiHeaders } from "../api/client";
-import { fromThrowableAsync } from "../utils/neverthrowUtils";
-import type { paths } from "../api/schema.d.ts";
+import { toError } from "../utils/neverthrowUtils";
+import type { paths } from "../api/schema";
 
 type SearchResultItem =
   paths["/api/search-results"]["get"]["responses"][200]["content"]["application/json"]["results"][number];
@@ -62,12 +63,12 @@ async function loadRecentResults() {
   loadingResults.value = true;
   resultsError.value = null;
 
-  const result = await fromThrowableAsync(async () => {
+  const result = await ResultAsync.fromThrowable(async () => {
     const res = await apiClient.GET("/api/search-results", {
       headers: getApiHeaders(),
     });
     return res.data?.results ?? [];
-  }, "Failed to load recent results");
+  }, (error) => toError(error, "Failed to load recent results"))();
 
   if (result.isOk()) {
     recentResults.value = result.value;
@@ -88,6 +89,9 @@ function formatTime(iso: string) {
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString();
 }
+</script>
+<script lang="ts">
+export default {};
 </script>
 
 <template>

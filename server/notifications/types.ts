@@ -8,4 +8,5 @@ export interface NotificationProvider {
 
 export interface NotificationService {
   publish(notification: AppNotification): Promise<void>;
+  getProviderNames(): string[];
 }

@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function editMultiSearchQuery(
   interaction: ChatInputCommandInteraction,
@@ -27,7 +27,7 @@ export default async function editMultiSearchQuery(
     return;
   }
 
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.csTradeBot.findUnique({ where: { name: id } }),
     "Failed to load existing query",
   );
@@ -55,7 +55,7 @@ export default async function editMultiSearchQuery(
   if (typeof minFloat === "number") data.minFloat = minFloat;
   if (typeof maxFloat === "number") data.maxFloat = maxFloat;
 
-  const updateResult = await fromThrowableAsync(
+  const updateResult = await resultAsync(
     () => db.csTradeBot.update({ where: { name: id }, data }),
     "Failed to update query",
   );

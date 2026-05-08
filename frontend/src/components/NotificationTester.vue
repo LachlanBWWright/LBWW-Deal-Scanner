@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useTestingConsole, type DeliveryMode } from "../composables/useTestingConsole";
+import {
+  useTestingConsole,
+  type DeliveryMode,
+  type TestingNotificationRequestBody,
+} from "../composables/useTestingConsole";
 
 const {
   capabilities,
@@ -154,27 +158,29 @@ async function send() {
   if (!testingEnabled.value) return;
 
   if (kind.value === "error") {
-    await sendTestNotification({
+    const errorBody: TestingNotificationRequestBody = {
       kind: "error",
       source: source.value || "TestScanner",
       message: message.value || "Test error",
-      deliveryMode: deliveryMode.value as "normal",
-    });
+      deliveryMode: deliveryMode.value,
+    };
+
+    await sendTestNotification(errorBody);
     return;
   }
 
-  const body: Parameters<typeof sendTestNotification>[0] = {
+  const body: TestingNotificationRequestBody = {
     kind: "deal",
-    source: source.value as Parameters<typeof sendTestNotification>[0]["source"],
+    source: source.value as TestingNotificationRequestBody["source"],
     title: title.value,
     url: url.value,
-    deliveryMode: deliveryMode.value as "normal",
+    deliveryMode: deliveryMode.value,
   };
   if (price.value !== "") body.price = Number(price.value);
   if (imageUrl.value) body.imageUrl = imageUrl.value;
   if (queryId.value) {
     body.query = {
-      type: queryType.value as "ebay",
+      type: queryType.value as NonNullable<TestingNotificationRequestBody["query"]>["type"],
       id: queryId.value,
       dmOnly: dmOnly.value,
     };
@@ -185,6 +191,9 @@ async function send() {
 
   await sendTestNotification(body);
 }
+</script>
+<script lang="ts">
+export default {};
 </script>
 
 <template>

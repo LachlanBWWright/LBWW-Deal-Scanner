@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, defineAsyncComponent, onMounted, ref } from "vue";
+import { ResultAsync } from "neverthrow";
 
 import {
   apiClient,
@@ -11,14 +12,22 @@ import {
   type ApiStatus,
 } from "./api/client";
 import QueryManager from "./components/QueryManager.vue";
-import NotificationTester from "./components/NotificationTester.vue";
-import ManualScanTester from "./components/ManualScanTester.vue";
-import TestingOutcomes from "./components/TestingOutcomes.vue";
-import { fromThrowableAsync } from "./utils/neverthrowUtils";
+import { toError } from "./utils/neverthrowUtils";
 import { useTestingConsole } from "./composables/useTestingConsole";
+
+const NotificationTester = defineAsyncComponent(
+  () => import("./components/NotificationTester.vue"),
+);
+const ManualScanTester = defineAsyncComponent(
+  () => import("./components/ManualScanTester.vue"),
+);
+const TestingOutcomes = defineAsyncComponent(
+  () => import("./components/TestingOutcomes.vue"),
+);
 
 type Tab = "queries" | "scans" | "notifications" | "outcomes";
 const activeTab = ref<Tab>("queries");
+const tabs: Tab[] = ["queries", "scans", "notifications", "outcomes"];
 
 const runtime = ref<ApiStatus | null>(null);
 const loading = ref(false);
@@ -58,10 +67,10 @@ async function refresh() {
   loading.value = true;
   errorMessage.value = null;
 
-  const result = await fromThrowableAsync(async () => {
+  const result = await ResultAsync.fromThrowable(async () => {
     const res = await apiClient.GET("/api/status", { headers: getApiHeaders() });
     return res.data ?? null;
-  }, "Failed to load status");
+  }, (error) => toError(error, "Failed to load status"))();
 
   if (result.isErr()) {
     errorMessage.value = result.error.message;
@@ -134,7 +143,7 @@ onMounted(async () => {
     <!-- Tab bar -->
     <nav class="tab-bar">
       <button
-        v-for="tab in (['queries', 'scans', 'notifications', 'outcomes'] as const)"
+        v-for="tab in tabs"
         :key="tab"
         class="tab-btn"
         :class="{ active: activeTab === tab }"

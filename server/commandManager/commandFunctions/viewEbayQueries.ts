@@ -4,12 +4,12 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function viewEbayQueries(
   interaction: ChatInputCommandInteraction,
 ) {
-  const resultsResult = await fromThrowableAsync(
+  const resultsResult = await resultAsync(
     () => db.ebay.findMany(),
     "Failed to fetch saved queries",
   );

@@ -102,7 +102,7 @@ import editSalvosQuery from "./commandFunctions/editSalvosQuery.js";
 import deleteSalvosQuery from "./commandFunctions/deleteSalvosQuery.js";
 import viewSalvosQueries from "./commandFunctions/viewSalvosQueries.js";
 import { getFailurePrelude } from "../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
+import { resultAsync } from "../functions/neverthrowUtils.js";
 
 //Command handler code
 export const commandList = [
@@ -141,7 +141,7 @@ export const commandList = [
 
 export async function commandHandler(interaction: Interaction<CacheType>) {
   if (!interaction.isChatInputCommand()) return; //Cancels if not a command
-  const commandResult = await fromThrowableAsync(async () => {
+  const commandResult = await resultAsync(async () => {
     await interaction.deferReply(); //Creates the loading '...'
 
     let roleFound = false;

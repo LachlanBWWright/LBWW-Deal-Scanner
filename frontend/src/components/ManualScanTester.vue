@@ -72,6 +72,9 @@ async function run() {
   });
 }
 </script>
+<script lang="ts">
+export default {};
+</script>
 
 <template>
   <div class="tester-panel">

@@ -1,9 +1,9 @@
 import type { TestingNotificationRequest } from "./types.js";
 
-export const notificationPresets: Array<{
+export const notificationPresets: {
   label: string;
   preset: TestingNotificationRequest;
-}> = [
+}[] = [
   {
     label: "eBay deal",
     preset: {

@@ -1,5 +1,5 @@
 import type { AppNotification } from "../deals/types.js";
-import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
+import { resultAsync } from "../functions/neverthrowUtils.js";
 import type { NotificationProvider, NotificationService } from "./types.js";
 
 export class DefaultNotificationService implements NotificationService {
@@ -9,12 +9,16 @@ export class DefaultNotificationService implements NotificationService {
     this.providers = providers;
   }
 
+  getProviderNames(): string[] {
+    return this.providers.map((provider) => provider.name);
+  }
+
   async publish(notification: AppNotification): Promise<void> {
     const enabled = this.providers.filter((p) => p.isEnabled());
 
     await Promise.all(
       enabled.map(async (provider) => {
-        const result = await fromThrowableAsync(() =>
+        const result = await resultAsync(() =>
           provider.send(notification),
         );
 

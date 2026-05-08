@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function deleteGumtreeQuery(
   interaction: ChatInputCommandInteraction,
@@ -15,7 +15,7 @@ export default async function deleteGumtreeQuery(
     return;
   }
 
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.gumtree.findUnique({ where: { url: id } }),
     "Failed to load existing query",
   );
@@ -33,7 +33,7 @@ export default async function deleteGumtreeQuery(
     return;
   }
 
-  const deleteResult = await fromThrowableAsync(
+  const deleteResult = await resultAsync(
     () => db.gumtree.delete({ where: { url: id } }),
     "Failed to delete query",
   );

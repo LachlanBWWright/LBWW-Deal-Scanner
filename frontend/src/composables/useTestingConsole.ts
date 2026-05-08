@@ -9,13 +9,21 @@ import {
   type ApiTestingNotificationHistory,
   type ApiTestingScanHistory,
 } from "../api/client";
-import { fromThrowableAsync } from "../utils/neverthrowUtils";
+import { ResultAsync } from "neverthrow";
+import { toError } from "../utils/neverthrowUtils";
+import type { paths } from "../api/schema";
 
 export type DeliveryMode =
   | "normal"
   | "guildChannelOnly"
   | "subscribedDMs"
   | "specificUserDM";
+
+export type TestingNotificationRequestBody =
+  paths["/api/testing/notifications"]["post"]["requestBody"]["content"]["application/json"];
+
+export type TestingScanRequestBody =
+  paths["/api/testing/scans/run"]["post"]["requestBody"]["content"]["application/json"];
 
 function getClientWithHost() {
   const host = getApiHost();
@@ -43,12 +51,12 @@ export function useTestingConsole() {
     loading.value = true;
     errorMessage.value = null;
 
-    const result = await fromThrowableAsync(async () => {
+    const result = await ResultAsync.fromThrowable(async () => {
       const res = await apiClient.GET("/api/testing/capabilities", {
         headers: getApiHeaders(),
       });
       return res.data ?? null;
-    }, "Failed to load testing capabilities");
+    }, (error) => toError(error, "Failed to load testing capabilities"))();
 
     if (result.isErr()) {
       errorMessage.value = result.error.message;
@@ -60,18 +68,18 @@ export function useTestingConsole() {
 
   async function refreshHistory() {
     const [notifResult, scanResult] = await Promise.all([
-      fromThrowableAsync(async () => {
+      ResultAsync.fromThrowable(async () => {
         const res = await apiClient.GET("/api/testing/notifications", {
           headers: getApiHeaders(),
         });
         return res.data?.results ?? [];
-      }, "Failed to load notification history"),
-      fromThrowableAsync(async () => {
+      }, (error) => toError(error, "Failed to load notification history"))(),
+      ResultAsync.fromThrowable(async () => {
         const res = await apiClient.GET("/api/testing/runs", {
           headers: getApiHeaders(),
         });
         return res.data?.results ?? [];
-      }, "Failed to load scan history"),
+      }, (error) => toError(error, "Failed to load scan history"))(),
     ]);
 
     if (notifResult.isOk()) notificationHistory.value = notifResult.value;
@@ -79,25 +87,19 @@ export function useTestingConsole() {
   }
 
   async function sendTestNotification(
-    payload: Parameters<
-      typeof apiClient.POST<"/api/testing/notifications">
-    >[1] extends {
-      body: infer B;
-    }
-      ? B
-      : never,
+    payload: TestingNotificationRequestBody,
   ) {
     sending.value = true;
     errorMessage.value = null;
     successMessage.value = null;
 
-    const result = await fromThrowableAsync(async () => {
+    const result = await ResultAsync.fromThrowable(async () => {
       const res = await apiClient.POST("/api/testing/notifications", {
         body: payload,
         headers: getApiHeaders(),
       });
       return res.data ?? null;
-    }, "Failed to send test notification");
+    }, (error) => toError(error, "Failed to send test notification"))();
 
     if (result.isErr()) {
       errorMessage.value = result.error.message;
@@ -112,25 +114,19 @@ export function useTestingConsole() {
   }
 
   async function runTestScan(
-    payload: Parameters<
-      typeof apiClient.POST<"/api/testing/scans/run">
-    >[1] extends {
-      body: infer B;
-    }
-      ? B
-      : never,
+    payload: TestingScanRequestBody,
   ) {
     scanning.value = true;
     errorMessage.value = null;
     successMessage.value = null;
 
-    const result = await fromThrowableAsync(async () => {
+    const result = await ResultAsync.fromThrowable(async () => {
       const res = await apiClient.POST("/api/testing/scans/run", {
         body: payload,
         headers: getApiHeaders(),
       });
       return res.data ?? null;
-    }, "Failed to run test scan");
+    }, (error) => toError(error, "Failed to run test scan"))();
 
     if (result.isErr()) {
       errorMessage.value = result.error.message;

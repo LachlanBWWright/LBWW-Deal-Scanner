@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function deleteSCMQuery(
   interaction: ChatInputCommandInteraction,
@@ -15,7 +15,7 @@ export default async function deleteSCMQuery(
     return;
   }
 
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.steamMarket.findUnique({ where: { name: id } }),
     "Failed to load existing query",
   );
@@ -33,7 +33,7 @@ export default async function deleteSCMQuery(
     return;
   }
 
-  const deleteResult = await fromThrowableAsync(
+  const deleteResult = await resultAsync(
     () => db.steamMarket.delete({ where: { name: id } }),
     "Failed to delete query",
   );

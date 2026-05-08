@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function deleteSalvosQuery(
   interaction: ChatInputCommandInteraction,
@@ -15,7 +15,7 @@ export default async function deleteSalvosQuery(
     return;
   }
 
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.salvos.findUnique({ where: { name: id } }),
     "Failed to load existing query",
   );
@@ -33,7 +33,7 @@ export default async function deleteSalvosQuery(
     return;
   }
 
-  const deleteResult = await fromThrowableAsync(
+  const deleteResult = await resultAsync(
     () => db.salvos.delete({ where: { name: id } }),
     "Failed to delete query",
   );

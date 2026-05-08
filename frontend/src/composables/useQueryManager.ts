@@ -7,7 +7,8 @@ import {
   type FormField,
   type SearchResultItem,
 } from "../components/queryTypes";
-import { fromThrowableAsync } from "../utils/neverthrowUtils";
+import { ResultAsync } from "neverthrow";
+import { toError } from "../utils/neverthrowUtils";
 
 const STORAGE_HOST_KEY = "dealscannerApiHost";
 const STORAGE_SECRET_KEY = "dealscannerApiSecret";
@@ -218,14 +219,14 @@ export function useQueryManager() {
     errorMessage.value = null;
     successMessage.value = null;
 
-    const responseResult = await fromThrowableAsync(
+    const responseResult = await ResultAsync.fromThrowable(
       () =>
         fetch(getApiUrl("/api/queries"), {
           method: "GET",
           headers: buildFetchHeaders(),
         }),
-      "Failed to load saved queries",
-    );
+      (error) => toError(error, "Failed to load saved queries"),
+    )();
 
     if (responseResult.isErr()) {
       errorMessage.value = responseResult.error.message;
@@ -240,10 +241,10 @@ export function useQueryManager() {
       return;
     }
 
-    const dataResult = await fromThrowableAsync(
+    const dataResult = await ResultAsync.fromThrowable(
       () => response.json() as Promise<{ queries: QueryItem[] }>,
-      "Failed to parse saved queries",
-    );
+      (error) => toError(error, "Failed to parse saved queries"),
+    )();
     if (dataResult.isErr()) {
       errorMessage.value = dataResult.error.message;
       loading.value = false;
@@ -259,14 +260,14 @@ export function useQueryManager() {
   }
 
   async function refreshSearchResults() {
-    const responseResult = await fromThrowableAsync(
+    const responseResult = await ResultAsync.fromThrowable(
       () =>
         fetch(getApiUrl("/api/search-results"), {
           method: "GET",
           headers: buildFetchHeaders(),
         }),
-      "Failed to load recent search results",
-    );
+      (error) => toError(error, "Failed to load recent search results"),
+    )();
 
     if (responseResult.isErr()) {
       errorMessage.value = responseResult.error.message;
@@ -279,10 +280,10 @@ export function useQueryManager() {
       return;
     }
 
-    const dataResult = await fromThrowableAsync(
+    const dataResult = await ResultAsync.fromThrowable(
       () => response.json() as Promise<{ results: SearchResultItem[] }>,
-      "Failed to parse recent search results",
-    );
+      (error) => toError(error, "Failed to parse recent search results"),
+    )();
     if (dataResult.isErr()) {
       errorMessage.value = dataResult.error.message;
       return;
@@ -301,7 +302,7 @@ export function useQueryManager() {
       payload: buildPayload(),
     };
 
-    const responseResult = await fromThrowableAsync(
+    const responseResult = await ResultAsync.fromThrowable(
       () =>
         fetch(getApiUrl("/api/queries"), {
           method: editingQuery.value ? "PUT" : "POST",
@@ -310,8 +311,8 @@ export function useQueryManager() {
             editingQuery.value ? { ...body, id: editingQuery.value.id } : body,
           ),
         }),
-      "Failed to save query",
-    );
+      (error) => toError(error, "Failed to save query"),
+    )();
 
     if (responseResult.isErr()) {
       errorMessage.value = responseResult.error.message;
@@ -331,10 +332,10 @@ export function useQueryManager() {
       : "Query created successfully.";
 
     resetForm();
-    const refreshResult = await fromThrowableAsync(
+    const refreshResult = await ResultAsync.fromThrowable(
       () => refreshQueries(),
-      "Failed to save query",
-    );
+      (error) => toError(error, "Failed to save query"),
+    )();
     if (refreshResult.isErr()) {
       errorMessage.value = refreshResult.error.message;
       saving.value = false;
@@ -357,15 +358,15 @@ export function useQueryManager() {
     errorMessage.value = null;
     successMessage.value = null;
 
-    const responseResult = await fromThrowableAsync(
+    const responseResult = await ResultAsync.fromThrowable(
       () =>
         fetch(getApiUrl("/api/queries"), {
           method: "DELETE",
           headers: buildFetchHeaders(),
           body: JSON.stringify({ type: item.type, id: item.id }),
         }),
-      "Failed to delete query",
-    );
+      (error) => toError(error, "Failed to delete query"),
+    )();
 
     if (responseResult.isErr()) {
       errorMessage.value = responseResult.error.message;
@@ -388,10 +389,10 @@ export function useQueryManager() {
       resetForm();
     }
 
-    const refreshResult = await fromThrowableAsync(
+    const refreshResult = await ResultAsync.fromThrowable(
       () => refreshQueries(),
-      "Failed to delete query",
-    );
+      (error) => toError(error, "Failed to delete query"),
+    )();
     if (refreshResult.isErr()) {
       errorMessage.value = refreshResult.error.message;
       saving.value = false;

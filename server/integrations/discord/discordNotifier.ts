@@ -14,7 +14,7 @@ import {
   generateRandomKey,
 } from "../../commandManager/actionRegistry.js";
 import { db } from "../../globals/PrismaClient.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 import globals from "../../globals/Globals.js";
 import { getNotificationPrelude } from "../../functions/messagePreludes.js";
 
@@ -194,7 +194,7 @@ export class DiscordNotificationProvider implements NotificationProvider {
     });
 
     for (const userQuery of userQueries) {
-      const dmResult = await fromThrowableAsync(async () => {
+      const dmResult = await resultAsync(async () => {
         const user = await client.users.fetch(userQuery.userId);
 
         const unsubscribeActionKey = generateRandomKey();

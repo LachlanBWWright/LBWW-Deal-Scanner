@@ -4,11 +4,35 @@ import setStatus from "../../functions/setStatus.js";
 import selectorRace from "../../functions/selectorRace.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
-import { Ebay } from "@prisma/client";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 import type { DealNotification } from "../../deals/types.js";
 
+interface EbayQueryInput {
+  url: string;
+}
+
 let isAud = true;
+
+function parseEbayPrice(priceText: string | null): number | null {
+  if (!priceText) return null;
+
+  if (priceText.startsWith("AU $")) {
+    isAud = true;
+    return parseFloat(priceText.replace(/[^0-9.-]+/g, ""));
+  }
+
+  isAud = false;
+  // Hack currency conversion
+  return parseFloat(priceText.replace(/[^0-9.-]+/g, "")) * 1.55;
+}
+
+function parseEbayName(nameText: string | null): string | null {
+  if (!nameText) return null;
+  if (nameText.startsWith("New listing")) {
+    return nameText.replace("New listing", "");
+  }
+  return nameText;
+}
 
 export async function scanEbay(page: Page): Promise<DealNotification[]> {
   if (!globals.EBAY) return [];
@@ -43,8 +67,8 @@ export async function scanEbay(page: Page): Promise<DealNotification[]> {
   return [];
 }
 
-export async function getEbayValues(page: Page, item: Ebay) {
-  const gotoResult = await fromThrowableAsync(
+export async function getEbayValues(page: Page, item: EbayQueryInput) {
+  const gotoResult = await resultAsync(
     () =>
       page.goto(item.url, { waitUntil: "domcontentloaded", timeout: 10000 }),
     "eBay navigation failed",
@@ -54,12 +78,6 @@ export async function getEbayValues(page: Page, item: Ebay) {
     return { foundName: null, foundPrice: null, foundImage: null };
   }
 
-  console.log("test 1");
-  console.log(page);
-
-  const test = await page.title();
-  console.log(test);
-
   const selector = await selectorRace(
     page,
     "div[class='srp-river']",
@@ -67,44 +85,27 @@ export async function getEbayValues(page: Page, item: Ebay) {
   );
   if (!selector) return { foundName: null, foundPrice: null, foundImage: null };
 
-  console.log("test 2");
-
   const result = await selector.$(
     `div[class="su-card-container su-card-container--horizontal"]`,
   );
   if (!result) return { foundName: null, foundPrice: null, foundImage: null };
 
-  const foundName = await result.$eval('div[role="heading"]', (res) => {
-    if (res.textContent?.startsWith("New listing"))
-      return res.textContent.replace("New listing", "");
-    return res.textContent;
-  });
-  const foundPrice = await result.$eval(
+  const foundName = await result.$eval('div[role="heading"]', (res) => res.textContent);
+  const priceText = await result.$eval(
     `span[class='su-styled-text primary bold large-1 s-card__price']`,
-    (res) => {
-      if (res.textContent?.startsWith("AU $")) {
-        isAud = true;
-        return res.textContent
-          ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, ""))
-          : null;
-      }
-      isAud = false;
-      return res.textContent
-        ? parseFloat(res.textContent.replace(/[^0-9.-]+/g, "")) * 1.55 //Hack currency conversion
-        : null;
-    },
+    (res) => res.textContent,
   );
+  const foundPrice = parseEbayPrice(priceText ?? null);
+  const parsedName = parseEbayName(foundName ?? null);
 
   const foundImgContainer = await result.$("a[class='image-treatment']");
-
   const foundImage = await foundImgContainer?.$eval("img", (img) => img.src);
 
-  console.log(foundName, foundPrice, foundImage);
-  if (!foundName || !foundPrice || !foundImage) {
+  if (!parsedName || !foundPrice || !foundImage) {
     return { foundName: null, foundPrice: null, foundImage: null };
   }
 
-  return { foundName, foundPrice, foundImage };
+  return { foundName: parsedName, foundPrice, foundImage };
 }
 
 let index = 0;

@@ -10,7 +10,7 @@ import {
   getResponsePrelude,
   getFailurePrelude,
 } from "../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../functions/neverthrowUtils.js";
+import { resultAsync } from "../functions/neverthrowUtils.js";
 
 // Global action registry for button actions
 // Use shared actionRegistry and generateRandomKey from actionRegistry.ts
@@ -34,7 +34,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function buttonInteractionHandler(interaction: ButtonInteraction) {
-  const handlerResult = await fromThrowableAsync(async () => {
+  const handlerResult = await resultAsync(async () => {
     await interaction.deferReply({ ephemeral: true });
 
     const customId = interaction.customId;
@@ -66,7 +66,7 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
 
   if (handlerResult.isErr()) {
     console.error("Button interaction error:", handlerResult.error.message);
-    const replyResult = await fromThrowableAsync(
+    const replyResult = await resultAsync(
       () =>
         interaction.editReply({
           content: `${getFailurePrelude()} An error occurred while processing your request.`,
@@ -156,7 +156,7 @@ async function handleConfirmDelete(
 
   const { queryType, queryId } = actionData;
 
-  const deleteResult = await fromThrowableAsync(async () => {
+  const deleteResult = await resultAsync(async () => {
     // Delete from database based on query type
     let deleted = false;
 
@@ -283,7 +283,7 @@ async function handleSubscribeDM(
 
   const { queryType, queryId } = action;
 
-  const subscribeResult = await fromThrowableAsync(async () => {
+  const subscribeResult = await resultAsync(async () => {
     // Get the Query record for this specific query
     const query = await getQueryByTypeAndId(queryType, queryId);
     if (!query?.queryId) {
@@ -351,7 +351,7 @@ async function handleUnsubscribeDM(
 
   const { queryType, queryId } = action;
 
-  const unsubscribeResult = await fromThrowableAsync(async () => {
+  const unsubscribeResult = await resultAsync(async () => {
     // Get the Query record for this specific query
     const query = await getQueryByTypeAndId(queryType, queryId);
     if (!query?.queryId) {

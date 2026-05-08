@@ -3,9 +3,12 @@ import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import { db, SCANNER } from "../../globals/PrismaClient.js";
 import { checkIfNew } from "../../functions/handleItemUpdate.js";
-import { Gumtree } from "@prisma/client";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 import type { DealNotification } from "../../deals/types.js";
+
+interface GumtreeQueryInput {
+  url: string;
+}
 
 export async function scanGumtree(page: Page): Promise<DealNotification[]> {
   if (!globals.GUMTREE) return [];
@@ -39,12 +42,12 @@ export async function scanGumtree(page: Page): Promise<DealNotification[]> {
   return [];
 }
 
-export async function getGumtreeValues(page: Page, item: Gumtree) {
+export async function getGumtreeValues(page: Page, item: GumtreeQueryInput) {
   await page.goto(item.url);
   await page.setUserAgent(
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
   );
-  const selectorResult = await fromThrowableAsync(
+  const selectorResult = await resultAsync(
     () =>
       page.waitForSelector(
         "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
@@ -59,12 +62,9 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
 
   const result = await page.$(
     "a[class='user-ad-row-new-design link link--base-color-inherit link--hover-color-none link--no-underline']",
-  ); //#react-root > div > div.page > div > div.search-results-page__content > main > section > div
+  );
 
   if (!result) return null;
-
-  //This uses a discrete solution instead of a selector race
-  //Gumtree has rows of different categories (e.g. ads, out of area, ETC. This finds actual results, if it exists)
 
   const foundName = await result.$eval(
     "div.user-ad-row-new-design__main-content > p.user-ad-row-new-design__title > span",
@@ -77,6 +77,7 @@ export async function getGumtreeValues(page: Page, item: Gumtree) {
     (res) => res.textContent,
   );
   if (!resPrice) return null;
+
   const foundPrice = resPrice.includes("Free")
     ? 0
     : parseFloat(resPrice.replace(/[^0-9.-]+/g, ""));

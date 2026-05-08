@@ -5,7 +5,7 @@ import {
 } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
 import { err, ok } from "neverthrow";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function (interaction: ChatInputCommandInteraction) {
   const query = interaction.options.getString("query");
@@ -35,7 +35,7 @@ export default async function (interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const createResult = await fromThrowableAsync(
+  const createResult = await resultAsync(
     () =>
       db.query.create({
         data: {

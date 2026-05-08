@@ -4,7 +4,7 @@ import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
-import { fromThrowableAsync } from "../../functions/neverthrowUtils.js";
+import { resultAsync } from "../../functions/neverthrowUtils.js";
 
 export default async function deleteCashQuery(
   interaction: ChatInputCommandInteraction,
@@ -15,7 +15,7 @@ export default async function deleteCashQuery(
     return;
   }
 
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.cashConverters.findUnique({ where: { url: id } }),
     "Failed to load existing query",
   );
@@ -33,7 +33,7 @@ export default async function deleteCashQuery(
     return;
   }
 
-  const deleteResult = await fromThrowableAsync(
+  const deleteResult = await resultAsync(
     () => db.cashConverters.delete({ where: { url: id } }),
     "Failed to delete query",
   );

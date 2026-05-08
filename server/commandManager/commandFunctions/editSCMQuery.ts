@@ -5,8 +5,8 @@ import {
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 import {
-  fromThrowableAsync,
-  fromThrowableSync,
+  resultAsync,
+  resultSync,
 } from "../../functions/neverthrowUtils.js";
 
 export default async function editSCMQuery(
@@ -23,7 +23,7 @@ export default async function editSCMQuery(
     return;
   }
 
-  const urlResult = fromThrowableSync(
+  const urlResult = resultSync(
     () => new URL(query).toString(),
     "Invalid URL",
   );
@@ -35,7 +35,7 @@ export default async function editSCMQuery(
   }
 
   const url = urlResult.value;
-  const existingResult = await fromThrowableAsync(
+  const existingResult = await resultAsync(
     () => db.steamMarket.findUnique({ where: { name: id } }),
     "Failed to load existing query",
   );
@@ -52,7 +52,7 @@ export default async function editSCMQuery(
     return;
   }
 
-  const updateResult = await fromThrowableAsync(
+  const updateResult = await resultAsync(
     () =>
       db.steamMarket.update({
         where: { name: id },
