@@ -23,18 +23,17 @@ function getBestFloat(foundItem: TradeItItem): number {
 async function checkTradeItMatch(
   searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
   foundItem: TradeItItem,
-  notifications: DealNotification[]
+  notifications: DealNotification[],
 ) {
-  if (foundItem.price / 100.0 > searchItem.maxPrice
-      || foundItem.name !== searchItem.name) {
+  if (
+    foundItem.price / 100.0 > searchItem.maxPrice ||
+    foundItem.name !== searchItem.name
+  ) {
     return;
   }
 
   const bestFloat = getBestFloat(foundItem);
-  if (
-    bestFloat < searchItem.minFloat
-    || bestFloat > searchItem.maxFloat
-  ) {
+  if (bestFloat < searchItem.minFloat || bestFloat > searchItem.maxFloat) {
     return;
   }
 

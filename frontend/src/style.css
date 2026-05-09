@@ -1,12 +1,11 @@
 :root {
   color-scheme: dark;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: rgba(244, 247, 251, 0.92);
-  background: #060d1a;
+  background: #050b16;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -26,6 +25,10 @@ body,
 
 body {
   min-height: 100vh;
+  background:
+    radial-gradient(1200px 700px at 5% -10%, rgba(86, 215, 252, 0.2), transparent 55%),
+    radial-gradient(1000px 600px at 95% 0%, rgba(106, 255, 196, 0.14), transparent 48%),
+    linear-gradient(180deg, #050b16 0%, #070f1d 45%, #040914 100%);
 }
 
 button {
@@ -38,6 +41,26 @@ button {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+select,
+optgroup {
+  color: #dbe3f0;
+  background-color: #0c1628;
+}
+
+option {
+  color: #0d1420;
+  background-color: #f3f6fb;
+}
+
+select {
+  border: 1px solid rgba(154, 173, 201, 0.22);
+}
+
+select:focus {
+  outline: 1px solid rgba(125, 253, 212, 0.45);
+  outline-offset: 1px;
 }
 
 /* ─── Console shell ──────────────────────────────────────────────────────── */
@@ -54,9 +77,10 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 16px;
-  background: rgba(7, 13, 25, 0.92);
-  border-bottom: 1px solid rgba(154, 173, 201, 0.12);
+  padding: 10px 16px;
+  background: rgba(5, 11, 22, 0.82);
+  border-bottom: 1px solid rgba(126, 170, 218, 0.17);
+  backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -86,7 +110,7 @@ button:disabled {
   padding: 3px 9px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.14);
+  border: 1px solid rgba(154, 173, 201, 0.18);
   color: rgba(219, 227, 240, 0.8);
 }
 
@@ -196,7 +220,7 @@ button:disabled {
   color: rgba(219, 227, 240, 0.5);
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  transition: color 120ms, border-color 120ms;
+  transition: color 120ms, border-color 120ms, background 120ms;
 }
 
 .tab-btn:hover {
@@ -206,6 +230,7 @@ button:disabled {
 .tab-btn.active {
   color: #7dfdd4;
   border-bottom-color: #7dfdd4;
+  background: linear-gradient(180deg, rgba(125, 253, 212, 0.12), rgba(125, 253, 212, 0));
 }
 
 /* ─── Console content ─────────────────────────────────────────────────────── */
@@ -218,7 +243,8 @@ button:disabled {
 .tab-pane {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px 16px;
+  padding: 24px 16px;
+  animation: pane-enter 220ms ease;
 }
 
 /* ─── Shared button styles ────────────────────────────────────────────────── */
@@ -232,7 +258,7 @@ button:disabled {
 }
 
 .primary:hover:not(:disabled) {
-  opacity: 0.9;
+  filter: brightness(1.06);
 }
 
 .secondary {
@@ -245,6 +271,17 @@ button:disabled {
 
 .secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.09);
+}
+
+@keyframes pane-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 640px) {

@@ -43,12 +43,20 @@ export async function scanCSDeals(page: Page): Promise<DealNotification[]> {
   return notifications;
 }
 
-export async function getCSDealsItems(page: Page) {
+interface CsDealsPage {
+  setDefaultNavigationTimeout(timeout: number): void;
+  goto(url: string): Promise<unknown>;
+  waitForResponse(
+    predicate: (response: { url(): string }) => boolean,
+  ): Promise<unknown>;
+}
+
+export async function getCSDealsItems(page: CsDealsPage) {
   await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
   await page.goto("https://cs.deals/trade-skins");
 
   //New eventlistener replacement
-  let foundResponse;
+  let foundResponse: unknown = null;
   await page.waitForResponse((response) => {
     if (response.url().endsWith("botsinventory?appid=0")) {
       foundResponse = response;
@@ -57,17 +65,13 @@ export async function getCSDealsItems(page: Page) {
   });
 
   if (!foundResponse) return;
-  // foundResponse is inferred as HTTPResponse | undefined by Puppeteer types usually,
-  // but if it was 'let foundResponse;' it is any/unknown initially.
-  // We need to type guard it.
-
   if (isHTTPResponse(foundResponse)) {
     return (await foundResponse.json()).response;
   }
 }
 
 function isHTTPResponse(response: unknown): response is HTTPResponse {
-    return typeof response === 'object' && response !== null && 'json' in response;
+  return typeof response === "object" && response !== null && "json" in response;
 }
 
 /* 

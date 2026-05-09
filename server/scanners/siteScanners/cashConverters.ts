@@ -11,7 +11,9 @@ interface CashConvertersQueryInput {
   url: string;
 }
 
-export async function scanCashConverters(page: Page): Promise<DealNotification[]> {
+export async function scanCashConverters(
+  page: Page,
+): Promise<DealNotification[]> {
   if (!globals.CASH_CONVERTERS) return [];
   setStatus("Scanning Cash Converters");
 

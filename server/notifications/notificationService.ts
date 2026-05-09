@@ -18,9 +18,7 @@ export class DefaultNotificationService implements NotificationService {
 
     await Promise.all(
       enabled.map(async (provider) => {
-        const result = await resultAsync(() =>
-          provider.send(notification),
-        );
+        const result = await resultAsync(() => provider.send(notification));
 
         if (result.isErr()) {
           console.error(

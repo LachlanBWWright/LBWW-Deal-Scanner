@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer";
 import { expect, test } from "vitest";
-import { getCsQueryString, getQueryResults } from "./steamMarket";
+import { getCsQueryString, getQueryResults } from "./steamMarket.js";
 
 test("steam query scanner", async () => {
   const browser = await puppeteer.launch({

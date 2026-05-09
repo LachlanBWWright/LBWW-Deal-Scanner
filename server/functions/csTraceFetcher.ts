@@ -12,7 +12,9 @@ export async function fetchCsTradeItems() {
     CsTradeResponseSchema,
     undefined,
     "Failed to fetch and validate CS.Trade items",
-  ).andThen((data) => okAsync(data.inventory.filter((item) => item.app_id === 730)));
+  ).andThen((data) =>
+    okAsync(data.inventory.filter((item) => item.app_id === 730)),
+  );
 }
 
 export async function warmupCsTradeCache() {

@@ -1,4 +1,3 @@
-import { ChatInputCommandInteraction } from "discord.js";
 import { createCs } from "../../scanners/siteScanners/steamMarket.js";
 import {
   getFailurePrelude,
@@ -6,7 +5,16 @@ import {
 } from "../../functions/messagePreludes.js";
 import { resultAsync } from "../../functions/neverthrowUtils.js";
 
-export default async function (interaction: ChatInputCommandInteraction) {
+interface CommandInteraction {
+  readonly options: {
+    getString(name: string): string | null;
+    getNumber(name: string): number | null;
+    getBoolean(name: string): boolean | null;
+  };
+  editReply(message: string): Promise<unknown>;
+}
+
+export default async function (interaction: CommandInteraction) {
   const query = interaction.options.getString("query") || "placeholder";
   const maxFloat = interaction.options.getNumber("maxfloat") || 1;
   const maxPrice = interaction.options.getNumber("maxprice") || 1;

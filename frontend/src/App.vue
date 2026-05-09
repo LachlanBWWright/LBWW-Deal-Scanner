@@ -60,7 +60,7 @@ function saveSettings() {
   setApiHost(apiHost.value);
   setApiSecret(apiSecret.value);
   showSettings.value = false;
-  void refresh();
+  void Promise.all([refresh(), loadCapabilities()]);
 }
 
 async function refresh() {

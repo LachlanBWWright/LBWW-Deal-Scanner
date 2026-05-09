@@ -1,16 +1,19 @@
-import { test } from "vitest";
-import { getCsTradeItems } from "./csTrade";
+import { describe, expect, test } from "vitest";
+import { getCsTradeItems } from "./csTrade.js";
 
-test("cs Trade scanner", async () => {
+test("cs Trade scanner fetches live item inventory", async () => {
   const result = await getCsTradeItems();
-  console.log(result[0].price);
-  console.log(result[0].wear);
-  console.log(result[0].market_hash_name);
-});
 
-import { describe, it } from "vitest";
+  expect(Array.isArray(result)).toBe(true);
+  expect(result.length).toBeGreaterThan(0);
+  expect(result[0]?.app_id).toBe(730);
+  expect(result[0]?.market_hash_name).toBeTypeOf("string");
+  expect(result[0]?.price).toBeTypeOf("number");
+  expect(result[0]?.wear).toBeTypeOf("number");
+}, 60000);
+
 describe("csTrade.ts", () => {
-  it("should ...", () => {
-    // TODO: implement test
+  test("exports live inventory function", () => {
+    expect(getCsTradeItems).toBeTypeOf("function");
   });
 });

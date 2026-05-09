@@ -1,11 +1,19 @@
-import { ChatInputCommandInteraction } from "discord.js";
 import { db } from "../../globals/PrismaClient.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 
-export default async function (interaction: ChatInputCommandInteraction) {
+interface CommandInteraction {
+  readonly options: {
+    getString(name: string): string | null;
+    getNumber(name: string): number | null;
+    getBoolean(name: string): boolean | null;
+  };
+  editReply(message: string): Promise<unknown>;
+}
+
+export default async function (interaction: CommandInteraction) {
   const skinName = interaction.options.getString("skinname") ?? "placeholder";
   const maxPrice = interaction.options.getNumber("maxprice") ?? -1;
   const maxFloat = interaction.options.getNumber("maxfloat") ?? -1;

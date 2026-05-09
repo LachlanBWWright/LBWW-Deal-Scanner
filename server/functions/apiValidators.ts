@@ -38,19 +38,21 @@ export type LootFarmResponse = z.infer<typeof LootFarmResponseSchema>;
 export type LootFarmSkin = z.infer<typeof LootFarmSkinSchema>;
 
 // CS.Trade validators
-const CsTradeItemSchema = z.object({
-  id: z.coerce.string(),
-  app_id: z.coerce.number(),
-  market_hash_name: z.string(),
-  price: z.coerce.number(),
-  wear: z.coerce.number(),
-  // allow other unknown props from the API
-  icon: z.string().optional(),
-  status: z.string().optional(),
-  type: z.string().optional(),
-  bot: z.string().optional(),
-  bot_id: z.string().optional(),
-}).passthrough();
+const CsTradeItemSchema = z
+  .object({
+    id: z.coerce.string(),
+    app_id: z.coerce.number(),
+    market_hash_name: z.string(),
+    price: z.coerce.number(),
+    wear: z.coerce.number(),
+    // allow other unknown props from the API
+    icon: z.string().optional(),
+    status: z.string().optional(),
+    type: z.string().optional(),
+    bot: z.string().optional(),
+    bot_id: z.string().optional(),
+  })
+  .passthrough();
 
 export const CsTradeResponseSchema = z.object({
   inventory: z.array(CsTradeItemSchema),
@@ -60,18 +62,20 @@ export type CsTradeResponse = z.infer<typeof CsTradeResponseSchema>;
 export type CsTradeItem = z.infer<typeof CsTradeItemSchema>;
 
 // TradeIt validators
-const TradeItItemSchema = z.object({
-  id: z.coerce.string(),
-  price: z.coerce.number(),
-  name: z.string(),
-  floatValue: optionalNumber,
-  floatValues: z.array(z.coerce.number()).nullish(),
-  assetId: z.coerce.string().optional(),
-  classId: z.coerce.string().optional(),
-  steamId: z.coerce.string().optional(),
-  gameId: z.string().optional(),
-  steamInspectLink: z.string().optional(),
-}).passthrough();
+const TradeItItemSchema = z
+  .object({
+    id: z.coerce.string(),
+    price: z.coerce.number(),
+    name: z.string(),
+    floatValue: optionalNumber,
+    floatValues: z.array(z.coerce.number()).nullish(),
+    assetId: z.coerce.string().optional(),
+    classId: z.coerce.string().optional(),
+    steamId: z.coerce.string().optional(),
+    gameId: z.string().optional(),
+    steamInspectLink: z.string().optional(),
+  })
+  .passthrough();
 
 export const TradeItResponseSchema = z.object({
   items: z.array(TradeItItemSchema),
@@ -107,7 +111,7 @@ const SteamListingSchema = z.object({
     market_actions: z.array(
       z.object({
         link: z.string(),
-      })
+      }),
     ),
   }),
 });

@@ -1,9 +1,4 @@
-import {
-  ButtonInteraction,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-} from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { db } from "../globals/PrismaClient.js";
 import { actionRegistry, generateRandomKey } from "./actionRegistry.js";
 import {
@@ -11,6 +6,15 @@ import {
   getFailurePrelude,
 } from "../functions/messagePreludes.js";
 import { resultAsync } from "../functions/neverthrowUtils.js";
+
+interface ButtonInteractionInput {
+  customId: string;
+  user: {
+    id: string;
+  };
+  deferReply(options: { ephemeral: boolean }): Promise<unknown>;
+  editReply(options: { content: string; components?: unknown[] }): Promise<unknown>;
+}
 
 // Global action registry for button actions
 // Use shared actionRegistry and generateRandomKey from actionRegistry.ts
@@ -33,7 +37,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-export async function buttonInteractionHandler(interaction: ButtonInteraction) {
+export async function buttonInteractionHandler(
+  interaction: ButtonInteractionInput,
+) {
   const handlerResult = await resultAsync(async () => {
     await interaction.deferReply({ ephemeral: true });
 
@@ -80,7 +86,7 @@ export async function buttonInteractionHandler(interaction: ButtonInteraction) {
 }
 
 async function handleDeleteQuery(
-  interaction: ButtonInteraction,
+  interaction: ButtonInteractionInput,
   actionKey: string,
 ) {
   const action = await actionRegistry.get(actionKey);
@@ -142,7 +148,7 @@ async function handleDeleteQuery(
 }
 
 async function handleConfirmDelete(
-  interaction: ButtonInteraction,
+  interaction: ButtonInteractionInput,
   actionKey: string,
 ) {
   const actionData = await actionRegistry.get(actionKey);
@@ -256,7 +262,7 @@ async function handleConfirmDelete(
   }
 }
 
-async function handleCancelDelete(interaction: ButtonInteraction) {
+async function handleCancelDelete(interaction: ButtonInteractionInput) {
   const actionKey = interaction.customId;
   const action = await actionRegistry.get(actionKey);
   if (action?.relatedKey) await actionRegistry.delete(action.relatedKey);
@@ -269,7 +275,7 @@ async function handleCancelDelete(interaction: ButtonInteraction) {
 }
 
 async function handleSubscribeDM(
-  interaction: ButtonInteraction,
+  interaction: ButtonInteractionInput,
   actionKey: string,
 ) {
   const action = await actionRegistry.get(actionKey);
@@ -337,7 +343,7 @@ async function handleSubscribeDM(
 }
 
 async function handleUnsubscribeDM(
-  interaction: ButtonInteraction,
+  interaction: ButtonInteractionInput,
   actionKey: string,
 ) {
   const action = await actionRegistry.get(actionKey);

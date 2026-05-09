@@ -51,12 +51,15 @@ export function useTestingConsole() {
     loading.value = true;
     errorMessage.value = null;
 
-    const result = await ResultAsync.fromThrowable(async () => {
-      const res = await apiClient.GET("/api/testing/capabilities", {
-        headers: getApiHeaders(),
-      });
-      return res.data ?? null;
-    }, (error) => toError(error, "Failed to load testing capabilities"))();
+    const result = await ResultAsync.fromThrowable(
+      async () => {
+        const res = await apiClient.GET("/api/testing/capabilities", {
+          headers: getApiHeaders(),
+        });
+        return res.data ?? null;
+      },
+      (error) => toError(error, "Failed to load testing capabilities"),
+    )();
 
     if (result.isErr()) {
       errorMessage.value = result.error.message;
@@ -68,38 +71,45 @@ export function useTestingConsole() {
 
   async function refreshHistory() {
     const [notifResult, scanResult] = await Promise.all([
-      ResultAsync.fromThrowable(async () => {
-        const res = await apiClient.GET("/api/testing/notifications", {
-          headers: getApiHeaders(),
-        });
-        return res.data?.results ?? [];
-      }, (error) => toError(error, "Failed to load notification history"))(),
-      ResultAsync.fromThrowable(async () => {
-        const res = await apiClient.GET("/api/testing/runs", {
-          headers: getApiHeaders(),
-        });
-        return res.data?.results ?? [];
-      }, (error) => toError(error, "Failed to load scan history"))(),
+      ResultAsync.fromThrowable(
+        async () => {
+          const res = await apiClient.GET("/api/testing/notifications", {
+            headers: getApiHeaders(),
+          });
+          return res.data?.results ?? [];
+        },
+        (error) => toError(error, "Failed to load notification history"),
+      )(),
+      ResultAsync.fromThrowable(
+        async () => {
+          const res = await apiClient.GET("/api/testing/runs", {
+            headers: getApiHeaders(),
+          });
+          return res.data?.results ?? [];
+        },
+        (error) => toError(error, "Failed to load scan history"),
+      )(),
     ]);
 
     if (notifResult.isOk()) notificationHistory.value = notifResult.value;
     if (scanResult.isOk()) scanHistory.value = scanResult.value;
   }
 
-  async function sendTestNotification(
-    payload: TestingNotificationRequestBody,
-  ) {
+  async function sendTestNotification(payload: TestingNotificationRequestBody) {
     sending.value = true;
     errorMessage.value = null;
     successMessage.value = null;
 
-    const result = await ResultAsync.fromThrowable(async () => {
-      const res = await apiClient.POST("/api/testing/notifications", {
-        body: payload,
-        headers: getApiHeaders(),
-      });
-      return res.data ?? null;
-    }, (error) => toError(error, "Failed to send test notification"))();
+    const result = await ResultAsync.fromThrowable(
+      async () => {
+        const res = await apiClient.POST("/api/testing/notifications", {
+          body: payload,
+          headers: getApiHeaders(),
+        });
+        return res.data ?? null;
+      },
+      (error) => toError(error, "Failed to send test notification"),
+    )();
 
     if (result.isErr()) {
       errorMessage.value = result.error.message;
@@ -113,20 +123,21 @@ export function useTestingConsole() {
     return result;
   }
 
-  async function runTestScan(
-    payload: TestingScanRequestBody,
-  ) {
+  async function runTestScan(payload: TestingScanRequestBody) {
     scanning.value = true;
     errorMessage.value = null;
     successMessage.value = null;
 
-    const result = await ResultAsync.fromThrowable(async () => {
-      const res = await apiClient.POST("/api/testing/scans/run", {
-        body: payload,
-        headers: getApiHeaders(),
-      });
-      return res.data ?? null;
-    }, (error) => toError(error, "Failed to run test scan"))();
+    const result = await ResultAsync.fromThrowable(
+      async () => {
+        const res = await apiClient.POST("/api/testing/scans/run", {
+          body: payload,
+          headers: getApiHeaders(),
+        });
+        return res.data ?? null;
+      },
+      (error) => toError(error, "Failed to run test scan"),
+    )();
 
     if (result.isErr()) {
       errorMessage.value = result.error.message;

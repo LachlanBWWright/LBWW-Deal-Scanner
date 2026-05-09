@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer";
-import { getEbayValues } from "./ebay";
+import { getEbayValues } from "./ebay.js";
 import { test } from "vitest";
 
 test("ebay scanner", async () => {

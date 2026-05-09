@@ -1,19 +1,16 @@
-import { describe, it } from "vitest";
-
-describe("PrismaClient", () => {
-  it("should ...", () => {
-    // TODO: implement test
-  });
-});
+import { describe, expect, it } from "vitest";
+import { createDbClient, db, SCANNER } from "./PrismaClient.js";
 
 describe("PrismaClient.ts", () => {
-  it("should ...", () => {
-    // TODO: implement test
+  it("exports prisma db client", () => {
+    expect(typeof db).toBe("object");
+    expect(typeof db.$connect).toBe("function");
+    expect(typeof createDbClient).toBe("function");
   });
-});
 
-describe("SCANNER", () => {
-  it("should ...", () => {
-    // TODO: implement test
+  it("exports scanner model enum", () => {
+    expect(typeof SCANNER).toBe("object");
+    expect(SCANNER.EBAY).toBe(1);
+    expect(SCANNER.CS_TRADE_BOT).toBe(6);
   });
 });

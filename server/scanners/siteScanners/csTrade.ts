@@ -15,14 +15,14 @@ import type { CsTradeItem } from "../../functions/apiValidators.js";
 async function checkCsTradeMatch(
   searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
   foundItem: CsTradeItem,
-  notifications: DealNotification[]
+  notifications: DealNotification[],
 ) {
   const itemWear = foundItem.wear;
   if (
-    foundItem.price > searchItem.maxPrice
-    || itemWear < searchItem.minFloat
-    || itemWear > searchItem.maxFloat
-    || foundItem.market_hash_name !== searchItem.name
+    foundItem.price > searchItem.maxPrice ||
+    itemWear < searchItem.minFloat ||
+    itemWear > searchItem.maxFloat ||
+    foundItem.market_hash_name !== searchItem.name
   ) {
     return;
   }
@@ -30,7 +30,7 @@ async function checkCsTradeMatch(
   const isNew = await checkIfNewCsItem(
     foundItem.market_hash_name,
     itemWear,
-    CsSite.CS_TRADE
+    CsSite.CS_TRADE,
   );
   if (!isNew) return;
 

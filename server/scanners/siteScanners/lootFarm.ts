@@ -14,7 +14,7 @@ async function checkLootFarmItem(
   skin: LootFarmSkin,
   skinPriceCents: number,
   botNumber: string,
-  notifications: DealNotification[]
+  notifications: DealNotification[],
 ) {
   const item = skin.u[botNumber][0];
   if (!item?.f) return;
@@ -31,7 +31,7 @@ async function checkLootFarmItem(
   const isNew = await checkIfNewCsItem(
     searchItem.name,
     itemFloat,
-    CsSite.LOOT_FARM
+    CsSite.LOOT_FARM,
   );
   if (!isNew) return;
 
@@ -54,7 +54,10 @@ export async function scanLootFarm(): Promise<DealNotification[]> {
 
   const itemsResult = await fetchLootFarmItems();
   if (itemsResult.isErr()) {
-    console.error("Failed to fetch loot.farm items:", itemsResult.error.message);
+    console.error(
+      "Failed to fetch loot.farm items:",
+      itemsResult.error.message,
+    );
     return [];
   }
 
@@ -72,8 +75,8 @@ export async function scanLootFarm(): Promise<DealNotification[]> {
       const skinPriceCents = skin.p;
 
       if (
-        !searchItem.name.includes(skin.n)
-        || skinPriceCents / 100 > searchItem.maxPrice
+        !searchItem.name.includes(skin.n) ||
+        skinPriceCents / 100 > searchItem.maxPrice
       ) {
         continue;
       }

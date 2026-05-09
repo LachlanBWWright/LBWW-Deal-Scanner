@@ -1,11 +1,18 @@
-import { ChatInputCommandInteraction } from "discord.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
 } from "../../functions/messagePreludes.js";
 import { db } from "../../globals/PrismaClient.js";
 
-export default async function (interaction: ChatInputCommandInteraction) {
+interface CommandInteraction {
+  readonly options: {
+    getString(name: string): string | null;
+    getBoolean(name: string): boolean | null;
+  };
+  editReply(message: string): Promise<unknown>;
+}
+
+export default async function (interaction: CommandInteraction) {
   const query = interaction.options.getString("query") || "placeholder";
   const dmOnly = interaction.options.getBoolean("dmonly") ?? false;
   const search = new URL(query);

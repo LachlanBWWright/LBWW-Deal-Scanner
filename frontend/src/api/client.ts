@@ -4,13 +4,19 @@ import type { paths } from "./schema.d.ts";
 
 const secretStorageKey = "dealscannerApiSecret";
 const hostStorageKey = "dealscannerApiHost";
+const defaultSecret = import.meta.env.VITE_API_SECRET?.trim() ?? "";
+const defaultHost = import.meta.env.VITE_API_HOST?.trim() ?? "";
 
 export const apiClient = createClient<paths>({
   baseUrl: "",
 });
 
 export function getApiSecret() {
-  return localStorage.getItem(secretStorageKey) ?? "";
+  const stored = localStorage.getItem(secretStorageKey);
+  if (stored && stored.trim().length > 0) {
+    return stored;
+  }
+  return defaultSecret;
 }
 
 export function setApiSecret(secret: string) {
@@ -18,7 +24,11 @@ export function setApiSecret(secret: string) {
 }
 
 export function getApiHost() {
-  return localStorage.getItem(hostStorageKey) ?? "";
+  const stored = localStorage.getItem(hostStorageKey);
+  if (stored && stored.trim().length > 0) {
+    return stored;
+  }
+  return defaultHost;
 }
 
 export function setApiHost(host: string) {

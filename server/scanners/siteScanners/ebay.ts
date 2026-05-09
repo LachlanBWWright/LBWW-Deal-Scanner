@@ -90,7 +90,10 @@ export async function getEbayValues(page: Page, item: EbayQueryInput) {
   );
   if (!result) return { foundName: null, foundPrice: null, foundImage: null };
 
-  const foundName = await result.$eval('div[role="heading"]', (res) => res.textContent);
+  const foundName = await result.$eval(
+    'div[role="heading"]',
+    (res) => res.textContent,
+  );
   const priceText = await result.$eval(
     `span[class='su-styled-text primary bold large-1 s-card__price']`,
     (res) => res.textContent,

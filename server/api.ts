@@ -1343,7 +1343,10 @@ export async function buildApiServer({
             const publishResult = await ResultAsync.fromPromise(
               Promise.all(result.notifications.map((n) => svc.publish(n))),
               (error) =>
-                toError(error, "Failed to publish temporary scan notifications"),
+                toError(
+                  error,
+                  "Failed to publish temporary scan notifications",
+                ),
             );
             notificationsPublished = publishResult.isOk();
             if (publishResult.isErr()) {

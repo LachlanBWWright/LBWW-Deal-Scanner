@@ -61,13 +61,17 @@ describe.skipIf(!runLiveApiTests)("live API validation", () => {
     expect(listingResult.isOk()).toBe(true);
     if (listingResult.isErr()) return;
 
-    expect(Object.keys(listingResult.value.listinginfo).length).toBeGreaterThanOrEqual(0);
+    expect(
+      Object.keys(listingResult.value.listinginfo).length,
+    ).toBeGreaterThanOrEqual(0);
 
     const tradeItResult = await fetchTradeItItemsBatch(0);
     expect(tradeItResult.isOk()).toBe(true);
     if (tradeItResult.isErr()) return;
 
-    const inspectLink = tradeItResult.value.find((item) => item.steamInspectLink)?.steamInspectLink;
+    const inspectLink = tradeItResult.value.find(
+      (item) => item.steamInspectLink,
+    )?.steamInspectLink;
     expect(inspectLink).toBeTruthy();
     if (!inspectLink) return;
 

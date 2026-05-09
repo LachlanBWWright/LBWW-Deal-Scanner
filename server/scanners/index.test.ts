@@ -1,7 +1,9 @@
-// Unit tests for index.ts in scanners/
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import scannerLoop from "./index.js";
+
 describe("scanners/index.ts", () => {
-  it("should ...", () => {
-    // TODO: implement test
+  it("exports an async scanner runtime loop function", () => {
+    expect(typeof scannerLoop).toBe("function");
+    expect(scannerLoop.constructor.name).toBe("AsyncFunction");
   });
 });

@@ -12,10 +12,20 @@ import { toError } from "../utils/neverthrowUtils";
 
 const STORAGE_HOST_KEY = "dealscannerApiHost";
 const STORAGE_SECRET_KEY = "dealscannerApiSecret";
+const DEFAULT_API_HOST = import.meta.env.VITE_API_HOST?.trim() ?? "";
+const DEFAULT_API_SECRET = import.meta.env.VITE_API_SECRET?.trim() ?? "";
+
+function getStoredValue(storageKey: string, fallback: string) {
+  const stored = localStorage.getItem(storageKey);
+  if (stored && stored.trim().length > 0) {
+    return stored;
+  }
+  return fallback;
+}
 
 export function useQueryManager() {
-  const apiHost = ref(localStorage.getItem(STORAGE_HOST_KEY) ?? "");
-  const apiSecret = ref(localStorage.getItem(STORAGE_SECRET_KEY) ?? "");
+  const apiHost = ref(getStoredValue(STORAGE_HOST_KEY, DEFAULT_API_HOST));
+  const apiSecret = ref(getStoredValue(STORAGE_SECRET_KEY, DEFAULT_API_SECRET));
   const queries = ref<QueryItem[]>([]);
   const filterType = ref<QueryType | "all">("all");
   const querySearch = ref("");

@@ -88,22 +88,25 @@ async function processCsMarketListings(
       .replace("%listingid%", listing.listingid)
       .replace("%assetid%", listing.asset.id);
 
-    const price
-      = (listing.converted_price_per_unit + listing.converted_fee_per_unit)
-      / 100.0;
+    const price =
+      (listing.converted_price_per_unit + listing.converted_fee_per_unit) /
+      100.0;
 
     if (!itemsFound.has(query) && i < 10) {
       const itemInfoResult = await fetchSteamItemInfo(query);
       if (itemInfoResult.isErr()) {
-        console.warn("Failed to fetch item info:", itemInfoResult.error.message);
+        console.warn(
+          "Failed to fetch item info:",
+          itemInfoResult.error.message,
+        );
         i++;
         continue;
       }
 
       const itemInfo = itemInfoResult.value;
       if (
-        itemInfo.iteminfo.floatvalue < item.maxFloat
-        && price <= item.maxPrice
+        itemInfo.iteminfo.floatvalue < item.maxFloat &&
+        price <= item.maxPrice
       ) {
         notifications.push({
           kind: "deal",
@@ -144,7 +147,10 @@ export async function scanCs(): Promise<DealNotification[]> {
 
     const listingResult = await fetchSteamCsMarketListing(item.url);
     if (listingResult.isErr()) {
-      console.warn("Failed to fetch CS market listing:", listingResult.error.message);
+      console.warn(
+        "Failed to fetch CS market listing:",
+        listingResult.error.message,
+      );
       return;
     }
 

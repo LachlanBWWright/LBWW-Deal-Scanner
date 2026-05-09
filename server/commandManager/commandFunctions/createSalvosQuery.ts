@@ -1,4 +1,3 @@
-import { ChatInputCommandInteraction } from "discord.js";
 import {
   getFailurePrelude,
   getResponsePrelude,
@@ -7,7 +6,16 @@ import { db } from "../../globals/PrismaClient.js";
 import { err, ok } from "neverthrow";
 import { resultAsync } from "../../functions/neverthrowUtils.js";
 
-export default async function (interaction: ChatInputCommandInteraction) {
+interface CommandInteraction {
+  readonly options: {
+    getString(name: string): string | null;
+    getNumber(name: string): number | null;
+    getBoolean(name: string): boolean | null;
+  };
+  editReply(message: string): Promise<unknown>;
+}
+
+export default async function (interaction: CommandInteraction) {
   const query = interaction.options.getString("query");
   const minPrice = interaction.options.getNumber("minprice") ?? 0;
   const maxPrice = interaction.options.getNumber("maxprice") ?? 99999;
