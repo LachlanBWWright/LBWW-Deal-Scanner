@@ -13,8 +13,10 @@ function makeInteraction(input: InteractionOptions) {
   const interaction = {
     options: {
       getString: (name: string) => (name === "query" ? input.query : null),
-      getNumber: (name: string) => (name === "maxprice" ? (input.maxPrice ?? 1) : null),
-      getBoolean: (name: string) => (name === "dmonly" ? (input.dmOnly ?? false) : null),
+      getNumber: (name: string) =>
+        name === "maxprice" ? (input.maxPrice ?? 1) : null,
+      getBoolean: (name: string) =>
+        name === "dmonly" ? (input.dmOnly ?? false) : null,
     },
     editReply: async (message: string) => {
       replies.push(message);
@@ -34,7 +36,9 @@ describe("createSCMQuery.ts", () => {
   });
 
   it("reports failure when browser startup fails", async () => {
-    vi.spyOn(puppeteer, "launch").mockRejectedValueOnce(new Error("launch failed"));
+    vi.spyOn(puppeteer, "launch").mockRejectedValueOnce(
+      new Error("launch failed"),
+    );
     const { interaction, replies } = makeInteraction({
       query: "AK-47 | Redline",
       maxPrice: 25,

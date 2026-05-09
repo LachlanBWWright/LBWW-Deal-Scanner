@@ -22,7 +22,10 @@ describe("handleItemUpdate.ts", () => {
 
     expect(secondResult).toBe(false);
     expect(secondRecord).not.toBeNull();
-    expect((secondRecord?.lastUpdated.getTime() ?? 0) >= (beforeUpdate?.getTime() ?? 0)).toBe(true);
+    expect(
+      (secondRecord?.lastUpdated.getTime() ?? 0) >=
+        (beforeUpdate?.getTime() ?? 0),
+    ).toBe(true);
 
     await db.ttlItem.deleteMany({ where: { itemId, scanner: SCANNER.EBAY } });
   });

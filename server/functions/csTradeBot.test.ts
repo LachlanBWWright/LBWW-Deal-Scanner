@@ -21,7 +21,11 @@ describe("csTradeBot.ts", () => {
       },
     });
 
-    const result = await checkIfNewCsItem(itemName, floatValue, CsSite.CS_TRADE);
+    const result = await checkIfNewCsItem(
+      itemName,
+      floatValue,
+      CsSite.CS_TRADE,
+    );
     expect(result).toBe(false);
 
     await db.ttlItem.deleteMany({

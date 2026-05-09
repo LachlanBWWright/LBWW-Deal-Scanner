@@ -35,6 +35,8 @@ describe("buttonHandler.ts", () => {
 
     expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(editReply).toHaveBeenCalledTimes(1);
-    expect(editReply.mock.calls[0]?.[0]?.content).toContain("expired or is invalid");
+    expect(editReply.mock.calls[0]?.[0]?.content).toContain(
+      "expired or is invalid",
+    );
   });
 });

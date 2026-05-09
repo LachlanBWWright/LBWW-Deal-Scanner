@@ -9,7 +9,10 @@ describe("commandList/createCashQuery.ts", () => {
   it("defines createcashquery command schema", () => {
     const json = command.toJSON();
     expect(json.name).toBe("createcashquery");
-    expect(json.options?.map((o: { name: string }) => o.name)).toEqual(["query", "dmonly"]);
+    expect(json.options?.map((o: { name: string }) => o.name)).toEqual([
+      "query",
+      "dmonly",
+    ]);
   });
 
   it("defines edit/delete/view command schemas", () => {

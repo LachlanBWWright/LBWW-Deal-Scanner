@@ -27,7 +27,9 @@ export async function scanCSDeals(page: Page): Promise<DealNotification[]> {
         foundItem.d1 > searchItem.minFloat &&
         foundItem.i <= searchItem.maxPrice
       ) {
-        if (await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_DEALS)) {
+        if (
+          await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_DEALS)
+        ) {
           notifications.push({
             kind: "deal",
             source: "csTrade",
@@ -71,7 +73,9 @@ export async function getCSDealsItems(page: CsDealsPage) {
 }
 
 function isHTTPResponse(response: unknown): response is HTTPResponse {
-  return typeof response === "object" && response !== null && "json" in response;
+  return (
+    typeof response === "object" && response !== null && "json" in response
+  );
 }
 
 /* 

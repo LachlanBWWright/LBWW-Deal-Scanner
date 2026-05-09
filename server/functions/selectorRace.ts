@@ -1,8 +1,5 @@
 interface SelectorRacePage<T> {
-  waitForSelector(
-    selector: string,
-    options: { timeout: number },
-  ): Promise<T>;
+  waitForSelector(selector: string, options: { timeout: number }): Promise<T>;
 }
 
 //Accepts a puppeteer page, a selector for items found, and a selector for the "nothing found" text
@@ -14,7 +11,9 @@ export default async function selectorRace<T>(
   timeoutMs = 10000,
 ) {
   return await Promise.race<T | null>([
-    page.waitForSelector(foundSelector, { timeout: timeoutMs }).catch(() => null),
+    page
+      .waitForSelector(foundSelector, { timeout: timeoutMs })
+      .catch(() => null),
     page
       .waitForSelector(noItemSelector, { timeout: timeoutMs })
       .then(() => null)

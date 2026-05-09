@@ -10,7 +10,12 @@ describe("messagePreludes.ts", () => {
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.5);
     const result = getResponsePrelude();
     expect(
-      ["Listen up, Jack,", "My fellow Americans,", "Folks,", "Here's the deal,"].includes(result),
+      [
+        "Listen up, Jack,",
+        "My fellow Americans,",
+        "Folks,",
+        "Here's the deal,",
+      ].includes(result),
     ).toBe(true);
     randomSpy.mockRestore();
   });
@@ -22,7 +27,9 @@ describe("messagePreludes.ts", () => {
     randomSpy.mockReturnValueOnce(0).mockReturnValueOnce(0);
     expect(getFailurePrelude()).toBe("Stupid son of a bitch,");
     randomSpy.mockReturnValueOnce(0).mockReturnValueOnce(0);
-    expect(getNotificationPrelude()).toBe("This is a big fu- ...uh... flippable deal,");
+    expect(getNotificationPrelude()).toBe(
+      "This is a big fu- ...uh... flippable deal,",
+    );
 
     randomSpy.mockRestore();
   });

@@ -13,7 +13,10 @@ interface ButtonInteractionInput {
     id: string;
   };
   deferReply(options: { ephemeral: boolean }): Promise<unknown>;
-  editReply(options: { content: string; components?: unknown[] }): Promise<unknown>;
+  editReply(options: {
+    content: string;
+    components?: unknown[];
+  }): Promise<unknown>;
 }
 
 // Global action registry for button actions

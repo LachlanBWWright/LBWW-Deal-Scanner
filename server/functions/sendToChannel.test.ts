@@ -23,18 +23,24 @@ describe("sendToChannel.ts", () => {
   });
 
   it("logs and returns when channel is missing", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     fetchChannel.mockResolvedValue(null);
 
     await sendToChannel("missing-channel", "hello world");
 
     expect(fetchChannel).toHaveBeenCalledWith("missing-channel");
-    expect(errorSpy).toHaveBeenCalledWith("Channel with id missing-channel not found");
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Channel with id missing-channel not found",
+    );
     errorSpy.mockRestore();
   });
 
   it("logs and returns when channel is not a guild text channel", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     fetchChannel.mockResolvedValue({ type: ChannelType.DM });
 
     await sendToChannel("dm-channel", "hello world");

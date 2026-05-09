@@ -13,8 +13,10 @@ function makeInteraction(input: InteractionOptions) {
   const interaction = {
     options: {
       getString: (name: string) => (name === "query" ? input.query : null),
-      getNumber: (name: string) => (name === "maxprice" ? (input.maxPrice ?? 1000) : null),
-      getBoolean: (name: string) => (name === "dmonly" ? (input.dmOnly ?? false) : null),
+      getNumber: (name: string) =>
+        name === "maxprice" ? (input.maxPrice ?? 1000) : null,
+      getBoolean: (name: string) =>
+        name === "dmonly" ? (input.dmOnly ?? false) : null,
     },
     editReply: async (message: string) => {
       replies.push(message);
@@ -49,7 +51,9 @@ describe("createGumtreeQuery.ts", () => {
   });
 
   it("rejects non-gumtree URLs", async () => {
-    const { interaction, replies } = makeInteraction({ query: "https://example.com/search" });
+    const { interaction, replies } = makeInteraction({
+      query: "https://example.com/search",
+    });
 
     await createGumtreeQuery(interaction);
 

@@ -14,14 +14,16 @@ function makeInteraction(input: InteractionOptions) {
   const replies: string[] = [];
   const interaction = {
     options: {
-      getString: (name: string) => (name === "skinname" ? input.skinName : null),
+      getString: (name: string) =>
+        name === "skinname" ? input.skinName : null,
       getNumber: (name: string) => {
         if (name === "maxprice") return input.maxPrice;
         if (name === "minfloat") return input.minFloat;
         if (name === "maxfloat") return input.maxFloat;
         return null;
       },
-      getBoolean: (name: string) => (name === "dmonly" ? (input.dmOnly ?? false) : null),
+      getBoolean: (name: string) =>
+        name === "dmonly" ? (input.dmOnly ?? false) : null,
     },
     editReply: async (message: string) => {
       replies.push(message);
@@ -48,14 +50,18 @@ describe("createMultiSearchQuery.ts", () => {
 
     await createMultiSearchQuery(interaction);
 
-    const created = await db.csTradeBot.findUnique({ where: { name: skinName } });
+    const created = await db.csTradeBot.findUnique({
+      where: { name: skinName },
+    });
     expect(created).not.toBeNull();
     expect(created?.maxPrice).toBe(99);
     expect(created?.minFloat).toBe(0.05);
     expect(created?.maxFloat).toBe(0.3);
     expect(replies[0]).toContain("search has been created");
 
-    await db.query.deleteMany({ where: { csTradeBot: { is: { name: skinName } } } });
+    await db.query.deleteMany({
+      where: { csTradeBot: { is: { name: skinName } } },
+    });
   });
 
   it("rejects invalid float ranges", async () => {

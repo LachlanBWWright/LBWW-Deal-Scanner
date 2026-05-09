@@ -34,5 +34,7 @@ export default async function (interaction: CommandInteraction) {
       `${getResponsePrelude()} the search has been created${dmOnly ? " (DM only)" : ""}: ${search.toString()}`,
     );
   } else
-    await interaction.editReply(`${getFailurePrelude()} your search was invalid!`);
+    await interaction.editReply(
+      `${getFailurePrelude()} your search was invalid!`,
+    );
 }

@@ -12,7 +12,8 @@ function makeInteraction(input: InteractionOptions) {
   const interaction = {
     options: {
       getString: (name: string) => (name === "query" ? input.query : null),
-      getBoolean: (name: string) => (name === "dmonly" ? (input.dmOnly ?? false) : null),
+      getBoolean: (name: string) =>
+        name === "dmonly" ? (input.dmOnly ?? false) : null,
     },
     editReply: async (message: string) => {
       replies.push(message);
@@ -29,7 +30,10 @@ function makeInteraction(input: InteractionOptions) {
 describe("createCashQuery.ts", () => {
   it("creates a cash converters query and confirms it", async () => {
     const url = `https://www.cashconverters.com.au/shop/?q=test-${Date.now()}`;
-    const { interaction, replies } = makeInteraction({ query: url, dmOnly: true });
+    const { interaction, replies } = makeInteraction({
+      query: url,
+      dmOnly: true,
+    });
 
     await createCashQuery(interaction);
 
@@ -42,7 +46,9 @@ describe("createCashQuery.ts", () => {
   });
 
   it("rejects non-cash-converters URLs", async () => {
-    const { interaction, replies } = makeInteraction({ query: "https://example.com/search" });
+    const { interaction, replies } = makeInteraction({
+      query: "https://example.com/search",
+    });
 
     await createCashQuery(interaction);
 

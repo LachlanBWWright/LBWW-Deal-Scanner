@@ -19,7 +19,8 @@ function makeInteraction(input: InteractionOptions) {
         if (name === "maxprice") return input.maxPrice ?? 99999;
         return null;
       },
-      getBoolean: (name: string) => (name === "dmonly" ? (input.dmOnly ?? false) : null),
+      getBoolean: (name: string) =>
+        name === "dmonly" ? (input.dmOnly ?? false) : null,
     },
     editReply: async (message: string) => {
       replies.push(message);

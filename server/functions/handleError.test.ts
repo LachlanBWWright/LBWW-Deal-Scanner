@@ -3,7 +3,9 @@ import handleError from "./handleError.js";
 
 describe("handleError.ts", () => {
   it("logs the error and publishes via notification service when provided", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const publish = vi.fn(async () => undefined);
     const error = new Error("Something broke");
 
