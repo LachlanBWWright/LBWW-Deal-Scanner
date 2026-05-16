@@ -20,7 +20,7 @@ export default {};
 
 <template>
   <div class="results-section">
-    <div class="panel-head" style="margin-top: 32px;">
+    <div class="panel-head results-head">
       <h2>Recent search results</h2>
       <span>{{ props.searchResults.length }} results</span>
     </div>
@@ -64,30 +64,36 @@ export default {};
 
 <style scoped>
 .results-section {
-  margin-top: 8px;
+  margin-top: 18px;
+}
+
+.results-head {
+  margin-top: 0;
 }
 
 .result-title {
-  margin: 0 0 10px;
-  color: rgba(219, 227, 240, 0.92);
+  margin: 0 0 8px;
+  color: rgba(238, 243, 251, 0.92);
+  font-weight: 600;
 }
 
 .result-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: rgba(219, 227, 240, 0.78);
-  font-size: 0.9rem;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: rgba(215, 222, 234, 0.68);
+  font-size: 0.8rem;
 }
 
 .result-link {
-  color: #67d8ff;
+  color: #79b8ff;
   word-break: break-all;
+  font-size: 0.8rem;
 }
 
 .empty-message {
   margin: 14px 0 0;
-  color: rgba(219, 227, 240, 0.78);
+  color: rgba(215, 222, 234, 0.66);
 }
 </style>

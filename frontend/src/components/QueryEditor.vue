@@ -19,7 +19,8 @@ const emit = defineEmits<{
 const title = computed(() => (props.editingQuery ? "Update query" : "Create query"));
 
 function updateField(field: FormField, rawValue: string) {
-  const value = field.type === "number" ? Number(rawValue) : rawValue;
+  const value =
+    field.type === "number" && rawValue !== "" ? Number(rawValue) : rawValue;
   emit("update:form", {
     ...props.form,
     [field.key]: value,

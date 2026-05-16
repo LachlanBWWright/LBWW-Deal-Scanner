@@ -1,11 +1,11 @@
 :root {
   color-scheme: dark;
   font-family:
-    "Space Grotesk", "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+    Inter, "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: rgba(244, 247, 251, 0.92);
-  background: #050b16;
+  color: #d7deea;
+  background: #0b1018;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,17 +25,18 @@ body,
 
 body {
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 700px at 5% -10%, rgba(86, 215, 252, 0.2), transparent 55%),
-    radial-gradient(1000px 600px at 95% 0%, rgba(106, 255, 196, 0.14), transparent 48%),
-    linear-gradient(180deg, #050b16 0%, #070f1d 45%, #040914 100%);
+  background: #0b1018;
 }
 
 button {
   font: inherit;
   border: 0;
   cursor: pointer;
-  transition: background 120ms ease, opacity 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
 }
 
 button:disabled {
@@ -45,8 +46,8 @@ button:disabled {
 
 select,
 optgroup {
-  color: #dbe3f0;
-  background-color: #0c1628;
+  color: #d7deea;
+  background-color: #111927;
 }
 
 option {
@@ -59,7 +60,7 @@ select {
 }
 
 select:focus {
-  outline: 1px solid rgba(125, 253, 212, 0.45);
+  outline: 1px solid rgba(87, 166, 255, 0.65);
   outline-offset: 1px;
 }
 
@@ -77,9 +78,9 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
-  background: rgba(5, 11, 22, 0.82);
-  border-bottom: 1px solid rgba(126, 170, 218, 0.17);
+  padding: 8px 16px;
+  background: rgba(11, 16, 24, 0.94);
+  border-bottom: 1px solid rgba(139, 152, 173, 0.18);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -90,8 +91,7 @@ select:focus {
 .app-name {
   font-weight: 700;
   font-size: 0.9rem;
-  letter-spacing: -0.02em;
-  color: #7dfdd4;
+  color: #eef3fb;
   margin-right: 4px;
 }
 
@@ -107,17 +107,17 @@ select:focus {
   align-items: center;
   gap: 5px;
   font-size: 0.76rem;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.18);
-  color: rgba(219, 227, 240, 0.8);
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(139, 152, 173, 0.18);
+  color: rgba(215, 222, 234, 0.78);
 }
 
 .chip-green {
-  background: rgba(125, 253, 212, 0.08);
-  border-color: rgba(125, 253, 212, 0.25);
-  color: #7dfdd4;
+  background: rgba(65, 185, 120, 0.1);
+  border-color: rgba(65, 185, 120, 0.3);
+  color: #79d99b;
 }
 
 .chip-muted {
@@ -131,9 +131,9 @@ select:focus {
   flex-shrink: 0;
 }
 
-.dot-lime { background: #7dfdd4; }
-.dot-amber { background: #ffc857; }
-.dot-cyan { background: #67d8ff; }
+.dot-lime { background: #79d99b; }
+.dot-amber { background: #d6a84f; }
+.dot-cyan { background: #57a6ff; }
 
 .top-actions {
   display: flex;
@@ -142,8 +142,9 @@ select:focus {
 }
 
 .icon-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.14);
+  min-width: 34px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(139, 152, 173, 0.16);
   border-radius: 6px;
   padding: 4px 10px;
   color: inherit;
@@ -157,8 +158,8 @@ select:focus {
 /* ─── Settings drawer ────────────────────────────────────────────────────── */
 
 .settings-drawer {
-  background: rgba(7, 13, 25, 0.96);
-  border-bottom: 1px solid rgba(154, 173, 201, 0.12);
+  background: #0e1520;
+  border-bottom: 1px solid rgba(139, 152, 173, 0.16);
   padding: 12px 16px;
   display: flex;
   gap: 12px;
@@ -174,15 +175,15 @@ select:focus {
 }
 
 .setting-field span {
-  color: rgba(219, 227, 240, 0.5);
+  color: rgba(215, 222, 234, 0.55);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .setting-field input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(154, 173, 201, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(139, 152, 173, 0.22);
   border-radius: 6px;
   padding: 6px 10px;
   color: inherit;
@@ -209,28 +210,29 @@ select:focus {
   display: flex;
   gap: 0;
   padding: 0 16px;
-  background: rgba(7, 13, 25, 0.7);
-  border-bottom: 1px solid rgba(154, 173, 201, 0.1);
+  background: #0e1520;
+  border-bottom: 1px solid rgba(139, 152, 173, 0.14);
 }
 
 .tab-btn {
   background: transparent;
-  padding: 10px 16px;
+  padding: 9px 14px;
   font-size: 0.82rem;
-  color: rgba(219, 227, 240, 0.5);
+  color: rgba(215, 222, 234, 0.55);
   border-bottom: 2px solid transparent;
   border-radius: 0;
   transition: color 120ms, border-color 120ms, background 120ms;
 }
 
 .tab-btn:hover {
-  color: rgba(219, 227, 240, 0.85);
+  color: rgba(215, 222, 234, 0.9);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .tab-btn.active {
-  color: #7dfdd4;
-  border-bottom-color: #7dfdd4;
-  background: linear-gradient(180deg, rgba(125, 253, 212, 0.12), rgba(125, 253, 212, 0));
+  color: #eef3fb;
+  border-bottom-color: #57a6ff;
+  background: rgba(87, 166, 255, 0.08);
 }
 
 /* ─── Console content ─────────────────────────────────────────────────────── */
@@ -243,17 +245,17 @@ select:focus {
 .tab-pane {
   max-width: 900px;
   margin: 0 auto;
-  padding: 24px 16px;
-  animation: pane-enter 220ms ease;
+  padding: 16px;
 }
 
 /* ─── Shared button styles ────────────────────────────────────────────────── */
 
 .primary {
-  background: linear-gradient(135deg, #7dfdd4 0%, #3ea7ff 100%);
-  color: #04111f;
-  border-radius: 7px;
-  padding: 8px 16px;
+  background: #2f81f7;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 7px 13px;
   font-weight: 600;
 }
 
@@ -262,10 +264,10 @@ select:focus {
 }
 
 .secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.22);
-  border-radius: 7px;
-  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(139, 152, 173, 0.22);
+  border-radius: 6px;
+  padding: 7px 12px;
   color: inherit;
 }
 
@@ -294,4 +296,3 @@ select:focus {
     padding: 14px 12px;
   }
 }
-

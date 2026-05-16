@@ -8,8 +8,14 @@ const defaultSecret = import.meta.env.VITE_API_SECRET?.trim() ?? "";
 const defaultHost = import.meta.env.VITE_API_HOST?.trim() ?? "";
 
 export const apiClient = createClient<paths>({
-  baseUrl: "",
+  baseUrl: defaultHost,
 });
+
+export function getApiClient() {
+  return createClient<paths>({
+    baseUrl: getApiHost(),
+  });
+}
 
 export function getApiSecret() {
   const stored = localStorage.getItem(secretStorageKey);

@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { ResultAsync } from "neverthrow";
 import { useTestingConsole } from "../composables/useTestingConsole";
-import { apiClient, getApiHeaders } from "../api/client";
+import { getApiClient, getApiHeaders } from "../api/client";
 import { toError } from "../utils/neverthrowUtils";
 import type { paths } from "../api/schema";
 
@@ -64,7 +64,7 @@ async function loadRecentResults() {
   resultsError.value = null;
 
   const result = await ResultAsync.fromThrowable(async () => {
-    const res = await apiClient.GET("/api/search-results", {
+    const res = await getApiClient().GET("/api/search-results", {
       headers: getApiHeaders(),
     });
     return res.data?.results ?? [];

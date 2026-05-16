@@ -145,9 +145,9 @@ export default {};
 
 <style>
 .query-manager {
-  max-width: 1100px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 16px;
+  padding: 16px;
 }
 
 .panel-head {
@@ -155,52 +155,56 @@ export default {};
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .panel-head h2 {
   margin: 0;
-  font-size: 1rem;
-  letter-spacing: -0.02em;
+  font-size: 0.96rem;
+  letter-spacing: 0;
 }
 
 .panel-head span {
-  color: rgba(126, 255, 212, 0.78);
-  font-size: 0.82rem;
+  color: rgba(215, 222, 234, 0.58);
+  font-size: 0.78rem;
 }
 
 .field-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  margin-top: 18px;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-top: 12px;
 }
 
 .field-group {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .field-group label,
 .label {
-  color: rgba(219, 227, 240, 0.84);
-  font-size: 0.95rem;
+  color: rgba(215, 222, 234, 0.68);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 input,
 select {
   width: 100%;
-  min-height: 44px;
-  border-radius: 18px;
-  border: 1px solid rgba(154, 173, 201, 0.18);
+  min-height: 34px;
+  border-radius: 6px;
+  border: 1px solid rgba(139, 152, 173, 0.2);
   background: rgba(255, 255, 255, 0.04);
   color: inherit;
-  padding: 0 14px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.86rem;
 }
 
 input:focus,
 select:focus {
-  outline: 2px solid rgba(125, 253, 212, 0.5);
+  outline: 2px solid rgba(87, 166, 255, 0.45);
+  outline-offset: 1px;
 }
 
 .type-selector {
@@ -210,40 +214,44 @@ select:focus {
 .type-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
 }
 
 .type-button {
-  border-radius: 999px;
-  border: 1px solid rgba(154, 173, 201, 0.22);
-  background: rgba(255, 255, 255, 0.05);
+  min-width: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(139, 152, 173, 0.22);
+  background: rgba(255, 255, 255, 0.035);
   color: inherit;
-  padding: 12px 16px;
+  padding: 7px 10px;
   cursor: pointer;
+  font-size: 0.82rem;
 }
 
 .type-button.active {
-  background: linear-gradient(135deg, #7dfdd4 0%, #3ea7ff 100%);
-  color: #04111f;
+  background: rgba(47, 129, 247, 0.18);
+  border-color: rgba(87, 166, 255, 0.55);
+  color: #eef3fb;
 }
 
 .field-switch {
   align-items: center;
   display: inline-flex;
-  gap: 10px;
-  color: rgba(219, 227, 240, 0.86);
-  font-size: 0.95rem;
+  gap: 8px;
+  color: rgba(215, 222, 234, 0.78);
+  font-size: 0.85rem;
+  margin-top: 10px;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 button {
-  min-width: 140px;
+  min-width: 0;
 }
 
 .success-message {
@@ -254,7 +262,7 @@ button {
 .query-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
   justify-content: space-between;
   align-items: center;
   margin-top: 16px;
@@ -268,17 +276,17 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .query-stat-card {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 8px;
-  padding: 6px 12px;
-  border: 1px solid rgba(154, 173, 201, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 5px 9px;
+  border: 1px solid rgba(139, 152, 173, 0.12);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .query-stat-card strong {
@@ -292,11 +300,11 @@ button {
 }
 
 .query-review {
-  margin-top: 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(154, 173, 201, 0.12);
-  background: rgba(255, 255, 255, 0.02);
-  padding: 14px;
+  margin-top: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 152, 173, 0.12);
+  background: rgba(255, 255, 255, 0.018);
+  padding: 10px;
 }
 
 .query-list {
@@ -304,15 +312,15 @@ button {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 18px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .query-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.14);
-  border-radius: 20px;
-  padding: 18px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(139, 152, 173, 0.12);
+  border-radius: 8px;
+  padding: 10px;
 }
 
 .query-header {
@@ -320,24 +328,24 @@ button {
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-  margin-bottom: 12px;
-  color: rgba(231, 236, 244, 0.92);
+  margin-bottom: 8px;
+  color: rgba(238, 243, 251, 0.92);
 }
 
 pre {
   margin: 0;
-  padding: 14px;
-  border-radius: 16px;
-  background: rgba(12, 20, 35, 0.9);
+  padding: 10px;
+  border-radius: 6px;
+  background: rgba(7, 12, 20, 0.82);
   overflow-x: auto;
-  font-size: 0.92rem;
-  color: rgba(219, 227, 240, 0.86);
+  font-size: 0.78rem;
+  color: rgba(215, 222, 234, 0.78);
 }
 
 .button-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 </style>

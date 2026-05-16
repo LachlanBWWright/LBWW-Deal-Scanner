@@ -63,12 +63,23 @@ export interface ScannerNotificationResult {
   imageUrl?: string;
 }
 
+export interface ManualScanItemResult {
+  source: string;
+  title: string;
+  url: string;
+  price: number | null;
+  imageUrl: string | null;
+  passedFilters: boolean;
+  filterReason: string | null;
+}
+
 export interface TestingScanResult {
   id: string;
   startedAt: string;
   finishedAt: string;
   durationMs: number;
   request: ManualScannerInput;
+  items: ManualScanItemResult[];
   notifications: ScannerNotificationResult[];
   errors: string[];
   notificationsPublished: boolean;

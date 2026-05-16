@@ -450,6 +450,9 @@
                           "minPrice": {
                             "type": "number"
                           },
+                          "minFloat": {
+                            "type": "number"
+                          },
                           "maxFloat": {
                             "type": "number"
                           },
@@ -562,6 +565,9 @@
                           "type": "number"
                         },
                         "minPrice": {
+                          "type": "number"
+                        },
+                        "minFloat": {
                           "type": "number"
                         },
                         "maxFloat": {
@@ -680,6 +686,9 @@
                           "type": "number"
                         },
                         "minPrice": {
+                          "type": "number"
+                        },
+                        "minFloat": {
                           "type": "number"
                         },
                         "maxFloat": {
@@ -1143,6 +1152,54 @@
                     "durationMs": {
                       "type": "number"
                     },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "price": {
+                            "type": [
+                              "null",
+                              "number"
+                            ]
+                          },
+                          "imageUrl": {
+                            "type": [
+                              "null",
+                              "string"
+                            ]
+                          },
+                          "passedFilters": {
+                            "type": "boolean"
+                          },
+                          "filterReason": {
+                            "type": [
+                              "null",
+                              "string"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "title",
+                          "url",
+                          "price",
+                          "imageUrl",
+                          "passedFilters",
+                          "filterReason"
+                        ]
+                      }
+                    },
                     "notifications": {
                       "type": "array",
                       "items": {
@@ -1195,6 +1252,7 @@
                     "startedAt",
                     "finishedAt",
                     "durationMs",
+                    "items",
                     "notifications",
                     "errors",
                     "notificationsPublished"
@@ -1238,6 +1296,54 @@
                           },
                           "durationMs": {
                             "type": "number"
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "source": {
+                                  "type": "string"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "url": {
+                                  "type": "string"
+                                },
+                                "price": {
+                                  "type": [
+                                    "null",
+                                    "number"
+                                  ]
+                                },
+                                "imageUrl": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ]
+                                },
+                                "passedFilters": {
+                                  "type": "boolean"
+                                },
+                                "filterReason": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "title",
+                                "url",
+                                "price",
+                                "imageUrl",
+                                "passedFilters",
+                                "filterReason"
+                              ]
+                            }
                           },
                           "notifications": {
                             "type": "array",
@@ -1291,6 +1397,7 @@
                           "startedAt",
                           "finishedAt",
                           "durationMs",
+                          "items",
                           "notifications",
                           "errors",
                           "notificationsPublished"

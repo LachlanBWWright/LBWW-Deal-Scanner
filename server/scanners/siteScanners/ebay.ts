@@ -11,6 +11,44 @@ interface EbayQueryInput {
   url: string;
 }
 
+export interface RawEbayItem {
+  title: string;
+  priceText: string | null;
+  imageUrl: string | null;
+}
+
+interface EbayCardSelectorResult {
+  readonly textContent?: string | null;
+  readonly src?: string | null;
+}
+
+export interface EbayCardElement {
+  querySelector(selectors: string): EbayCardSelectorResult | null;
+}
+
+interface EbayValues {
+  foundName: string | null;
+  foundPrice: number | null;
+  foundImage: string | null;
+}
+
+export const ebaySelectors: {
+  readonly resultsContainer: string;
+  readonly emptyResults: string;
+  readonly resultCard: string;
+  readonly title: string;
+  readonly price: string;
+  readonly image: string;
+} = {
+  resultsContainer: "div.srp-river",
+  emptyResults: ".srp-save-null-search__heading",
+  resultCard:
+    "div.su-card-container.su-card-container--horizontal, li.s-item",
+  title: 'div[role="heading"], .s-item__title',
+  price: "span.s-card__price, .s-item__price",
+  image: "img",
+};
+
 let isAud = true;
 
 function parseEbayPrice(priceText: string | null): number | null {
@@ -29,9 +67,38 @@ function parseEbayPrice(priceText: string | null): number | null {
 function parseEbayName(nameText: string | null): string | null {
   if (!nameText) return null;
   if (nameText.startsWith("New listing")) {
-    return nameText.replace("New listing", "");
+    return nameText.replace("New listing", "").trim();
   }
-  return nameText;
+  return nameText.trim();
+}
+
+export function parseEbayItem(rawItem: RawEbayItem | null): EbayValues {
+  if (!rawItem) {
+    return { foundName: null, foundPrice: null, foundImage: null };
+  }
+
+  const foundPrice = parseEbayPrice(rawItem.priceText);
+  const parsedName = parseEbayName(rawItem.title);
+
+  if (!parsedName || !foundPrice || !rawItem.imageUrl) {
+    return { foundName: null, foundPrice: null, foundImage: null };
+  }
+
+  return {
+    foundName: parsedName,
+    foundPrice,
+    foundImage: rawItem.imageUrl,
+  };
+}
+
+export function readRawEbayItem(card: EbayCardElement): RawEbayItem {
+  const title =
+    card.querySelector(ebaySelectors.title)?.textContent?.trim() ?? "";
+  const priceText =
+    card.querySelector(ebaySelectors.price)?.textContent?.trim() ?? null;
+  const imageUrl = card.querySelector(ebaySelectors.image)?.src ?? null;
+
+  return { title, priceText, imageUrl };
 }
 
 export async function scanEbay(page: Page): Promise<DealNotification[]> {
@@ -80,35 +147,39 @@ export async function getEbayValues(page: Page, item: EbayQueryInput) {
 
   const selector = await selectorRace(
     page,
-    "div[class='srp-river']",
-    ".srp-save-null-search__heading",
+    ebaySelectors.resultsContainer,
+    ebaySelectors.emptyResults,
   );
   if (!selector) return { foundName: null, foundPrice: null, foundImage: null };
 
-  const result = await selector.$(
-    `div[class="su-card-container su-card-container--horizontal"]`,
-  );
-  if (!result) return { foundName: null, foundPrice: null, foundImage: null };
+  const rawItemsResult = await resultAsync(
+    () =>
+      selector.$$eval(
+        ebaySelectors.resultCard,
+        (cards, selectors): RawEbayItem[] =>
+          cards.map((card) => {
+            const title =
+              card.querySelector(selectors.title)?.textContent?.trim() ?? "";
+            const priceText =
+              card.querySelector(selectors.price)?.textContent?.trim() ?? null;
+            const imageUrl =
+              card.querySelector<HTMLImageElement>(selectors.image)?.src ??
+              null;
 
-  const foundName = await result.$eval(
-    'div[role="heading"]',
-    (res) => res.textContent,
+            return { title, priceText, imageUrl };
+          }),
+        ebaySelectors,
+      ),
+    "eBay result card extraction failed",
   );
-  const priceText = await result.$eval(
-    `span[class='su-styled-text primary bold large-1 s-card__price']`,
-    (res) => res.textContent,
-  );
-  const foundPrice = parseEbayPrice(priceText ?? null);
-  const parsedName = parseEbayName(foundName ?? null);
-
-  const foundImgContainer = await result.$("a[class='image-treatment']");
-  const foundImage = await foundImgContainer?.$eval("img", (img) => img.src);
-
-  if (!parsedName || !foundPrice || !foundImage) {
+  if (rawItemsResult.isErr()) {
+    console.warn(rawItemsResult.error.message);
     return { foundName: null, foundPrice: null, foundImage: null };
   }
 
-  return { foundName: parsedName, foundPrice, foundImage };
+  return parseEbayItem(
+    rawItemsResult.value.find((rawItem) => rawItem.title) ?? null,
+  );
 }
 
 let index = 0;

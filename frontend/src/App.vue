@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent, onMounted, ref } from "vue";
 import { ResultAsync } from "neverthrow";
 
 import {
-  apiClient,
+  getApiClient,
   getApiHeaders,
   getApiHost,
   setApiHost,
@@ -68,7 +68,9 @@ async function refresh() {
   errorMessage.value = null;
 
   const result = await ResultAsync.fromThrowable(async () => {
-    const res = await apiClient.GET("/api/status", { headers: getApiHeaders() });
+    const res = await getApiClient().GET("/api/status", {
+      headers: getApiHeaders(),
+    });
     return res.data ?? null;
   }, (error) => toError(error, "Failed to load status"))();
 

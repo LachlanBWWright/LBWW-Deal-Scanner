@@ -235,6 +235,7 @@ export interface paths {
                                 displayUrl?: string;
                                 maxPrice?: number;
                                 minPrice?: number;
+                                minFloat?: number;
                                 maxFloat?: number;
                                 requiredPhrases?: string;
                                 excludePhrases?: string;
@@ -283,6 +284,7 @@ export interface paths {
                                 displayUrl?: string;
                                 maxPrice?: number;
                                 minPrice?: number;
+                                minFloat?: number;
                                 maxFloat?: number;
                                 requiredPhrases?: string;
                                 excludePhrases?: string;
@@ -330,6 +332,7 @@ export interface paths {
                                 displayUrl?: string;
                                 maxPrice?: number;
                                 minPrice?: number;
+                                minFloat?: number;
                                 maxFloat?: number;
                                 requiredPhrases?: string;
                                 excludePhrases?: string;
@@ -563,6 +566,15 @@ export interface paths {
                             startedAt: string;
                             finishedAt: string;
                             durationMs: number;
+                            items: {
+                                source: string;
+                                title: string;
+                                url: string;
+                                price: null | number;
+                                imageUrl: null | string;
+                                passedFilters: boolean;
+                                filterReason: null | string;
+                            }[];
                             notifications: {
                                 source: string;
                                 title: string;
@@ -612,6 +624,15 @@ export interface paths {
                                 startedAt: string;
                                 finishedAt: string;
                                 durationMs: number;
+                                items: {
+                                    source: string;
+                                    title: string;
+                                    url: string;
+                                    price: null | number;
+                                    imageUrl: null | string;
+                                    passedFilters: boolean;
+                                    filterReason: null | string;
+                                }[];
                                 notifications: {
                                     source: string;
                                     title: string;

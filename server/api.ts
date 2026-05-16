@@ -148,6 +148,8 @@ const queryTypes = [
   "csTradeBot",
 ] as const;
 
+const temporaryScannerTypes = [...queryTypes] as const;
+
 const queryTypeEnumSchema = {
   type: "string",
   enum: queryTypes,
@@ -195,6 +197,7 @@ const queryItemSchema = {
     displayUrl: { type: "string" },
     maxPrice: { type: "number" },
     minPrice: { type: "number" },
+    minFloat: { type: "number" },
     maxFloat: { type: "number" },
     requiredPhrases: { type: "string" },
     excludePhrases: { type: "string" },
@@ -313,6 +316,7 @@ interface QueryItem {
   displayUrl?: string;
   maxPrice?: number;
   minPrice?: number;
+  minFloat?: number;
   maxFloat?: number;
   requiredPhrases?: string;
   excludePhrases?: string;
@@ -991,7 +995,7 @@ export async function buildApiServer({
 
   // ─── Testing routes ──────────────────────────────────────────────────────────
 
-  const testingEnabled = process.env.ENABLE_TESTING_API === "true";
+  const testingEnabled = process.env.ENABLE_TESTING_API !== "false";
 
   const providerOutcomeSchema = {
     type: "object",
@@ -1041,6 +1045,29 @@ export async function buildApiServer({
     required: ["source", "title", "url", "price", "imageUrl"],
   } as const;
 
+  const manualScanItemResultSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      source: { type: "string" },
+      title: { type: "string" },
+      url: { type: "string" },
+      price: { type: ["number", "null"] },
+      imageUrl: { type: ["string", "null"] },
+      passedFilters: { type: "boolean" },
+      filterReason: { type: ["string", "null"] },
+    },
+    required: [
+      "source",
+      "title",
+      "url",
+      "price",
+      "imageUrl",
+      "passedFilters",
+      "filterReason",
+    ],
+  } as const;
+
   const testingScanResultSchema = {
     type: "object",
     additionalProperties: false,
@@ -1049,6 +1076,7 @@ export async function buildApiServer({
       startedAt: { type: "string" },
       finishedAt: { type: "string" },
       durationMs: { type: "number" },
+      items: { type: "array", items: manualScanItemResultSchema },
       notifications: { type: "array", items: scannerNotificationResultSchema },
       errors: { type: "array", items: { type: "string" } },
       notificationsPublished: { type: "boolean" },
@@ -1058,6 +1086,7 @@ export async function buildApiServer({
       "startedAt",
       "finishedAt",
       "durationMs",
+      "items",
       "notifications",
       "errors",
       "notificationsPublished",
@@ -1144,7 +1173,7 @@ export async function buildApiServer({
         notificationProviders: svc ? svc.getProviderNames() : [],
         discordConnected: snapshot.bot.connected,
         availableQueryTypes: [...queryTypes],
-        availableScannerTypes: ["cashConverters", "ebay", "gumtree", "salvos"],
+        availableScannerTypes: [...temporaryScannerTypes],
       };
     },
   );
@@ -1310,6 +1339,15 @@ export async function buildApiServer({
         price?: number;
         imageUrl?: string;
       }[] = [];
+      const items: {
+        source: string;
+        title: string;
+        url: string;
+        price: number | null;
+        imageUrl: string | null;
+        passedFilters: boolean;
+        filterReason: string | null;
+      }[] = [];
       let notificationsPublished = false;
 
       const runScanResult = await ResultAsync.fromPromise(
@@ -1326,13 +1364,14 @@ export async function buildApiServer({
         errors.push(runScanResult.error.message);
       } else {
         const result = runScanResult.value;
+        items.push(...result.items);
         notifications.push(
           ...result.notifications.map((n) => ({
             source: n.source,
             title: n.title,
             url: n.url,
-            price: n.price,
-            imageUrl: n.imageUrl,
+            price: n.price ?? null,
+            imageUrl: n.imageUrl ?? null,
           })),
         );
         errors.push(...result.errors);
@@ -1366,6 +1405,7 @@ export async function buildApiServer({
         finishedAt,
         durationMs,
         request: body,
+        items,
         notifications,
         errors,
         notificationsPublished,
@@ -1378,6 +1418,7 @@ export async function buildApiServer({
         startedAt,
         finishedAt,
         durationMs,
+        items,
         notifications,
         errors,
         notificationsPublished,
@@ -1418,6 +1459,7 @@ export async function buildApiServer({
           startedAt: r.startedAt,
           finishedAt: r.finishedAt,
           durationMs: r.durationMs,
+          items: r.items,
           notifications: r.notifications,
           errors: r.errors,
           notificationsPublished: r.notificationsPublished,

@@ -1,35 +1,19 @@
-export type QueryType =
-  | "cashConverters"
-  | "ebay"
-  | "gumtree"
-  | "salvos"
-  | "csMarket"
-  | "steamMarket"
-  | "csTradeBot";
+import type { paths } from "../api/schema";
 
-export interface QueryItem {
-  type: QueryType;
-  id: string;
-  dmOnly: boolean;
-  url?: string;
-  name?: string;
-  displayUrl?: string;
-  maxPrice?: number;
-  minPrice?: number;
-  minFloat?: number;
-  maxFloat?: number;
-  requiredPhrases?: string;
-  excludePhrases?: string;
-}
+export type QueryItem =
+  paths["/api/queries"]["get"]["responses"][200]["content"]["application/json"]["queries"][number];
+
+export type QueryType =
+  paths["/api/queries"]["post"]["requestBody"]["content"]["application/json"]["type"];
 
 export interface QueryFormState {
   url: string;
   name: string;
   displayUrl: string;
-  maxPrice: number;
-  minPrice: number;
-  minFloat: number;
-  maxFloat: number;
+  maxPrice: number | "";
+  minPrice: number | "";
+  minFloat: number | "";
+  maxFloat: number | "";
   requiredPhrases: string;
   excludePhrases: string;
   dmOnly: boolean;

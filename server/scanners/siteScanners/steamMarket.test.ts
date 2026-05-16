@@ -1,39 +1,58 @@
-import puppeteer from "puppeteer";
-import { expect, test } from "vitest";
+import type { HTTPResponse, Page } from "puppeteer";
+import { describe, expect, it, test } from "vitest";
 import { getCsQueryString, getQueryResults } from "./steamMarket.js";
 
-test("steam query scanner", async () => {
-  const browser = await puppeteer.launch({
-    headless: "shell",
-    args: ["--no-sandbox"],
-  });
-  const page = await browser.newPage();
-
-  const url = await getCsQueryString(
-    page,
-    "https://steamcommunity.com/market/search?appid=730&q=test#p1_price_asc",
-  );
-  console.log(url);
-
-  await page.close();
-  await browser.close();
-
-  const res = await getQueryResults(url);
-
-  console.log(res);
-});
-
-import { describe, it } from "vitest";
 describe("steamMarket.ts", () => {
+  test("fetches live steam render API results", async () => {
+    const res = await getQueryResults(
+      "https://steamcommunity.com/market/search/render/?query=ak-47&start=0&count=10&country=AU&language=english&currency=1&norender=1",
+    );
+
+    expect(Array.isArray(res)).toBe(true);
+    if (res.length > 0) {
+      expect(res[0]?.name).toBeTypeOf("string");
+      expect(res[0]?.sell_price).toBeTypeOf("number");
+      expect(res[0]?.asset_description?.appid).toBe(730);
+    }
+  }, 60000);
+
+  it("builds a render API URL from a valid steam search url", async () => {
+    const expectedResponseUrl =
+      "https://steamcommunity.com/market/search/render/?query=ak-47&start=0&count=10&country=AU&language=english&currency=1";
+
+    const fakeResponse = {
+      url: () => expectedResponseUrl,
+    } as HTTPResponse;
+
+    const fakePage = {
+      goto: () => Promise.resolve(null),
+      waitForResponse: async (
+        predicate: (response: HTTPResponse) => boolean,
+      ) => {
+        if (!predicate(fakeResponse)) {
+          throw new Error("Steam response predicate did not match");
+        }
+        return fakeResponse;
+      },
+      waitForNetworkIdle: () => Promise.resolve(),
+    } as unknown as Page;
+
+    const url = await getCsQueryString(
+      fakePage,
+      "https://steamcommunity.com/market/search?appid=730&q=ak-47#p1_price_asc",
+    );
+
+    expect(url).toBe(`${expectedResponseUrl}&norender=1`);
+  });
+
   it("returns empty string for invalid steam search urls", async () => {
-    const browser = await puppeteer.launch({
-      headless: "shell",
-      args: ["--no-sandbox"],
-    });
-    const page = await browser.newPage();
-    const url = await getCsQueryString(page, "https://example.com");
-    await page.close();
-    await browser.close();
+    const fakePage = {
+      goto: () => Promise.resolve(null),
+      waitForResponse: () => Promise.reject(new Error("should not be called")),
+      waitForNetworkIdle: () => Promise.resolve(),
+    } as unknown as Page;
+
+    const url = await getCsQueryString(fakePage, "https://example.com");
 
     expect(url).toBe("");
   });

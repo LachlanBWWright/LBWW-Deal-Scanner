@@ -29,6 +29,20 @@ function handleSearchChange(event: Event) {
 function formatQuery(item: QueryItem) {
   return JSON.stringify(item, null, 2);
 }
+
+function queryTitle(item: QueryItem) {
+  return item.name || item.url || item.displayUrl || item.id;
+}
+
+function queryMeta(item: QueryItem) {
+  const entries: string[] = [];
+  if (item.maxPrice != null) entries.push(`max $${item.maxPrice}`);
+  if (item.minPrice != null) entries.push(`min $${item.minPrice}`);
+  if (item.minFloat != null) entries.push(`min float ${item.minFloat}`);
+  if (item.maxFloat != null) entries.push(`max float ${item.maxFloat}`);
+  if (item.dmOnly) entries.push("DM only");
+  return entries;
+}
 </script>
 <script lang="ts">
 export default {};
@@ -36,7 +50,7 @@ export default {};
 
 <template>
   <div>
-    <div class="panel-head" style="margin-top: 32px;">
+    <div class="panel-head list-head">
       <h2>Saved queries</h2>
       <span>{{ props.filteredQueries.length }} saved queries</span>
     </div>
@@ -80,20 +94,28 @@ export default {};
         class="query-card"
       >
         <div class="query-header">
-          <strong>{{ item.type }}</strong>
-          <span>{{ item.id }}</span>
+          <div class="query-title-group">
+            <strong>{{ queryTitle(item) }}</strong>
+            <span>{{ item.type }} / {{ item.id }}</span>
+          </div>
+          <div class="query-actions">
+            <button class="secondary" type="button" @click="emit('edit', item)">
+              Edit
+            </button>
+            <button class="secondary danger-btn" type="button" @click="emit('delete', item)">
+              Delete
+            </button>
+          </div>
         </div>
 
-        <pre>{{ formatQuery(item) }}</pre>
-
-        <div class="button-row">
-          <button class="secondary" type="button" @click="emit('edit', item)">
-            Edit
-          </button>
-          <button class="secondary" type="button" @click="emit('delete', item)">
-            Delete
-          </button>
+        <div v-if="queryMeta(item).length" class="query-meta">
+          <span v-for="entry in queryMeta(item)" :key="entry">{{ entry }}</span>
         </div>
+
+        <details class="query-json">
+          <summary>JSON</summary>
+          <pre>{{ formatQuery(item) }}</pre>
+        </details>
       </li>
     </ul>
   </div>
@@ -102,18 +124,95 @@ export default {};
 <style scoped>
 .query-toolbar {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   align-items: end;
 }
 
 .query-toolbar label {
   display: grid;
-  gap: 6px;
+  gap: 5px;
+  color: rgba(215, 222, 234, 0.68);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .empty-message {
   margin: 14px 0 0;
-  color: rgba(219, 227, 240, 0.78);
+  color: rgba(215, 222, 234, 0.66);
+}
+
+.list-head {
+  margin-top: 22px;
+}
+
+.query-title-group {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.query-title-group strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.query-title-group span {
+  color: rgba(215, 222, 234, 0.52);
+  font-size: 0.74rem;
+}
+
+.query-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.query-actions button {
+  padding: 5px 9px;
+  font-size: 0.78rem;
+}
+
+.danger-btn:hover {
+  border-color: rgba(255, 128, 128, 0.45);
+  color: #ffb0b0;
+}
+
+.query-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.query-meta span {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(139, 152, 173, 0.12);
+  color: rgba(215, 222, 234, 0.68);
+  font-size: 0.72rem;
+  padding: 2px 6px;
+}
+
+.query-json {
+  margin-top: 8px;
+  font-size: 0.76rem;
+}
+
+.query-json summary {
+  color: rgba(215, 222, 234, 0.52);
+  cursor: pointer;
+  user-select: none;
+}
+
+.query-json pre {
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .query-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

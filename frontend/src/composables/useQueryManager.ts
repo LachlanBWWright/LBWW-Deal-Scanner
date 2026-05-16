@@ -43,10 +43,10 @@ export function useQueryManager() {
       url: "",
       name: "",
       displayUrl: "",
-      maxPrice: 0,
-      minPrice: 0,
-      minFloat: 0,
-      maxFloat: 0,
+      maxPrice: "",
+      minPrice: "",
+      minFloat: "",
+      maxFloat: "",
       requiredPhrases: "",
       excludePhrases: "",
       dmOnly: false,
@@ -174,6 +174,21 @@ export function useQueryManager() {
     };
   }
 
+  function requiredNumber(
+    value: number | "",
+    label: string,
+  ): number | null {
+    if (value === "") {
+      errorMessage.value = `${label} is required.`;
+      return null;
+    }
+    if (!Number.isFinite(value)) {
+      errorMessage.value = `${label} must be a number.`;
+      return null;
+    }
+    return value;
+  }
+
   function buildPayload() {
     const payload: Record<string, unknown> = {
       dmOnly: form.value.dmOnly,
@@ -187,30 +202,58 @@ export function useQueryManager() {
         break;
       case "ebay":
       case "gumtree":
-        payload.url = form.value.url;
-        payload.maxPrice = form.value.maxPrice;
+        {
+          const value = requiredNumber(form.value.maxPrice, "Max price");
+          if (value === null) return null;
+          payload.url = form.value.url;
+          payload.maxPrice = value;
+        }
         break;
       case "salvos":
-        payload.name = form.value.name;
-        payload.minPrice = form.value.minPrice;
-        payload.maxPrice = form.value.maxPrice;
+        {
+          const min = requiredNumber(form.value.minPrice, "Minimum price");
+          if (min === null) return null;
+          const max = requiredNumber(form.value.maxPrice, "Maximum price");
+          if (max === null) return null;
+          payload.name = form.value.name;
+          payload.minPrice = min;
+          payload.maxPrice = max;
+        }
         break;
       case "csMarket":
-        payload.url = form.value.url;
-        payload.displayUrl = form.value.displayUrl || form.value.url;
-        payload.maxPrice = form.value.maxPrice;
-        payload.maxFloat = form.value.maxFloat;
+        {
+          const maxPrice = requiredNumber(form.value.maxPrice, "Max price");
+          if (maxPrice === null) return null;
+          const maxFloat = requiredNumber(form.value.maxFloat, "Max float");
+          if (maxFloat === null) return null;
+          payload.url = form.value.url;
+          payload.displayUrl = form.value.displayUrl || form.value.url;
+          payload.maxPrice = maxPrice;
+          payload.maxFloat = maxFloat;
+        }
         break;
       case "steamMarket":
-        payload.name = form.value.name;
-        payload.displayUrl = form.value.displayUrl || form.value.name;
-        payload.maxPrice = form.value.maxPrice;
+        {
+          const maxPrice = requiredNumber(form.value.maxPrice, "Max price");
+          if (maxPrice === null) return null;
+          payload.name = form.value.name;
+          payload.displayUrl = form.value.displayUrl || form.value.name;
+          payload.maxPrice = maxPrice;
+        }
         break;
       case "csTradeBot":
-        payload.name = form.value.name;
-        payload.minFloat = form.value.minFloat;
-        payload.maxFloat = form.value.maxFloat;
-        payload.maxPrice = form.value.maxPrice;
+        {
+          const minFloat = requiredNumber(form.value.minFloat, "Min float");
+          if (minFloat === null) return null;
+          const maxFloat = requiredNumber(form.value.maxFloat, "Max float");
+          if (maxFloat === null) return null;
+          const maxPrice = requiredNumber(form.value.maxPrice, "Max price");
+          if (maxPrice === null) return null;
+          payload.name = form.value.name;
+          payload.minFloat = minFloat;
+          payload.maxFloat = maxFloat;
+          payload.maxPrice = maxPrice;
+        }
         break;
     }
 
@@ -311,6 +354,10 @@ export function useQueryManager() {
       type: selectedType.value,
       payload: buildPayload(),
     };
+    if (body.payload === null) {
+      saving.value = false;
+      return;
+    }
 
     const responseResult = await ResultAsync.fromThrowable(
       () =>
