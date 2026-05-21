@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useTestingConsole,
   type DeliveryMode,
   type TestingNotificationRequestBody,
 } from "../composables/useTestingConsole";
+import { formatDisplayLabel } from "../utils/displayLabels";
 
 const {
   capabilities,
+  loading: testingLoading,
   lastNotificationResult,
   sending,
   errorMessage,
@@ -58,67 +68,28 @@ const deliveryModes: { value: DeliveryMode; label: string }[] = [
   { value: "specificUserDM", label: "Specific Discord user DM" },
 ];
 
-const presets = [
-  {
-    label: "eBay deal",
-    apply() {
-      kind.value = "deal";
-      source.value = "ebay";
-      title.value = "Test eBay item listing at $49.99";
-      url.value = "https://www.ebay.com.au/itm/test";
-      price.value = 49.99;
-      imageUrl.value = "";
-      message.value = "";
-    },
-  },
-  {
-    label: "Cash Converters deal",
-    apply() {
-      kind.value = "deal";
-      source.value = "cashConverters";
-      title.value = "Test Cash Converters item for $29.99";
-      url.value = "https://www.cashconverters.com.au/products/test";
-      price.value = 29.99;
-      imageUrl.value = "";
-      message.value = "";
-    },
-  },
-  {
-    label: "Steam Market deal",
-    apply() {
-      kind.value = "deal";
-      source.value = "steamMarket";
-      title.value = "Test Steam item listed at $12.50";
-      url.value = "https://steamcommunity.com/market/listings/730/Test%20Item";
-      price.value = 12.5;
-      imageUrl.value = "";
-      message.value = "";
-    },
-  },
-  {
-    label: "Gumtree deal",
-    apply() {
-      kind.value = "deal";
-      source.value = "gumtree";
-      title.value = "Test Gumtree listing for $75.00";
-      url.value = "https://www.gumtree.com.au/s-ad/test/1234567890";
-      price.value = 75.0;
-      imageUrl.value = "";
-      message.value = "";
-    },
-  },
-  {
-    label: "Scanner error",
-    apply() {
-      kind.value = "error";
-      source.value = "TestScanner";
-      message.value = "Simulated scanner error for testing";
-      title.value = "";
-      url.value = "";
-      price.value = "";
-    },
-  },
+type AllowedQueryType =
+  | "cashConverters"
+  | "ebay"
+  | "gumtree"
+  | "salvos"
+  | "csMarket"
+  | "steamMarket"
+  | "csTradeBot";
+
+const allowedQueryTypes: AllowedQueryType[] = [
+  "cashConverters",
+  "ebay",
+  "gumtree",
+  "salvos",
+  "csMarket",
+  "steamMarket",
+  "csTradeBot",
 ];
+
+function isAllowedQueryType(value: string): value is AllowedQueryType {
+  return allowedQueryTypes.some((type) => type === value);
+}
 
 const payloadPreview = computed(() => {
   if (kind.value === "error") {
@@ -152,7 +123,38 @@ const payloadPreview = computed(() => {
   return JSON.stringify(payload, null, 2);
 });
 
-const testingEnabled = computed(() => capabilities.value?.testingEnabled ?? false);
+const testingEnabled = computed(() => capabilities.value?.testingEnabled === true);
+const testingStatusLabel = computed(() => {
+  if (testingLoading.value) return "Testing loading...";
+  return testingEnabled.value ? "Testing enabled" : "Testing disabled";
+});
+const testingStatusVariant = computed(() => {
+  if (testingLoading.value) return "secondary";
+  return testingEnabled.value ? "success" : "warning";
+});
+
+function updateKind(value: string) {
+  if (value === "deal" || value === "error") {
+    kind.value = value;
+  }
+}
+
+function updateDeliveryMode(value: string) {
+  const matched = deliveryModes.find((mode) => mode.value === value);
+  if (matched) {
+    deliveryMode.value = matched.value;
+  }
+}
+
+function onPriceInput(value: string) {
+  if (!value.trim()) {
+    price.value = "";
+    return;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return;
+  price.value = parsed;
+}
 
 async function send() {
   if (!testingEnabled.value) return;
@@ -171,16 +173,16 @@ async function send() {
 
   const body: TestingNotificationRequestBody = {
     kind: "deal",
-    source: source.value as TestingNotificationRequestBody["source"],
+    source: source.value,
     title: title.value,
     url: url.value,
     deliveryMode: deliveryMode.value,
   };
   if (price.value !== "") body.price = Number(price.value);
   if (imageUrl.value) body.imageUrl = imageUrl.value;
-  if (queryId.value) {
+  if (queryId.value && isAllowedQueryType(queryType.value)) {
     body.query = {
-      type: queryType.value as NonNullable<TestingNotificationRequestBody["query"]>["type"],
+      type: queryType.value,
       id: queryId.value,
       dmOnly: dmOnly.value,
     };
@@ -197,340 +199,137 @@ export default {};
 </script>
 
 <template>
-  <div class="tester-panel">
-    <div class="tester-header">
-      <h3>Notification Tester</h3>
-      <div v-if="!testingEnabled" class="badge badge-disabled">Testing disabled</div>
-      <div v-else class="badge badge-enabled">Testing enabled</div>
-    </div>
+  <Card class="flex min-h-0 flex-1 flex-col">
+    <CardContent class="flex min-h-0 flex-1 flex-col space-y-5 pt-6">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-lg font-semibold tracking-tight">Notification Tester</h2>
+        <Badge :variant="testingStatusVariant">{{ testingStatusLabel }}</Badge>
+      </div>
+      <p class="text-sm text-muted-foreground">Build deal and error payloads using production-like controls.</p>
 
-    <div class="preset-row">
-      <button
-        v-for="preset in presets"
-        :key="preset.label"
-        class="preset-btn"
-        @click="preset.apply()"
-      >
-        {{ preset.label }}
-      </button>
-    </div>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="space-y-1.5">
+          <Label>Kind</Label>
+          <Select :model-value="kind" @update:model-value="updateKind">
+            <option value="deal">Deal</option>
+            <option value="error">Error</option>
+          </Select>
+        </div>
 
-    <div class="field-grid">
-      <label class="field">
-        <span>Kind</span>
-        <select v-model="kind">
-          <option value="deal">Deal</option>
-          <option value="error">Error</option>
-        </select>
-      </label>
+        <div class="space-y-2 md:col-span-2 lg:col-span-3">
+          <Label>Source</Label>
+          <Tabs v-model="source">
+            <TabsList class="flex h-auto w-full flex-wrap gap-1 bg-muted/60 p-1">
+              <TabsTrigger
+                v-for="s in dealSources"
+                :key="s"
+                :value="s"
+                class="min-h-9 min-w-0 flex-1 rounded-md px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+              >
+                {{ formatDisplayLabel(s) }}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
-      <label class="field">
-        <span>Source</span>
-        <select v-model="source">
-          <option v-for="s in dealSources" :key="s" :value="s">{{ s }}</option>
-        </select>
-      </label>
+        <template v-if="kind === 'deal'">
+          <div class="space-y-1.5 md:col-span-2">
+            <Label>Title</Label>
+            <Input v-model="title" type="text" placeholder="Deal title" />
+          </div>
 
-      <template v-if="kind === 'deal'">
-        <label class="field field-wide">
-          <span>Title</span>
-          <input v-model="title" type="text" placeholder="Deal title" />
-        </label>
+          <div class="space-y-1.5 md:col-span-2 lg:col-span-3">
+            <Label>URL</Label>
+            <Input v-model="url" type="url" placeholder="https://..." />
+          </div>
 
-        <label class="field field-wide">
-          <span>URL</span>
-          <input v-model="url" type="url" placeholder="https://..." />
-        </label>
+          <div class="space-y-1.5">
+            <Label>Price</Label>
+            <Input :model-value="String(price)" type="number" step="0.01" min="0" placeholder="0.00" @update:model-value="onPriceInput" />
+          </div>
 
-        <label class="field">
-          <span>Price</span>
-          <input v-model.number="price" type="number" step="0.01" min="0" placeholder="0.00" />
-        </label>
+          <div class="space-y-1.5 md:col-span-2">
+            <Label>Image URL</Label>
+            <Input v-model="imageUrl" type="url" placeholder="https://..." />
+          </div>
 
-        <label class="field field-wide">
-          <span>Image URL</span>
-          <input v-model="imageUrl" type="url" placeholder="https://..." />
-        </label>
+          <div class="space-y-1.5">
+            <Label>Query type</Label>
+            <Select v-model="queryType">
+              <option v-for="qt in queryTypes" :key="qt" :value="qt">{{ formatDisplayLabel(qt) }}</option>
+            </Select>
+          </div>
 
-        <label class="field">
-          <span>Query type</span>
-          <select v-model="queryType">
-            <option v-for="qt in queryTypes" :key="qt" :value="qt">{{ qt }}</option>
-          </select>
-        </label>
+          <div class="space-y-1.5">
+            <Label>Query ID</Label>
+            <Input v-model="queryId" type="text" placeholder="(optional)" />
+          </div>
 
-        <label class="field">
-          <span>Query ID</span>
-          <input v-model="queryId" type="text" placeholder="(optional)" />
-        </label>
+          <div class="flex items-end">
+            <div class="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+              <Checkbox v-model="dmOnly" />
+              <Label>DM only</Label>
+            </div>
+          </div>
+        </template>
 
-        <label class="field checkbox-field">
-          <input v-model="dmOnly" type="checkbox" />
-          <span>DM only</span>
-        </label>
-      </template>
+        <template v-else>
+          <div class="space-y-1.5 md:col-span-2 lg:col-span-3">
+            <Label>Error message</Label>
+            <Input v-model="message" type="text" placeholder="Error description" />
+          </div>
+        </template>
 
-      <template v-else>
-        <label class="field field-wide">
-          <span>Error message</span>
-          <input v-model="message" type="text" placeholder="Error description" />
-        </label>
-      </template>
+        <div class="space-y-1.5">
+          <Label>Delivery mode</Label>
+          <Select :model-value="deliveryMode" @update:model-value="updateDeliveryMode">
+            <option v-for="mode in deliveryModes" :key="mode.value" :value="mode.value">
+              {{ mode.label }}
+            </option>
+          </Select>
+        </div>
 
-      <label class="field">
-        <span>Delivery mode</span>
-        <select v-model="deliveryMode">
-          <option
-            v-for="mode in deliveryModes"
-            :key="mode.value"
-            :value="mode.value"
+        <div v-if="deliveryMode === 'specificUserDM'" class="space-y-1.5">
+          <Label>Discord user ID</Label>
+          <Input v-model="targetDiscordUserId" type="text" placeholder="123456789012345678" />
+        </div>
+      </div>
+
+      <details class="rounded-md border border-border/70 bg-background/60 p-3 text-sm">
+        <summary class="cursor-pointer font-medium">Payload preview</summary>
+        <pre class="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">{{ payloadPreview }}</pre>
+      </details>
+
+      <div class="flex flex-wrap gap-2">
+        <Button :disabled="sending || !testingEnabled" @click="send">
+          {{ sending ? "Sending..." : "Send notification" }}
+        </Button>
+      </div>
+
+      <p v-if="errorMessage" class="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-200">{{ successMessage }}</p>
+
+      <div v-if="lastNotificationResult" class="space-y-3 rounded-xl border border-border/70 bg-card p-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Last result</p>
+        <div class="grid gap-2 text-sm sm:grid-cols-2">
+          <p><strong>Duration:</strong> {{ lastNotificationResult.durationMs }}ms</p>
+          <p><strong>Error:</strong> {{ lastNotificationResult.error ?? "none" }}</p>
+        </div>
+        <div v-for="outcome in lastNotificationResult.outcomes" :key="outcome.provider" class="flex flex-wrap items-center gap-2 text-sm">
+          <strong>{{ outcome.provider }}</strong>
+          <Badge
+            :variant="
+              outcome.status === 'sent'
+                ? 'success'
+                : outcome.status === 'failed'
+                ? 'destructive'
+                : 'warning'
+            "
           >
-            {{ mode.label }}
-          </option>
-        </select>
-      </label>
-
-      <label
-        v-if="deliveryMode === 'specificUserDM'"
-        class="field"
-      >
-        <span>Discord user ID</span>
-        <input
-          v-model="targetDiscordUserId"
-          type="text"
-          placeholder="123456789012345678"
-        />
-      </label>
-    </div>
-
-    <details class="payload-preview">
-      <summary>Payload preview</summary>
-      <pre>{{ payloadPreview }}</pre>
-    </details>
-
-    <div class="tester-actions">
-      <button
-        class="primary send-btn"
-        :disabled="sending || !testingEnabled"
-        @click="send"
-      >
-        {{ sending ? "Sending..." : "Send notification" }}
-      </button>
-    </div>
-
-    <p v-if="errorMessage" class="msg msg-error">{{ errorMessage }}</p>
-    <p v-if="successMessage" class="msg msg-success">{{ successMessage }}</p>
-
-    <div v-if="lastNotificationResult" class="result-box">
-      <p class="result-label">Last result</p>
-      <div class="result-row">
-        <span class="result-key">Duration</span>
-        <span>{{ lastNotificationResult.durationMs }}ms</span>
+            {{ outcome.status }}{{ outcome.reason ? ` - ${outcome.reason}` : "" }}
+          </Badge>
+        </div>
       </div>
-      <div class="result-row">
-        <span class="result-key">Error</span>
-        <span>{{ lastNotificationResult.error ?? "none" }}</span>
-      </div>
-      <div
-        v-for="outcome in lastNotificationResult.outcomes"
-        :key="outcome.provider"
-        class="result-row"
-      >
-        <span class="result-key">{{ outcome.provider }}</span>
-        <span
-          :class="{
-            'outcome-sent': outcome.status === 'sent',
-            'outcome-failed': outcome.status === 'failed',
-            'outcome-skipped': outcome.status === 'skipped' || outcome.status === 'disabled',
-          }"
-        >{{ outcome.status }}{{ outcome.reason ? ` — ${outcome.reason}` : "" }}</span>
-      </div>
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 </template>
-
-<style scoped>
-.tester-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tester-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.tester-header h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.badge {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.badge-enabled {
-  background: rgba(130, 255, 180, 0.15);
-  color: #82ffb4;
-  border: 1px solid rgba(130, 255, 180, 0.3);
-}
-
-.badge-disabled {
-  background: rgba(255, 160, 100, 0.1);
-  color: #ffa064;
-  border: 1px solid rgba(255, 160, 100, 0.3);
-}
-
-.preset-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.preset-btn {
-  font-size: 0.78rem;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(154, 173, 201, 0.2);
-  color: inherit;
-  cursor: pointer;
-}
-
-.preset-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.82rem;
-}
-
-.field-wide {
-  grid-column: span 2;
-}
-
-.field span {
-  color: rgba(219, 227, 240, 0.6);
-  font-size: 0.75rem;
-}
-
-.field input,
-.field select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.2);
-  border-radius: 6px;
-  padding: 6px 8px;
-  color: inherit;
-  font: inherit;
-  font-size: 0.82rem;
-}
-
-.checkbox-field {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  padding-top: 18px;
-}
-
-.payload-preview {
-  font-size: 0.78rem;
-}
-
-.payload-preview summary {
-  cursor: pointer;
-  color: rgba(219, 227, 240, 0.5);
-  user-select: none;
-}
-
-.payload-preview pre {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(154, 173, 201, 0.15);
-  border-radius: 6px;
-  padding: 10px;
-  overflow-x: auto;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  margin: 6px 0 0;
-}
-
-.tester-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.send-btn {
-  padding: 8px 20px;
-  font-size: 0.85rem;
-  border-radius: 8px;
-}
-
-.msg {
-  font-size: 0.82rem;
-  margin: 0;
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.msg-error {
-  background: rgba(255, 80, 80, 0.1);
-  color: #ff8080;
-  border: 1px solid rgba(255, 80, 80, 0.2);
-}
-
-.msg-success {
-  background: rgba(80, 255, 150, 0.1);
-  color: #50ff96;
-  border: 1px solid rgba(80, 255, 150, 0.2);
-}
-
-.result-box {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(154, 173, 201, 0.15);
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
-}
-
-.result-label {
-  margin: 0 0 4px;
-  font-weight: 600;
-  font-size: 0.78rem;
-  color: rgba(219, 227, 240, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.result-row {
-  display: flex;
-  gap: 10px;
-}
-
-.result-key {
-  color: rgba(219, 227, 240, 0.5);
-  min-width: 80px;
-}
-
-.outcome-sent { color: #82ffb4; }
-.outcome-failed { color: #ff8080; }
-.outcome-skipped { color: #ffa064; }
-</style>

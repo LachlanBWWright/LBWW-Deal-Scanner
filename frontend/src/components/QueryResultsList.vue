@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SearchResultItem } from "./queryTypes";
+import { formatDisplayLabel } from "../utils/displayLabels";
 
 const props = defineProps<{
   searchResults: SearchResultItem[];
@@ -42,7 +43,7 @@ export default {};
         class="query-card"
       >
         <div class="query-header">
-          <strong>{{ result.source }}</strong>
+          <strong>{{ formatDisplayLabel(result.source) }}</strong>
           <span>{{ formatFoundAt(result.foundAt) }}</span>
         </div>
 
@@ -50,7 +51,7 @@ export default {};
 
         <div class="result-meta">
           <span v-if="result.price !== null">Price: {{ result.price }}</span>
-          <span v-if="result.queryType">Query type: {{ result.queryType }}</span>
+          <span v-if="result.queryType">Query type: {{ formatDisplayLabel(result.queryType) }}</span>
           <span v-if="result.queryId">Query id: {{ result.queryId }}</span>
         </div>
 
@@ -75,12 +76,13 @@ export default {};
   margin: 0 0 8px;
   color: rgba(238, 243, 251, 0.92);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .result-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 8px;
   color: rgba(215, 222, 234, 0.68);
   font-size: 0.8rem;
@@ -88,7 +90,7 @@ export default {};
 
 .result-link {
   color: #79b8ff;
-  word-break: break-all;
+  overflow-wrap: anywhere;
   font-size: 0.8rem;
 }
 

@@ -12,6 +12,10 @@ import {
   type ApiStatus,
 } from "./api/client";
 import QueryManager from "./components/QueryManager.vue";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toError } from "./utils/neverthrowUtils";
 import { useTestingConsole } from "./composables/useTestingConsole";
 
@@ -29,6 +33,13 @@ type Tab = "queries" | "scans" | "notifications" | "outcomes";
 const activeTab = ref<Tab>("queries");
 const tabs: Tab[] = ["queries", "scans", "notifications", "outcomes"];
 
+function tabLabel(tab: Tab) {
+  if (tab === "queries") return "Queries";
+  if (tab === "scans") return "Manual scans";
+  if (tab === "notifications") return "Notifications";
+  return "Outcomes";
+}
+
 const runtime = ref<ApiStatus | null>(null);
 const loading = ref(false);
 const errorMessage = ref<string | null>(null);
@@ -36,7 +47,11 @@ const apiHost = ref(getApiHost());
 const apiSecret = ref(getApiSecret());
 const showSettings = ref(false);
 
-const { capabilities, loadCapabilities } = useTestingConsole();
+const {
+  capabilities,
+  loading: testingLoading,
+  loadCapabilities,
+} = useTestingConsole();
 
 const botStatus = computed(() => {
   const bot = runtime.value?.bot;
@@ -52,9 +67,15 @@ const scanStatus = computed(() => {
   return { label: "Idle", dot: "dot-amber" };
 });
 
-const testingBadge = computed(() =>
-  capabilities.value?.testingEnabled ? "Testing ON" : "Testing OFF",
-);
+const testingBadge = computed(() => {
+  if (testingLoading.value) return "Testing loading...";
+  return capabilities.value?.testingEnabled ? "Testing ON" : "Testing OFF";
+});
+
+const testingBadgeVariant = computed(() => {
+  if (testingLoading.value) return "secondary";
+  return capabilities.value?.testingEnabled ? "success" : "warning";
+});
 
 function saveSettings() {
   setApiHost(apiHost.value);
@@ -88,94 +109,68 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="console-shell">
-    <!-- Top bar -->
-    <header class="top-bar">
-      <span class="app-name">DealScanner</span>
+  <div class="flex min-h-dvh w-full flex-col">
+    <header class="sticky top-0 z-30 border-b border-border/80 bg-slate-950/90 backdrop-blur">
+      <div class="mx-auto flex w-full max-w-7xl flex-col gap-1 px-3 py-1 sm:px-4">
+        <div class="flex min-h-0 flex-wrap items-center gap-2">
+          <nav class="flex flex-1 flex-wrap gap-2 overflow-x-auto">
+            <Button
+              v-for="tab in tabs"
+              :key="tab"
+              :variant="activeTab === tab ? 'default' : 'secondary'"
+              size="sm"
+              class="h-8 px-3"
+              @click="activeTab = tab"
+            >
+              {{ tabLabel(tab) }}
+            </Button>
+          </nav>
 
-      <div class="status-chips">
-        <span class="chip">
-          <span class="dot" :class="botStatus.dot" />
-          Bot: {{ botStatus.label }}
-        </span>
-        <span class="chip">
-          <span class="dot" :class="scanStatus.dot" />
-          Scan: {{ scanStatus.label }}
-        </span>
-        <span
-          class="chip"
-          :class="capabilities?.testingEnabled ? 'chip-green' : 'chip-muted'"
-        >
-          {{ testingBadge }}
-        </span>
-      </div>
+          <div class="ml-auto flex flex-wrap items-center gap-2">
+            <Badge variant="outline">Bot: {{ botStatus.label }}</Badge>
+            <Badge variant="outline">Scan: {{ scanStatus.label }}</Badge>
+            <Badge :variant="testingBadgeVariant">{{ testingBadge }}</Badge>
+            <Button size="icon" variant="outline" :disabled="loading" title="Refresh status" @click="refresh">
+              {{ loading ? "…" : "↻" }}
+            </Button>
+            <Button size="icon" variant="outline" title="API settings" @click="showSettings = !showSettings">
+              ⚙
+            </Button>
+          </div>
+        </div>
 
-      <div class="top-actions">
-        <button
-          class="icon-btn"
-          :disabled="loading"
-          title="Refresh status"
-          @click="refresh"
-        >
-          {{ loading ? "…" : "↻" }}
-        </button>
-        <button class="icon-btn" title="API settings" @click="showSettings = !showSettings">
-          ⚙
-        </button>
+        <div v-if="showSettings" class="grid gap-3 rounded-lg border border-border/70 bg-card/70 p-3 md:grid-cols-3">
+          <div class="space-y-2 md:col-span-1">
+            <Label>API host</Label>
+            <Input v-model="apiHost" type="text" placeholder="Leave empty for current host" />
+          </div>
+          <div class="space-y-2 md:col-span-1">
+            <Label>API secret</Label>
+            <Input v-model="apiSecret" type="password" placeholder="••••••••" />
+          </div>
+          <div class="flex items-end gap-2 md:col-span-1">
+            <Button @click="saveSettings">Save</Button>
+            <Button variant="secondary" @click="showSettings = false">Cancel</Button>
+          </div>
+          <p v-if="errorMessage" class="md:col-span-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200">{{ errorMessage }}</p>
+        </div>
       </div>
     </header>
 
-    <!-- Settings drawer -->
-    <div v-if="showSettings" class="settings-drawer">
-      <label class="setting-field">
-        <span>API host</span>
-        <input v-model="apiHost" type="text" placeholder="Leave empty for current host" />
-      </label>
-      <label class="setting-field">
-        <span>API secret</span>
-        <input v-model="apiSecret" type="password" placeholder="••••••••" />
-      </label>
-      <div class="setting-actions">
-        <button class="primary" @click="saveSettings">Save</button>
-        <button class="secondary" @click="showSettings = false">Cancel</button>
-      </div>
-      <p v-if="errorMessage" class="setting-error">{{ errorMessage }}</p>
-    </div>
-
-    <!-- Tab bar -->
-    <nav class="tab-bar">
-      <button
-        v-for="tab in tabs"
-        :key="tab"
-        class="tab-btn"
-        :class="{ active: activeTab === tab }"
-        @click="activeTab = tab"
-      >
-        {{
-          tab === "queries" ? "Queries"
-          : tab === "scans" ? "Manual scans"
-          : tab === "notifications" ? "Notifications"
-          : "Outcomes"
-        }}
-      </button>
-    </nav>
-
-    <!-- Tab content -->
-    <main class="console-content">
-      <div v-if="activeTab === 'queries'">
-        <QueryManager />
-      </div>
-
-      <div v-if="activeTab === 'scans'" class="tab-pane">
-        <ManualScanTester />
-      </div>
-
-      <div v-if="activeTab === 'notifications'" class="tab-pane">
-        <NotificationTester />
-      </div>
-
-      <div v-if="activeTab === 'outcomes'" class="tab-pane">
-        <TestingOutcomes />
+    <main class="flex min-h-0 flex-1">
+      <div class="mx-auto flex min-h-0 w-full max-w-7xl flex-1 px-3 py-2 sm:px-4">
+        <div class="flex min-h-0 w-full flex-1">
+          <QueryManager v-if="activeTab === 'queries'" :apiHost="apiHost" :apiSecret="apiSecret" />
+          <div v-if="activeTab === 'scans'" class="mx-auto flex min-h-0 w-full max-w-5xl flex-1">
+            <ManualScanTester />
+          </div>
+          <div v-if="activeTab === 'notifications'" class="mx-auto flex min-h-0 w-full max-w-5xl flex-1">
+            <NotificationTester />
+          </div>
+          <div v-if="activeTab === 'outcomes'" class="mx-auto flex min-h-0 w-full max-w-5xl flex-1">
+            <TestingOutcomes />
+          </div>
+        </div>
       </div>
     </main>
   </div>

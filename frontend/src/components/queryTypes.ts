@@ -1,4 +1,5 @@
 import type { paths } from "../api/schema";
+import { formatDisplayLabel } from "../utils/displayLabels";
 
 export type QueryItem =
   paths["/api/queries"]["get"]["responses"][200]["content"]["application/json"]["queries"][number];
@@ -45,3 +46,7 @@ export const supportedQueryTypes: QueryType[] = [
   "steamMarket",
   "csTradeBot",
 ];
+
+export function formatQueryTypeLabel(type: QueryType): string {
+  return formatDisplayLabel(type);
+}

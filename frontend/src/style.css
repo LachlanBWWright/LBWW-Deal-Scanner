@@ -1,298 +1,54 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  color-scheme: dark;
-  font-family:
-    Inter, "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #d7deea;
-  background: #0b1018;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --background: 222 46% 8%;
+  --foreground: 215 28% 92%;
+  --card: 222 38% 12%;
+  --card-foreground: 215 28% 92%;
+  --popover: 222 38% 12%;
+  --popover-foreground: 215 28% 92%;
+  --primary: 210 91% 56%;
+  --primary-foreground: 220 30% 8%;
+  --secondary: 220 27% 19%;
+  --secondary-foreground: 214 26% 88%;
+  --muted: 220 26% 16%;
+  --muted-foreground: 216 16% 68%;
+  --accent: 215 73% 22%;
+  --accent-foreground: 209 100% 84%;
+  --destructive: 0 70% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 219 24% 24%;
+  --input: 219 24% 24%;
+  --ring: 210 91% 56%;
+  --radius: 0.7rem;
 }
 
 * {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
-  min-height: 100%;
-  margin: 0;
+  @apply border-border;
 }
 
 body {
+  @apply bg-background text-foreground antialiased;
+  color-scheme: dark;
+  font-family: "Manrope", "IBM Plex Sans", sans-serif;
   min-height: 100vh;
-  background: #0b1018;
+  background-image:
+    radial-gradient(circle at 8% 0%, rgba(42, 125, 255, 0.26), transparent 34%),
+    radial-gradient(circle at 92% 10%, rgba(20, 84, 172, 0.2), transparent 36%),
+    linear-gradient(180deg, #0b1222 0%, #0a152d 54%, #0a1220 100%);
 }
 
-button {
-  font: inherit;
-  border: 0;
-  cursor: pointer;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease,
-    opacity 120ms ease;
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
 }
 
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-select,
-optgroup {
-  color: #d7deea;
-  background-color: #111927;
-}
-
-option {
-  color: #0d1420;
-  background-color: #f3f6fb;
-}
-
-select {
-  border: 1px solid rgba(154, 173, 201, 0.22);
-}
-
-select:focus {
-  outline: 1px solid rgba(87, 166, 255, 0.65);
-  outline-offset: 1px;
-}
-
-/* ─── Console shell ──────────────────────────────────────────────────────── */
-
-.console-shell {
-  display: flex;
-  flex-direction: column;
+#app {
   min-height: 100vh;
-}
-
-/* ─── Top bar ────────────────────────────────────────────────────────────── */
-
-.top-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: rgba(11, 16, 24, 0.94);
-  border-bottom: 1px solid rgba(139, 152, 173, 0.18);
-  backdrop-filter: blur(8px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  flex-wrap: wrap;
-}
-
-.app-name {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #eef3fb;
-  margin-right: 4px;
-}
-
-.status-chips {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.76rem;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(139, 152, 173, 0.18);
-  color: rgba(215, 222, 234, 0.78);
-}
-
-.chip-green {
-  background: rgba(65, 185, 120, 0.1);
-  border-color: rgba(65, 185, 120, 0.3);
-  color: #79d99b;
-}
-
-.chip-muted {
-  opacity: 0.55;
-}
-
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.dot-lime { background: #79d99b; }
-.dot-amber { background: #d6a84f; }
-.dot-cyan { background: #57a6ff; }
-
-.top-actions {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-
-.icon-btn {
-  min-width: 34px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(139, 152, 173, 0.16);
-  border-radius: 6px;
-  padding: 4px 10px;
-  color: inherit;
-  font-size: 0.85rem;
-}
-
-.icon-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* ─── Settings drawer ────────────────────────────────────────────────────── */
-
-.settings-drawer {
-  background: #0e1520;
-  border-bottom: 1px solid rgba(139, 152, 173, 0.16);
-  padding: 12px 16px;
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-
-.setting-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
-}
-
-.setting-field span {
-  color: rgba(215, 222, 234, 0.55);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.setting-field input {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(139, 152, 173, 0.22);
-  border-radius: 6px;
-  padding: 6px 10px;
-  color: inherit;
-  font: inherit;
-  font-size: 0.82rem;
-  min-width: 200px;
-}
-
-.setting-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.setting-error {
-  font-size: 0.8rem;
-  color: #ff8080;
-  margin: 0;
-}
-
-/* ─── Tab bar ─────────────────────────────────────────────────────────────── */
-
-.tab-bar {
-  display: flex;
-  gap: 0;
-  padding: 0 16px;
-  background: #0e1520;
-  border-bottom: 1px solid rgba(139, 152, 173, 0.14);
-}
-
-.tab-btn {
-  background: transparent;
-  padding: 9px 14px;
-  font-size: 0.82rem;
-  color: rgba(215, 222, 234, 0.55);
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  transition: color 120ms, border-color 120ms, background 120ms;
-}
-
-.tab-btn:hover {
-  color: rgba(215, 222, 234, 0.9);
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.tab-btn.active {
-  color: #eef3fb;
-  border-bottom-color: #57a6ff;
-  background: rgba(87, 166, 255, 0.08);
-}
-
-/* ─── Console content ─────────────────────────────────────────────────────── */
-
-.console-content {
-  flex: 1;
-  padding: 0;
-}
-
-.tab-pane {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 16px;
-}
-
-/* ─── Shared button styles ────────────────────────────────────────────────── */
-
-.primary {
-  background: #2f81f7;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  padding: 7px 13px;
-  font-weight: 600;
-}
-
-.primary:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-
-.secondary {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(139, 152, 173, 0.22);
-  border-radius: 6px;
-  padding: 7px 12px;
-  color: inherit;
-}
-
-.secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
-}
-
-@keyframes pane-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 640px) {
-  .tab-btn {
-    padding: 8px 10px;
-    font-size: 0.76rem;
-  }
-
-  .tab-pane {
-    padding: 14px 12px;
-  }
 }

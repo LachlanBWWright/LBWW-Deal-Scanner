@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { QueryType, QueryFormState, FormField } from "./queryTypes";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { QueryItem, QueryType, QueryFormState, FormField } from "./queryTypes";
+import { formatQueryTypeLabel } from "./queryTypes";
 
 const props = defineProps<{
   selectedType: QueryType;
   form: QueryFormState;
   formFields: FormField[];
-  editingQuery: boolean;
+  editingQuery: QueryItem | null;
   saving: boolean;
 }>();
 
@@ -16,7 +21,21 @@ const emit = defineEmits<{
   (e: "reset"): void;
 }>();
 
-const title = computed(() => (props.editingQuery ? "Update query" : "Create query"));
+const isEditing = computed(() => props.editingQuery !== null);
+const title = computed(() => (isEditing.value ? "Update query" : "Create query"));
+const subtitle = computed(() => {
+  if (!props.editingQuery) {
+    return "Create a new saved query with the selected source rules.";
+  }
+
+  const label = formatQueryTypeLabel(props.editingQuery.type);
+  const identity =
+    props.editingQuery.name ||
+    props.editingQuery.displayUrl ||
+    props.editingQuery.url ||
+    props.editingQuery.id;
+  return `Editing ${label} · ${identity}`;
+});
 
 function updateField(field: FormField, rawValue: string) {
   const value =
@@ -35,15 +54,9 @@ function updateDmOnly(value: boolean) {
 }
 
 function onFieldInput(field: FormField, event: Event) {
-  const target = event.target as HTMLInputElement | null;
-  if (!target) return;
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
   updateField(field, target.value);
-}
-
-function onDmOnlyChange(event: Event) {
-  const target = event.target as HTMLInputElement | null;
-  if (!target) return;
-  updateDmOnly(target.checked);
 }
 
 function fieldValue(key: FormField["key"]): string | number {
@@ -56,18 +69,28 @@ export default {};
 </script>
 
 <template>
-  <form @submit.prevent="$emit('save')">
-    <p class="editor-note">
-      {{ props.editingQuery ? "Editing existing query values." : "Create a new query using the selected type." }}
-    </p>
-    <div class="field-grid">
+  <form class="space-y-4" @submit.prevent="$emit('save')">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          {{ isEditing ? "Edit mode" : "New query" }}
+        </p>
+        <h3 class="text-lg font-semibold tracking-tight">{{ title }}</h3>
+        <p class="text-sm text-muted-foreground">
+          {{ subtitle }}
+        </p>
+      </div>
+      <p v-if="isEditing" class="rounded-full border border-sky-200 bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800">Editing</p>
+    </div>
+
+    <div class="grid gap-3 sm:grid-cols-2">
       <div
         v-for="field in props.formFields"
         :key="field.key"
-        class="field-group"
+        class="space-y-2"
       >
-        <label :for="field.key">{{ field.label }}</label>
-        <input
+        <Label :for="field.key">{{ field.label }}</Label>
+        <Input
           :id="field.key"
           :type="field.type"
           :value="fieldValue(field.key)"
@@ -77,31 +100,18 @@ export default {};
       </div>
     </div>
 
-    <div class="field-group">
-      <label class="field-switch">
-        <input
-          type="checkbox"
-          :checked="props.form.dmOnly"
-          @change="onDmOnlyChange($event)"
-        />
-        Send notifications as DM only
-      </label>
+    <div class="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2">
+      <Checkbox :model-value="props.form.dmOnly" @update:model-value="updateDmOnly" />
+      <Label>Send notifications as DM only</Label>
     </div>
 
-    <div class="hero-actions">
-      <button class="primary" :disabled="props.saving" type="submit">
+    <div class="flex flex-wrap gap-2">
+      <Button :disabled="props.saving" type="submit">
         {{ title }}
-      </button>
-      <button class="secondary" type="button" @click="$emit('reset')" :disabled="props.saving">
-        Reset form
-      </button>
+      </Button>
+      <Button variant="secondary" type="button" @click="$emit('reset')" :disabled="props.saving">
+        {{ isEditing ? "Cancel edit" : "Reset form" }}
+      </Button>
     </div>
   </form>
 </template>
-
-<style scoped>
-.editor-note {
-  margin: 0 0 10px;
-  color: rgba(219, 227, 240, 0.78);
-}
-</style>

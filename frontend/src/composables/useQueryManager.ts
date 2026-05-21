@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch, type ComputedRef } from "vue";
 import {
   supportedQueryTypes,
   type QueryType,
@@ -9,23 +9,9 @@ import {
 } from "../components/queryTypes";
 import { ResultAsync } from "neverthrow";
 import { toError } from "../utils/neverthrowUtils";
+import { formatQueryTypeLabel } from "../components/queryTypes";
 
-const STORAGE_HOST_KEY = "dealscannerApiHost";
-const STORAGE_SECRET_KEY = "dealscannerApiSecret";
-const DEFAULT_API_HOST = import.meta.env.VITE_API_HOST?.trim() ?? "";
-const DEFAULT_API_SECRET = import.meta.env.VITE_API_SECRET?.trim() ?? "";
-
-function getStoredValue(storageKey: string, fallback: string) {
-  const stored = localStorage.getItem(storageKey);
-  if (stored && stored.trim().length > 0) {
-    return stored;
-  }
-  return fallback;
-}
-
-export function useQueryManager() {
-  const apiHost = ref(getStoredValue(STORAGE_HOST_KEY, DEFAULT_API_HOST));
-  const apiSecret = ref(getStoredValue(STORAGE_SECRET_KEY, DEFAULT_API_SECRET));
+export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: ComputedRef<string>) {
   const queries = ref<QueryItem[]>([]);
   const filterType = ref<QueryType | "all">("all");
   const querySearch = ref("");
@@ -88,6 +74,7 @@ export function useQueryManager() {
   const queryStats = computed(() => {
     return supportedQueryTypes.map((type) => ({
       type,
+      typeLabel: formatQueryTypeLabel(type),
       count: queries.value.filter((item) => item.type === type).length,
     }));
   });
@@ -189,12 +176,12 @@ export function useQueryManager() {
     return value;
   }
 
-  function buildPayload() {
+  function buildPayload(type: QueryType = selectedType.value) {
     const payload: Record<string, unknown> = {
       dmOnly: form.value.dmOnly,
     };
 
-    switch (selectedType.value) {
+    switch (type) {
       case "cashConverters":
         payload.url = form.value.url;
         payload.requiredPhrases = form.value.requiredPhrases;
@@ -261,10 +248,13 @@ export function useQueryManager() {
   }
 
   function buildFetchHeaders() {
-    return {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      ...(apiSecret.value ? { "x-api-secret": apiSecret.value } : {}),
-    } as HeadersInit;
+    };
+    if (apiSecret.value) {
+      headers["x-api-secret"] = apiSecret.value;
+    }
+    return headers;
   }
 
   async function refreshQueries() {
@@ -345,18 +335,20 @@ export function useQueryManager() {
     searchResults.value = dataResult.value.results ?? [];
   }
 
-  async function saveQuery() {
+  async function saveQuery(): Promise<boolean> {
     saving.value = true;
     errorMessage.value = null;
     successMessage.value = null;
 
+    const targetType = editingQuery.value?.type ?? selectedType.value;
+
     const body = {
-      type: selectedType.value,
-      payload: buildPayload(),
+      type: targetType,
+      payload: buildPayload(targetType),
     };
     if (body.payload === null) {
       saving.value = false;
-      return;
+      return false;
     }
 
     const responseResult = await ResultAsync.fromThrowable(
@@ -374,14 +366,14 @@ export function useQueryManager() {
     if (responseResult.isErr()) {
       errorMessage.value = responseResult.error.message;
       saving.value = false;
-      return;
+      return false;
     }
 
     const response = responseResult.value;
     if (!response.ok) {
       errorMessage.value = `Failed to save query (${response.status})`;
       saving.value = false;
-      return;
+      return false;
     }
 
     successMessage.value = editingQuery.value
@@ -396,21 +388,14 @@ export function useQueryManager() {
     if (refreshResult.isErr()) {
       errorMessage.value = refreshResult.error.message;
       saving.value = false;
-      return;
+      return false;
     }
 
     saving.value = false;
+    return true;
   }
 
-  async function deleteQuery(item: QueryItem) {
-    if (
-      !window.confirm(
-        `Delete ${item.type} query ${item.id}? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
-
+  async function deleteQuery(item: QueryItem): Promise<boolean> {
     saving.value = true;
     errorMessage.value = null;
     successMessage.value = null;
@@ -428,14 +413,14 @@ export function useQueryManager() {
     if (responseResult.isErr()) {
       errorMessage.value = responseResult.error.message;
       saving.value = false;
-      return;
+      return false;
     }
 
     const response = responseResult.value;
     if (!response.ok) {
       errorMessage.value = `Failed to delete query (${response.status})`;
       saving.value = false;
-      return;
+      return false;
     }
 
     successMessage.value = "Query deleted successfully.";
@@ -453,33 +438,11 @@ export function useQueryManager() {
     if (refreshResult.isErr()) {
       errorMessage.value = refreshResult.error.message;
       saving.value = false;
-      return;
+      return false;
     }
 
     saving.value = false;
-  }
-
-  function setApiHost() {
-    localStorage.setItem(STORAGE_HOST_KEY, apiHost.value);
-    localStorage.setItem(STORAGE_SECRET_KEY, apiSecret.value);
-    successMessage.value = apiHost.value
-      ? `Using API host ${apiHost.value}`
-      : `Using current host`;
-    if (apiSecret.value) {
-      successMessage.value += " with API secret.";
-    }
-    errorMessage.value = null;
-    void refreshQueries();
-  }
-
-  function clearApiHost() {
-    apiHost.value = "";
-    apiSecret.value = "";
-    localStorage.removeItem(STORAGE_HOST_KEY);
-    localStorage.removeItem(STORAGE_SECRET_KEY);
-    successMessage.value = "Using current host";
-    errorMessage.value = null;
-    void refreshQueries();
+    return true;
   }
 
   function startEditing(item: QueryItem) {
@@ -488,14 +451,16 @@ export function useQueryManager() {
     errorMessage.value = null;
   }
 
+  watch([apiHost, apiSecret], () => {
+    void refreshQueries();
+  });
+
   onMounted(() => {
     void refreshQueries();
   });
 
   return {
     supportedQueryTypes,
-    apiHost,
-    apiSecret,
     querySearch,
     queryStats,
     selectedQueryPreview,
@@ -511,8 +476,6 @@ export function useQueryManager() {
     filteredQueries,
     searchResults,
     formFields,
-    setApiHost,
-    clearApiHost,
     selectType,
     saveQuery,
     resetForm,

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { Button } from "@/components/ui/button";
 import type { QueryType } from "./queryTypes";
+import { formatQueryTypeLabel } from "./queryTypes";
 
 const props = defineProps<{
   supportedTypes: QueryType[];
@@ -19,20 +21,19 @@ export default {};
 </script>
 
 <template>
-  <div class="field-grid">
-    <div class="field-group type-selector">
-      <span class="label">Query type</span>
-      <div class="type-options">
-        <button
-          v-for="type in props.supportedTypes"
-          :key="type"
-          type="button"
-          :class="[{ active: props.selectedType === type }, 'type-button']"
-          @click="chooseType(type)"
-        >
-          {{ type }}
-        </button>
-      </div>
+  <div class="space-y-2">
+    <p class="text-sm font-medium text-foreground">Query type</p>
+    <div class="flex flex-wrap gap-2">
+      <Button
+        v-for="type in props.supportedTypes"
+        :key="type"
+        type="button"
+        size="sm"
+        :variant="props.selectedType === type ? 'default' : 'outline'"
+        @click="chooseType(type)"
+      >
+        {{ formatQueryTypeLabel(type) }}
+      </Button>
     </div>
   </div>
 </template>

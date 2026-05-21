@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useTestingConsole } from "../composables/useTestingConsole";
 import type { TestingScanRequestBody } from "../composables/useTestingConsole";
+import { formatDisplayLabel } from "../utils/displayLabels";
 
 type ScannerType = TestingScanRequestBody["type"];
 
@@ -17,6 +25,7 @@ const defaultScannerTypes: ScannerType[] = [
 
 const {
   capabilities,
+  loading: testingLoading,
   lastScanResult,
   scanning,
   errorMessage,
@@ -28,7 +37,6 @@ const scannerType = ref<ScannerType>("ebay");
 const notifyToggle = ref(false);
 const validationMessage = ref<string | null>(null);
 
-// Per-scanner payload fields
 const url = ref("");
 const maxPrice = ref("");
 const minPrice = ref("");
@@ -39,31 +47,23 @@ const name = ref("");
 const requiredPhrases = ref("");
 const excludePhrases = ref("");
 
-const testingEnabled = computed(() => capabilities.value?.testingEnabled ?? false);
+const testingEnabled = computed(() => capabilities.value?.testingEnabled === true);
+const testingStatusLabel = computed(() => {
+  if (testingLoading.value) return "Testing loading...";
+  return testingEnabled.value ? "Testing enabled" : "Testing disabled";
+});
+const testingStatusVariant = computed(() => {
+  if (testingLoading.value) return "secondary";
+  return testingEnabled.value ? "success" : "warning";
+});
 const supportedScannerTypes = computed<ScannerType[]>(() => {
   const types = capabilities.value?.availableScannerTypes ?? [];
   const scannerTypes = types.filter(isScannerType);
   return scannerTypes.length > 0 ? scannerTypes : defaultScannerTypes;
 });
 
-const scannerLabel = computed(() => {
-  switch (scannerType.value) {
-    case "cashConverters":
-      return "Cash Converters";
-    case "csMarket":
-      return "CS Market";
-    case "csTradeBot":
-      return "CS Trade Bot";
-    case "steamMarket":
-      return "Steam Market";
-    default:
-      return scannerType.value;
-  }
-});
-
-const payloadPreview = computed(() => {
-  return JSON.stringify(buildPayload(), null, 2);
-});
+const scannerLabel = computed(() => formatDisplayLabel(scannerType.value));
+const payloadPreview = computed(() => JSON.stringify(buildPayload(), null, 2));
 
 const dealScanPreview = computed(() => ({
   type: scannerType.value,
@@ -74,7 +74,7 @@ const dealScanPreview = computed(() => ({
 }));
 
 function isScannerType(value: string): value is ScannerType {
-  return defaultScannerTypes.some((scannerType) => scannerType === value);
+  return defaultScannerTypes.some((scannerTypeValue) => scannerTypeValue === value);
 }
 
 function optionalNumber(value: unknown) {
@@ -119,54 +119,34 @@ function buildPayload(): Record<string, unknown> {
     case "cashConverters":
       return {
         url: url.value,
-        ...(requiredPhrases.value.trim() && {
-          requiredPhrases: requiredPhrases.value,
-        }),
-        ...(excludePhrases.value.trim() && {
-          excludePhrases: excludePhrases.value,
-        }),
+        ...(requiredPhrases.value.trim() && { requiredPhrases: requiredPhrases.value }),
+        ...(excludePhrases.value.trim() && { excludePhrases: excludePhrases.value }),
       };
     case "salvos":
       return {
         name: name.value,
-        ...(optionalNumber(minPrice.value) !== undefined && {
-          minPrice: optionalNumber(minPrice.value),
-        }),
-        ...(optionalNumber(maxPrice.value) !== undefined && {
-          maxPrice: optionalNumber(maxPrice.value),
-        }),
+        ...(optionalNumber(minPrice.value) !== undefined && { minPrice: optionalNumber(minPrice.value) }),
+        ...(optionalNumber(maxPrice.value) !== undefined && { maxPrice: optionalNumber(maxPrice.value) }),
       };
     case "csMarket":
       return {
         url: url.value,
         displayUrl: displayUrl.value || url.value,
-        ...(optionalNumber(maxPrice.value) !== undefined && {
-          maxPrice: optionalNumber(maxPrice.value),
-        }),
-        ...(optionalNumber(maxFloat.value) !== undefined && {
-          maxFloat: optionalNumber(maxFloat.value),
-        }),
+        ...(optionalNumber(maxPrice.value) !== undefined && { maxPrice: optionalNumber(maxPrice.value) }),
+        ...(optionalNumber(maxFloat.value) !== undefined && { maxFloat: optionalNumber(maxFloat.value) }),
       };
     case "steamMarket":
       return {
         name: name.value,
         displayUrl: displayUrl.value || name.value,
-        ...(optionalNumber(maxPrice.value) !== undefined && {
-          maxPrice: optionalNumber(maxPrice.value),
-        }),
+        ...(optionalNumber(maxPrice.value) !== undefined && { maxPrice: optionalNumber(maxPrice.value) }),
       };
     case "csTradeBot":
       return {
         name: name.value,
-        ...(optionalNumber(minFloat.value) !== undefined && {
-          minFloat: optionalNumber(minFloat.value),
-        }),
-        ...(optionalNumber(maxFloat.value) !== undefined && {
-          maxFloat: optionalNumber(maxFloat.value),
-        }),
-        ...(optionalNumber(maxPrice.value) !== undefined && {
-          maxPrice: optionalNumber(maxPrice.value),
-        }),
+        ...(optionalNumber(minFloat.value) !== undefined && { minFloat: optionalNumber(minFloat.value) }),
+        ...(optionalNumber(maxFloat.value) !== undefined && { maxFloat: optionalNumber(maxFloat.value) }),
+        ...(optionalNumber(maxPrice.value) !== undefined && { maxPrice: optionalNumber(maxPrice.value) }),
       };
     default:
       return {};
@@ -174,11 +154,7 @@ function buildPayload(): Record<string, unknown> {
 }
 
 function identityPreview() {
-  if (
-    scannerType.value === "salvos" ||
-    scannerType.value === "steamMarket" ||
-    scannerType.value === "csTradeBot"
-  ) {
+  if (scannerType.value === "salvos" || scannerType.value === "steamMarket" || scannerType.value === "csTradeBot") {
     return name.value || "(missing name)";
   }
   return url.value || "(missing URL)";
@@ -208,13 +184,18 @@ function resetFields() {
   validationMessage.value = null;
 }
 
+function onTypeChange(event: Event) {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement)) return;
+  if (isScannerType(target.value)) {
+    scannerType.value = target.value;
+    resetFields();
+  }
+}
+
 function validate() {
   validationMessage.value = null;
-  if (
-    scannerType.value === "ebay" ||
-    scannerType.value === "gumtree" ||
-    scannerType.value === "cashConverters"
-  ) {
+  if (scannerType.value === "ebay" || scannerType.value === "gumtree" || scannerType.value === "cashConverters") {
     requiredText(url.value, "Query URL");
     return !validationMessage.value;
   }
@@ -264,496 +245,175 @@ export default {};
 </script>
 
 <template>
-  <div class="tester-panel">
-    <div class="tester-header">
-      <h3>Manual Scan Tester</h3>
-      <span class="hint">Temporary scan input — no user query is saved</span>
-      <div v-if="!testingEnabled" class="badge badge-disabled">Testing disabled</div>
-      <div v-else class="badge badge-enabled">Testing enabled</div>
-    </div>
-
-    <div class="field-grid">
-      <label class="field">
-        <span>Scanner type</span>
-        <select v-model="scannerType" @change="resetFields">
-          <option v-for="t in supportedScannerTypes" :key="t" :value="t">{{ t }}</option>
-        </select>
-      </label>
-
-      <label class="field checkbox-field">
-        <input v-model="notifyToggle" type="checkbox" />
-        <span>Publish notifications</span>
-      </label>
-
-      <!-- eBay / Gumtree fields -->
-      <template v-if="scannerType === 'ebay' || scannerType === 'gumtree'">
-        <label class="field field-wide">
-          <span>Query URL</span>
-          <input v-model="url" type="url" placeholder="https://..." />
-        </label>
-        <label class="field">
-          <span>Max price</span>
-          <input v-model="maxPrice" type="number" step="0.01" min="0" />
-        </label>
-      </template>
-
-      <!-- Cash Converters fields -->
-      <template v-if="scannerType === 'cashConverters'">
-        <label class="field field-wide">
-          <span>Query URL</span>
-          <input v-model="url" type="url" placeholder="https://..." />
-        </label>
-        <label class="field">
-          <span>Required phrases</span>
-          <input v-model="requiredPhrases" type="text" placeholder="(optional)" />
-        </label>
-        <label class="field">
-          <span>Exclude phrases</span>
-          <input v-model="excludePhrases" type="text" placeholder="(optional)" />
-        </label>
-      </template>
-
-      <!-- Name-based fields -->
-      <template
-        v-if="
-          scannerType === 'salvos' ||
-          scannerType === 'steamMarket' ||
-          scannerType === 'csTradeBot'
-        "
-      >
-        <label class="field">
-          <span>{{ scannerType === "steamMarket" ? "Query name" : "Item name" }}</span>
-          <input v-model="name" type="text" placeholder="e.g. iPhone" />
-        </label>
-      </template>
-
-      <!-- Display URL fields -->
-      <template v-if="scannerType === 'csMarket' || scannerType === 'steamMarket'">
-        <label v-if="scannerType === 'csMarket'" class="field field-wide">
-          <span>Search URL</span>
-          <input v-model="url" type="url" placeholder="https://..." />
-        </label>
-        <label class="field field-wide">
-          <span>Display URL</span>
-          <input v-model="displayUrl" type="text" placeholder="Shown in notification" />
-        </label>
-      </template>
-
-      <!-- Salvos fields -->
-      <template v-if="scannerType === 'salvos'">
-        <label class="field">
-          <span>Min price</span>
-          <input v-model="minPrice" type="number" step="0.01" min="0" />
-        </label>
-        <label class="field">
-          <span>Max price</span>
-          <input v-model="maxPrice" type="number" step="0.01" min="0" />
-        </label>
-      </template>
-
-      <!-- CS / Steam fields -->
-      <template
-        v-if="
-          scannerType === 'csMarket' ||
-          scannerType === 'steamMarket' ||
-          scannerType === 'csTradeBot'
-        "
-      >
-        <label v-if="scannerType === 'csTradeBot'" class="field">
-          <span>Min float</span>
-          <input v-model="minFloat" type="number" step="0.0001" min="0" max="1" />
-        </label>
-        <label v-if="scannerType !== 'steamMarket'" class="field">
-          <span>Max float</span>
-          <input v-model="maxFloat" type="number" step="0.0001" min="0" max="1" />
-        </label>
-        <label class="field">
-          <span>Max price</span>
-          <input v-model="maxPrice" type="number" step="0.01" min="0" />
-        </label>
-      </template>
-    </div>
-
-    <p v-if="validationMessage" class="msg msg-error">{{ validationMessage }}</p>
-
-    <div class="preview-grid">
-      <div class="result-row">
-        <span class="result-key">Type</span>
-        <span>{{ scannerLabel }}</span>
+  <Card class="flex min-h-0 flex-1 flex-col">
+    <CardContent class="flex min-h-0 flex-1 flex-col space-y-5 pt-6">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-lg font-semibold tracking-tight">Manual Scan Tester</h2>
+        <Badge :variant="testingStatusVariant">{{ testingStatusLabel }}</Badge>
       </div>
-      <div class="result-row">
-        <span class="result-key">Identity</span>
-        <span>{{ dealScanPreview.identity }}</span>
-      </div>
-      <div class="result-row">
-        <span class="result-key">Delivery</span>
-        <span>{{ dealScanPreview.deliveryMode }}</span>
-      </div>
-      <div class="result-row">
-        <span class="result-key">Filters</span>
-        <span>{{ JSON.stringify(dealScanPreview.filters) }}</span>
-      </div>
-    </div>
+      <p class="text-sm text-muted-foreground">Temporary scan input. No saved query will be modified.</p>
 
-    <details class="payload-preview">
-      <summary>Generated payload</summary>
-      <pre>{{ payloadPreview }}</pre>
-    </details>
-
-    <div class="tester-actions">
-      <button
-        class="primary run-btn"
-        :disabled="scanning"
-        @click="run"
-      >
-        {{ scanning ? "Running scan..." : "Run scan" }}
-      </button>
-    </div>
-
-    <p v-if="errorMessage" class="msg msg-error">{{ errorMessage }}</p>
-    <p v-if="successMessage" class="msg msg-success">{{ successMessage }}</p>
-
-    <div v-if="lastScanResult" class="result-box">
-      <p class="result-label">Scan result</p>
-
-      <div class="result-row">
-        <span class="result-key">Duration</span>
-        <span>{{ lastScanResult.durationMs }}ms</span>
-      </div>
-      <div class="result-row">
-        <span class="result-key">Published</span>
-        <span>{{ lastScanResult.notificationsPublished ? "Yes" : "No" }}</span>
-      </div>
-      <div class="result-row">
-        <span class="result-key">Items found</span>
-        <span>{{ lastScanResult.items.length }}</span>
-      </div>
-
-      <template v-if="lastScanResult.errors.length">
-        <p class="section-label">Errors</p>
-        <div
-          v-for="(err, idx) in lastScanResult.errors"
-          :key="idx"
-          class="result-row"
-        >
-          <span class="outcome-failed">{{ err }}</span>
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="space-y-1.5">
+          <Label>Scanner type</Label>
+          <Select :model-value="scannerType" @change="onTypeChange">
+            <option v-for="t in supportedScannerTypes" :key="t" :value="t">{{ formatDisplayLabel(t) }}</option>
+          </Select>
         </div>
-      </template>
 
-      <template v-if="lastScanResult.items.length">
-        <p class="section-label">Items found ({{ lastScanResult.items.length }})</p>
-        <div
-          v-for="item in lastScanResult.items"
-          :key="item.url + item.title"
-          class="scan-item-card"
-          :class="{ 'scan-item-pass': item.passedFilters }"
-        >
-          <div class="notif-title">
-            <a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+        <div class="flex items-end md:col-span-1">
+          <div class="flex h-10 items-center gap-2 rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+            <Checkbox v-model="notifyToggle" />
+            <Label>Publish notifications</Label>
           </div>
-          <div class="notif-meta">
-            <span class="badge-source">{{ item.source }}</span>
-            <span v-if="item.price !== null">${{ item.price }}</span>
-            <span
-              class="filter-pill"
-              :class="item.passedFilters ? 'filter-pass' : 'filter-fail'"
+        </div>
+
+        <template v-if="scannerType === 'ebay' || scannerType === 'gumtree'">
+          <div class="space-y-1.5 md:col-span-2">
+            <Label>Query URL</Label>
+            <Input v-model="url" type="url" placeholder="https://..." />
+          </div>
+          <div class="space-y-1.5">
+            <Label>Max price</Label>
+            <Input v-model="maxPrice" type="number" step="0.01" min="0" />
+          </div>
+        </template>
+
+        <template v-if="scannerType === 'cashConverters'">
+          <div class="space-y-1.5 md:col-span-2">
+            <Label>Query URL</Label>
+            <Input v-model="url" type="url" placeholder="https://..." />
+          </div>
+          <div class="space-y-1.5">
+            <Label>Required phrases</Label>
+            <Input v-model="requiredPhrases" type="text" placeholder="(optional)" />
+          </div>
+          <div class="space-y-1.5">
+            <Label>Exclude phrases</Label>
+            <Input v-model="excludePhrases" type="text" placeholder="(optional)" />
+          </div>
+        </template>
+
+        <template v-if="scannerType === 'salvos' || scannerType === 'steamMarket' || scannerType === 'csTradeBot'">
+          <div class="space-y-1.5">
+            <Label>{{ scannerType === "steamMarket" ? "Query name" : "Item name" }}</Label>
+            <Input v-model="name" type="text" placeholder="e.g. iPhone" />
+          </div>
+        </template>
+
+        <template v-if="scannerType === 'csMarket' || scannerType === 'steamMarket'">
+          <div v-if="scannerType === 'csMarket'" class="space-y-1.5 md:col-span-2">
+            <Label>Search URL</Label>
+            <Input v-model="url" type="url" placeholder="https://..." />
+          </div>
+          <div class="space-y-1.5 md:col-span-2">
+            <Label>Display URL</Label>
+            <Input v-model="displayUrl" type="text" placeholder="Shown in notification" />
+          </div>
+        </template>
+
+        <template v-if="scannerType === 'salvos'">
+          <div class="space-y-1.5">
+            <Label>Min price</Label>
+            <Input v-model="minPrice" type="number" step="0.01" min="0" />
+          </div>
+          <div class="space-y-1.5">
+            <Label>Max price</Label>
+            <Input v-model="maxPrice" type="number" step="0.01" min="0" />
+          </div>
+        </template>
+
+        <template v-if="scannerType === 'csMarket' || scannerType === 'steamMarket' || scannerType === 'csTradeBot'">
+          <div v-if="scannerType === 'csTradeBot'" class="space-y-1.5">
+            <Label>Min float</Label>
+            <Input v-model="minFloat" type="number" step="0.0001" min="0" max="1" />
+          </div>
+          <div v-if="scannerType !== 'steamMarket'" class="space-y-1.5">
+            <Label>Max float</Label>
+            <Input v-model="maxFloat" type="number" step="0.0001" min="0" max="1" />
+          </div>
+          <div class="space-y-1.5">
+            <Label>Max price</Label>
+            <Input v-model="maxPrice" type="number" step="0.01" min="0" />
+          </div>
+        </template>
+      </div>
+
+      <p v-if="validationMessage" class="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200">{{ validationMessage }}</p>
+
+      <div class="grid gap-2 rounded-lg border border-border/70 bg-muted/30 p-4 text-sm sm:grid-cols-2">
+        <p><strong>Type:</strong> {{ scannerLabel }}</p>
+        <p><strong>Identity:</strong> {{ dealScanPreview.identity }}</p>
+        <p><strong>Delivery:</strong> {{ dealScanPreview.deliveryMode }}</p>
+        <p class="sm:col-span-2 break-all"><strong>Filters:</strong> {{ JSON.stringify(dealScanPreview.filters) }}</p>
+      </div>
+
+      <details class="rounded-md border border-border/70 bg-background/60 p-3 text-sm">
+        <summary class="cursor-pointer font-medium">Generated payload</summary>
+        <pre class="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">{{ payloadPreview }}</pre>
+      </details>
+
+      <div class="flex flex-wrap gap-2">
+        <Button :disabled="scanning" @click="run">{{ scanning ? "Running scan..." : "Run scan" }}</Button>
+      </div>
+
+      <p v-if="errorMessage" class="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-200">{{ successMessage }}</p>
+
+      <div v-if="lastScanResult" class="space-y-3 rounded-xl border border-border/70 bg-card p-4">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Scan result</p>
+
+        <div class="grid gap-2 text-sm sm:grid-cols-3">
+          <p><strong>Duration:</strong> {{ lastScanResult.durationMs }}ms</p>
+          <p><strong>Published:</strong> {{ lastScanResult.notificationsPublished ? "Yes" : "No" }}</p>
+          <p><strong>Items found:</strong> {{ lastScanResult.items.length }}</p>
+        </div>
+
+        <template v-if="lastScanResult.errors.length">
+          <p class="text-sm font-semibold text-red-200">Errors</p>
+          <p v-for="(err, idx) in lastScanResult.errors" :key="idx" class="text-sm text-red-200">{{ err }}</p>
+        </template>
+
+        <template v-if="lastScanResult.items.length">
+          <p class="text-sm font-semibold">Items found ({{ lastScanResult.items.length }})</p>
+          <div class="space-y-2">
+            <div
+              v-for="item in lastScanResult.items"
+              :key="item.url + item.title"
+              class="rounded-lg border p-3"
+              :class="item.passedFilters ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-amber-500/40 bg-amber-500/10'"
             >
-              {{ item.passedFilters ? "passes filters" : "filtered out" }}
-            </span>
+              <a :href="item.url" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-300 hover:underline">{{ item.title }}</a>
+              <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="secondary">{{ formatDisplayLabel(item.source) }}</Badge>
+                <span v-if="item.price !== null">${{ item.price }}</span>
+                <Badge :variant="item.passedFilters ? 'success' : 'warning'">{{ item.passedFilters ? "passes filters" : "filtered out" }}</Badge>
+              </div>
+              <p v-if="item.filterReason" class="mt-1 text-xs text-muted-foreground">{{ item.filterReason }}</p>
+            </div>
           </div>
-          <p v-if="item.filterReason" class="filter-reason">{{ item.filterReason }}</p>
-        </div>
-      </template>
+        </template>
 
-      <template v-if="lastScanResult.notifications.length">
-        <p class="section-label">Filter-passing notifications ({{ lastScanResult.notifications.length }})</p>
-        <div
-          v-for="notif in lastScanResult.notifications"
-          :key="notif.url"
-          class="notif-card"
+        <template v-if="lastScanResult.notifications.length">
+          <p class="text-sm font-semibold">Filter-passing notifications ({{ lastScanResult.notifications.length }})</p>
+          <div class="space-y-2">
+            <div v-for="notif in lastScanResult.notifications" :key="notif.url" class="rounded-lg border border-border/70 bg-muted/20 p-3">
+              <a :href="notif.url" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-300 hover:underline">{{ notif.title }}</a>
+              <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant="secondary">{{ formatDisplayLabel(notif.source) }}</Badge>
+                <span v-if="notif.price !== null">${{ notif.price }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <p
+          v-if="!lastScanResult.items.length && !lastScanResult.notifications.length && !lastScanResult.errors.length"
+          class="text-sm italic text-muted-foreground"
         >
-          <div class="notif-title">
-            <a :href="notif.url" target="_blank" rel="noopener noreferrer">{{ notif.title }}</a>
-          </div>
-          <div class="notif-meta">
-            <span class="badge-source">{{ notif.source }}</span>
-            <span v-if="notif.price !== null">${{ notif.price }}</span>
-          </div>
-        </div>
-      </template>
-
-      <p
-        v-if="
-          !lastScanResult.items.length &&
-          !lastScanResult.notifications.length &&
-          !lastScanResult.errors.length
-        "
-        class="no-results"
-      >
-        No items found
-      </p>
-    </div>
-  </div>
+          No items found
+        </p>
+      </div>
+    </CardContent>
+  </Card>
 </template>
-
-<style scoped>
-.tester-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tester-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.tester-header h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.hint {
-  font-size: 0.75rem;
-  color: rgba(219, 227, 240, 0.45);
-  font-style: italic;
-}
-
-.badge {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.badge-enabled {
-  background: rgba(130, 255, 180, 0.15);
-  color: #82ffb4;
-  border: 1px solid rgba(130, 255, 180, 0.3);
-}
-
-.badge-disabled {
-  background: rgba(255, 160, 100, 0.1);
-  color: #ffa064;
-  border: 1px solid rgba(255, 160, 100, 0.3);
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.82rem;
-}
-
-.field-wide {
-  grid-column: span 2;
-}
-
-.field span {
-  color: rgba(219, 227, 240, 0.6);
-  font-size: 0.75rem;
-}
-
-.field input,
-.field select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(154, 173, 201, 0.2);
-  border-radius: 6px;
-  padding: 6px 8px;
-  color: inherit;
-  font: inherit;
-  font-size: 0.82rem;
-}
-
-.checkbox-field {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  padding-top: 18px;
-}
-
-.payload-preview {
-  font-size: 0.78rem;
-}
-
-.payload-preview summary {
-  cursor: pointer;
-  color: rgba(219, 227, 240, 0.5);
-  user-select: none;
-}
-
-.payload-preview pre {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(154, 173, 201, 0.15);
-  border-radius: 6px;
-  padding: 10px;
-  overflow-x: auto;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  margin: 6px 0 0;
-}
-
-.tester-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.run-btn {
-  padding: 8px 20px;
-  font-size: 0.85rem;
-  border-radius: 8px;
-}
-
-.msg {
-  font-size: 0.82rem;
-  margin: 0;
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.msg-error {
-  background: rgba(255, 80, 80, 0.1);
-  color: #ff8080;
-  border: 1px solid rgba(255, 80, 80, 0.2);
-}
-
-.msg-success {
-  background: rgba(80, 255, 150, 0.1);
-  color: #50ff96;
-  border: 1px solid rgba(80, 255, 150, 0.2);
-}
-
-.result-box {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(154, 173, 201, 0.15);
-  border-radius: 8px;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
-}
-
-.result-label {
-  margin: 0 0 4px;
-  font-weight: 600;
-  font-size: 0.78rem;
-  color: rgba(219, 227, 240, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.section-label {
-  margin: 8px 0 2px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: rgba(219, 227, 240, 0.45);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.result-row {
-  display: flex;
-  gap: 10px;
-}
-
-.result-key {
-  color: rgba(219, 227, 240, 0.5);
-  min-width: 80px;
-}
-
-.outcome-failed { color: #ff8080; }
-
-.notif-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(154, 173, 201, 0.1);
-  border-radius: 6px;
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.scan-item-card {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(154, 173, 201, 0.1);
-  border-radius: 6px;
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.scan-item-pass {
-  background: rgba(80, 255, 150, 0.08);
-  border-color: rgba(80, 255, 150, 0.24);
-}
-
-.notif-title a {
-  color: #7dfdd4;
-  text-decoration: none;
-  font-size: 0.82rem;
-}
-
-.notif-title a:hover {
-  text-decoration: underline;
-}
-
-.notif-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: rgba(219, 227, 240, 0.5);
-}
-
-.badge-source {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(62, 167, 255, 0.15);
-  color: #3ea7ff;
-  border: 1px solid rgba(62, 167, 255, 0.25);
-}
-
-.filter-pill {
-  font-size: 0.7rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.filter-pass {
-  background: rgba(80, 255, 150, 0.12);
-  color: #50ff96;
-  border: 1px solid rgba(80, 255, 150, 0.24);
-}
-
-.filter-fail {
-  background: rgba(255, 160, 100, 0.1);
-  color: #ffa064;
-  border: 1px solid rgba(255, 160, 100, 0.24);
-}
-
-.filter-reason {
-  margin: 0;
-  color: rgba(219, 227, 240, 0.48);
-  font-size: 0.74rem;
-}
-
-.no-results {
-  margin: 0;
-  color: rgba(219, 227, 240, 0.4);
-  font-style: italic;
-}
-</style>
