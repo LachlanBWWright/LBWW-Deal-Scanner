@@ -1,4 +1,4 @@
-import { Page } from "puppeteer";
+import type { HTTPResponse, Page } from "puppeteer";
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
 import { db } from "../../globals/PrismaClient.js";
@@ -12,6 +12,13 @@ import type { DealNotification } from "../../deals/types.js";
 import type { SteamCsMarketResponse } from "../../functions/apiValidators.js";
 
 type CsMarketQuery = Awaited<ReturnType<typeof getCsMarketQuery>>;
+type SteamMarketResponse = Pick<HTTPResponse, "url">;
+type SteamMarketPage = Pick<Page, "goto" | "waitForNetworkIdle"> & {
+  waitForResponse: (
+    predicate: (response: SteamMarketResponse) => boolean,
+    options: { timeout: number },
+  ) => Promise<SteamMarketResponse>;
+};
 
 //For general market queries and CS Items
 const itemsFound = new Map<string, number>();
@@ -165,7 +172,10 @@ export async function scanCs(): Promise<DealNotification[]> {
   return notifications;
 }
 
-export async function getCsQueryString(page: Page, oldQuery: string) {
+export async function getCsQueryString(
+  page: SteamMarketPage,
+  oldQuery: string,
+): Promise<string> {
   if (!oldQuery.includes("https://steamcommunity.com/market/search")) {
     return "";
   }

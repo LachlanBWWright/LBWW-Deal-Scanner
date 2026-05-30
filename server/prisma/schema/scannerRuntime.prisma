@@ -1,0 +1,10 @@
+model ScannerRuntimeState {
+    id                      String   @id
+    steamScanCount          Int      @default(0)
+    csTradeScanCount        Int      @default(0)
+    scheduledRuns           Int      @default(0)
+    totalScheduledRuntimeMs BigInt   @default(0)
+    lastStartedAt           DateTime?
+    lastStoppedAt           DateTime?
+    updatedAt               DateTime @updatedAt
+}

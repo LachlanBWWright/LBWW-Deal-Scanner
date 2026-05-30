@@ -3,20 +3,19 @@ FROM node:22
 RUN mkdir /app
 WORKDIR /app
 
-COPY server/package.json server/package-lock.json ./server/
-COPY frontend/package.json frontend/package-lock.json ./frontend/
-RUN npm --prefix server install && npm --prefix frontend install
-COPY ./ ./
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-#Puppeteer dependencies
-RUN apt-get update && apt-get install gnupg wget -y && \
-    wget -q -O- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
-    sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
-    apt-get update && \
-    apt-get install google-chrome-stable -y --no-install-recommends && \
+# Puppeteer runtime dependencies. Debian's chromium package is available on
+# both amd64 and arm64, which keeps this image compatible with OCI A1 Flex.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends chromium ca-certificates fonts-liberation && \
     rm -rf /var/lib/apt/lists/*
 
-RUN npm --prefix server install @libsql/linux-x64-gnu
+COPY server/package.json server/package-lock.json ./server/
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN npm --prefix server ci && npm --prefix frontend ci
+COPY ./ ./
 
 RUN npm --prefix server run build
 RUN npm --prefix frontend run build

@@ -2,6 +2,7 @@ import puppeteer, { type Page } from "puppeteer";
 import { memoryUsage } from "node:process";
 
 import handleError from "./functions/handleError.js";
+import { db } from "./globals/PrismaClient.js";
 import {
   beginScanRun,
   beginScanLoop,
@@ -24,6 +25,7 @@ import { setSharedNotificationService } from "./notificationServiceRef.js";
 
 let loopPromise: Promise<void> | null = null;
 let notificationService: NotificationService | null = null;
+const RUNTIME_STATE_ID = "scanner-runtime";
 
 export function setNotificationService(service: NotificationService) {
   notificationService = service;
@@ -84,7 +86,7 @@ export function startBackgroundScanLoop() {
   if (loopPromise) return loopPromise;
 
   beginScanLoop();
-  loopPromise = runLoop().finally(() => {
+  loopPromise = runLoop(null).finally(() => {
     endScanLoop();
     loopPromise = null;
   });
@@ -92,7 +94,17 @@ export function startBackgroundScanLoop() {
   return loopPromise;
 }
 
-async function runLoop() {
+export async function runScheduledScanLoop(durationMs: number) {
+  beginScanLoop();
+  await markScheduledRunStarted();
+  const startedAt = Date.now();
+  await runLoop(durationMs);
+  const duration = Date.now() - startedAt;
+  await markScheduledRunStopped(duration);
+  endScanLoop();
+}
+
+async function runLoop(maxDurationMs: number | null) {
   const browserResult = await resultAsync(
     () =>
       puppeteer.launch({
@@ -127,18 +139,34 @@ async function runLoop() {
     );
     return;
   }
-  let page = firstPageResult.value;
-  let steamScanCnt = 0;
-  let csTradeScanCnt = 0;
+  let page: Page | null = firstPageResult.value;
+  const persistedState = await readScannerRuntimeState();
+  let steamScanCnt = persistedState.steamScanCount;
+  let csTradeScanCnt = persistedState.csTradeScanCount;
+  const loopStartedAt = Date.now();
 
-  while (true) {
+  while (maxDurationMs === null || Date.now() - loopStartedAt < maxDurationMs) {
     console.log(memoryUsage());
     const throttler = new Promise((resolve) => setTimeout(resolve, 2000));
     console.time("Cycle Time (2000ms minimum)");
 
     const record = beginScanRun("loop");
+    const currentPage = page;
+    if (currentPage === null) {
+      break;
+    }
+    const scannerState = {
+      steamScanCnt,
+      csTradeScanCnt,
+    };
     const scanResult = await resultAsync(
-      () => runScanPass(page, "loop", steamScanCnt, csTradeScanCnt),
+      () =>
+        runScanPass(
+          currentPage,
+          "loop",
+          scannerState.steamScanCnt,
+          scannerState.csTradeScanCnt,
+        ),
       "Scan pass failed",
     );
     if (scanResult.isErr()) {
@@ -147,13 +175,22 @@ async function runLoop() {
       finishScanRun(record);
     }
 
-    steamScanCnt++;
-    csTradeScanCnt++;
+    steamScanCnt = scannerState.steamScanCnt >= 55 ? 0 : scannerState.steamScanCnt + 1;
+    csTradeScanCnt =
+      scannerState.csTradeScanCnt >= 100 ? 0 : scannerState.csTradeScanCnt + 1;
+    await writeScannerCounters(steamScanCnt, csTradeScanCnt);
 
     await resultAsync(
-      () => page.close(),
+      () => currentPage.close(),
       "Failed to close scan loop page",
     );
+    page = null;
+
+    if (maxDurationMs !== null && Date.now() - loopStartedAt >= maxDurationMs) {
+      console.timeEnd("Cycle Time (2000ms minimum)");
+      break;
+    }
+
     const nextPageResult = await resultAsync(
       () => browser.newPage(),
       "Failed to create scan loop page",
@@ -175,6 +212,14 @@ async function runLoop() {
     await throttler;
     console.timeEnd("Cycle Time (2000ms minimum)");
   }
+
+  if (page !== null) {
+    await resultAsync(() => page.close(), "Failed to close scan loop page");
+  }
+  await resultAsync(
+    () => browser.close(),
+    "Failed to close scan loop browser",
+  );
 }
 
 async function publishNotifications(notifications: DealNotification[]) {
@@ -239,5 +284,115 @@ async function handleScan(
     handleError(result.error, name, notificationService ?? undefined);
   } else {
     await publishNotifications(result.value);
+  }
+}
+
+async function readScannerRuntimeState() {
+  const stateResult = await resultAsync(
+    () =>
+      db.scannerRuntimeState.upsert({
+        where: { id: RUNTIME_STATE_ID },
+        create: { id: RUNTIME_STATE_ID },
+        update: {},
+      }),
+    "Failed to read scanner runtime state",
+  );
+
+  if (stateResult.isErr()) {
+    handleError(
+      stateResult.error,
+      "Scanner Runtime",
+      notificationService ?? undefined,
+    );
+    return {
+      steamScanCount: 0,
+      csTradeScanCount: 0,
+    };
+  }
+
+  return stateResult.value;
+}
+
+async function writeScannerCounters(
+  steamScanCount: number,
+  csTradeScanCount: number,
+) {
+  const stateResult = await resultAsync(
+    () =>
+      db.scannerRuntimeState.upsert({
+        where: { id: RUNTIME_STATE_ID },
+        create: {
+          id: RUNTIME_STATE_ID,
+          steamScanCount,
+          csTradeScanCount,
+        },
+        update: {
+          steamScanCount,
+          csTradeScanCount,
+        },
+      }),
+    "Failed to persist scanner runtime counters",
+  );
+
+  if (stateResult.isErr()) {
+    handleError(
+      stateResult.error,
+      "Scanner Runtime",
+      notificationService ?? undefined,
+    );
+  }
+}
+
+async function markScheduledRunStarted() {
+  const stateResult = await resultAsync(
+    () =>
+      db.scannerRuntimeState.upsert({
+        where: { id: RUNTIME_STATE_ID },
+        create: {
+          id: RUNTIME_STATE_ID,
+          lastStartedAt: new Date(),
+        },
+        update: {
+          lastStartedAt: new Date(),
+        },
+      }),
+    "Failed to record scheduled scanner start",
+  );
+
+  if (stateResult.isErr()) {
+    handleError(
+      stateResult.error,
+      "Scanner Runtime",
+      notificationService ?? undefined,
+    );
+  }
+}
+
+async function markScheduledRunStopped(durationMs: number) {
+  const stateResult = await resultAsync(
+    () =>
+      db.scannerRuntimeState.upsert({
+        where: { id: RUNTIME_STATE_ID },
+        create: {
+          id: RUNTIME_STATE_ID,
+          scheduledRuns: 1,
+          totalScheduledRuntimeMs: durationMs,
+          lastStoppedAt: new Date(),
+        },
+        update: {
+          scheduledRuns: { increment: 1 },
+          totalScheduledRuntimeMs: { increment: durationMs },
+          lastStoppedAt: new Date(),
+        },
+      }),
+    "Failed to record scheduled scanner stop",
+  );
+
+  if (stateResult.isErr()) {
+    handleError(
+      stateResult.error,
+      "Scanner Runtime",
+      notificationService ?? undefined,
+    );
   }
 }

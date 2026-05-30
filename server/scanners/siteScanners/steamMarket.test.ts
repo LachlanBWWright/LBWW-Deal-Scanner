@@ -1,4 +1,3 @@
-import type { HTTPResponse, Page } from "puppeteer";
 import { describe, expect, it, test } from "vitest";
 import { getCsQueryString, getQueryResults } from "./steamMarket.js";
 
@@ -22,12 +21,12 @@ describe("steamMarket.ts", () => {
 
     const fakeResponse = {
       url: () => expectedResponseUrl,
-    } as HTTPResponse;
+    };
 
     const fakePage = {
       goto: () => Promise.resolve(null),
       waitForResponse: async (
-        predicate: (response: HTTPResponse) => boolean,
+        predicate: (response: { url: () => string }) => boolean,
       ) => {
         if (!predicate(fakeResponse)) {
           throw new Error("Steam response predicate did not match");
@@ -35,7 +34,7 @@ describe("steamMarket.ts", () => {
         return fakeResponse;
       },
       waitForNetworkIdle: () => Promise.resolve(),
-    } as unknown as Page;
+    };
 
     const url = await getCsQueryString(
       fakePage,
@@ -50,7 +49,7 @@ describe("steamMarket.ts", () => {
       goto: () => Promise.resolve(null),
       waitForResponse: () => Promise.reject(new Error("should not be called")),
       waitForNetworkIdle: () => Promise.resolve(),
-    } as unknown as Page;
+    };
 
     const url = await getCsQueryString(fakePage, "https://example.com");
 

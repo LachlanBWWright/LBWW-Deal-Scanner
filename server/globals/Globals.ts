@@ -8,8 +8,6 @@ const requiredEnvVars = [
   "BOT_CLIENT_ID",
   "DISCORD_GUILD_ID",
   "DISCORD_TOKEN",
-  "TURSO_DATABASE_URL",
-  "TURSO_AUTH_TOKEN",
 ] as const;
 
 function getRequiredEnv(
@@ -28,6 +26,10 @@ for (const envName of requiredEnvVars) {
       return undefined;
     },
   );
+}
+
+if (!process.env.TURSO_DATABASE_URL && !process.env.DATABASE_URL) {
+  console.warn("TURSO_DATABASE_URL or DATABASE_URL is not defined in .env");
 }
 
 const defaultGlobals = {

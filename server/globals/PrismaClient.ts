@@ -2,16 +2,21 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
+function readOptionalEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") return undefined;
+  return value;
+}
+
 export function createDbClient() {
   const url =
-    process.env.TURSO_DATABASE_URL ??
-    process.env.DATABASE_URL ??
+    readOptionalEnv("TURSO_DATABASE_URL") ??
+    readOptionalEnv("DATABASE_URL") ??
     "file:./prisma/dev.db";
+  const authToken = readOptionalEnv("TURSO_AUTH_TOKEN");
   const adapter = new PrismaLibSql({
     url,
-    ...(process.env.TURSO_AUTH_TOKEN
-      ? { authToken: process.env.TURSO_AUTH_TOKEN }
-      : {}),
+    ...(authToken ? { authToken } : {}),
   });
   return new PrismaClient({ adapter });
 }
