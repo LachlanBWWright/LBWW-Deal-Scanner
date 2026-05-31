@@ -10,4 +10,5 @@ model Query {
     gumtree         Gumtree?
     salvos          Salvos?
     steamMarket     SteamMarket?
+    listingStates   QueryListingState[]
 }

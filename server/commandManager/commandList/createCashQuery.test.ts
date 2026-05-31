@@ -11,6 +11,8 @@ describe("commandList/createCashQuery.ts", () => {
     expect(json.name).toBe("createcashquery");
     expect(json.options?.map((o: { name: string }) => o.name)).toEqual([
       "query",
+      "maxprice",
+      "scanmode",
       "dmonly",
     ]);
   });

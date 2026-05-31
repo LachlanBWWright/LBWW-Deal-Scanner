@@ -9,6 +9,22 @@ export default new SlashCommandBuilder()
       .setDescription("The URL of the query. Sort by price or newness.")
       .setRequired(true),
   )
+  .addNumberOption((option) =>
+    option
+      .setName("maxprice")
+      .setDescription("Optional maximum total price for notifications")
+      .setRequired(false),
+  )
+  .addStringOption((option) =>
+    option
+      .setName("scanmode")
+      .setDescription("How to scan this query")
+      .setRequired(false)
+      .addChoices(
+        { name: "Search URL", value: "searchUrl" },
+        { name: "Site wide", value: "siteWide" },
+      ),
+  )
   .addBooleanOption((option) =>
     option
       .setName("dmonly")
@@ -31,6 +47,22 @@ export const editcashquery = new SlashCommandBuilder()
       .setName("query")
       .setDescription("New URL or query string to replace the old one")
       .setRequired(true),
+  )
+  .addNumberOption((option) =>
+    option
+      .setName("maxprice")
+      .setDescription("Optional maximum total price for notifications")
+      .setRequired(false),
+  )
+  .addStringOption((option) =>
+    option
+      .setName("scanmode")
+      .setDescription("How to scan this query")
+      .setRequired(false)
+      .addChoices(
+        { name: "Search URL", value: "searchUrl" },
+        { name: "Site wide", value: "siteWide" },
+      ),
   );
 
 export const deletecashquery = new SlashCommandBuilder()

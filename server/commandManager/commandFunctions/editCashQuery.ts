@@ -14,6 +14,8 @@ export default async function editCashQuery(
 ) {
   const id = interaction.options.getString("id");
   const query = interaction.options.getString("query");
+  const maxPrice = interaction.options.getNumber("maxprice");
+  const scanMode = interaction.options.getString("scanmode");
   if (!id || !query) {
     await interaction.editReply(
       `${getFailurePrelude()} missing id or query option.`,
@@ -52,7 +54,15 @@ export default async function editCashQuery(
   }
 
   const updateResult = await resultAsync(
-    () => db.cashConverters.update({ where: { url: id }, data: { url } }),
+    () =>
+      db.cashConverters.update({
+        where: { url: id },
+        data: {
+          url,
+          ...(maxPrice !== null ? { maxPrice } : {}),
+          ...(scanMode !== null ? { scanMode } : {}),
+        },
+      }),
     "Failed to update query",
   );
   if (updateResult.isErr()) {

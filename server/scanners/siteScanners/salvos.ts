@@ -1,10 +1,15 @@
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import { db, SCANNER } from "../../globals/PrismaClient.js";
-import { checkIfNew } from "../../functions/handleItemUpdate.js";
-import { Page } from "puppeteer";
+import { db } from "../../globals/PrismaClient.js";
+import type { Page } from "puppeteer";
 import { resultAsync } from "../../functions/neverthrowUtils.js";
 import type { DealNotification } from "../../deals/types.js";
+import {
+  evaluateListingForQuery,
+  matchPriceRange,
+  persistListingObservation,
+  type DiscoveredListing,
+} from "../listingState.js";
 
 interface SalvosQueryInput {
   name: string;
@@ -12,95 +17,179 @@ interface SalvosQueryInput {
   maxPrice: number;
 }
 
+interface SalvosValues {
+  readonly name: string;
+  readonly price: number;
+  readonly image: string | null;
+  readonly link: string;
+}
+
+const salvosGridSelector =
+  "div[class='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-10']";
+const salvosCardSelector =
+  "div[class='flex flex-col overflow-hidden rounded shadow-card bg-white h-auto']";
+
 export async function scanSalvos(page: Page): Promise<DealNotification[]> {
   if (!globals.SALVOS) return [];
   setStatus("Scanning Salvos");
 
-  const item = await getSalvosQuery();
-  if (!item) return [];
+  const queries = await db.salvos.findMany();
+  const notifications: DealNotification[] = [];
 
-  const result = await getSalvosValues(page, item);
-  if (!result) return [];
+  for (const item of queries) {
+    const queryId = await ensureSalvosQueryId(item.name, item.queryId);
+    const foundItems = await getSalvosListings(page, item);
 
-  if (result.price > item.maxPrice || result.price < item.minPrice) return [];
+    for (const foundItem of foundItems) {
+      const listing = normalizeSalvosListing(foundItem);
+      const persistedResult = await persistListingObservation({ listing });
+      if (persistedResult.isErr()) {
+        console.warn(persistedResult.error.message);
+        continue;
+      }
 
-  if (await checkIfNew(result.image, SCANNER.SALVOS)) {
-    return [
-      {
-        kind: "deal",
+      const decisionResult = await evaluateListingForQuery({
+        queryId,
+        listingId: persistedResult.value.listingId,
         source: "salvos",
-        title: `a ${result.name} is available for $${result.price} at ${result.link}`,
-        url: result.link,
-        price: result.price,
-        imageUrl: result.image,
-        query: {
-          type: "salvos",
-          id: item.name, // Use name as the unique identifier for salvos
-        },
-      },
-    ];
+        totalPrice: listing.totalPrice,
+        match: matchPriceRange(listing.totalPrice, item.minPrice, item.maxPrice),
+      });
+      if (decisionResult.isErr()) {
+        console.warn(decisionResult.error.message);
+        continue;
+      }
+
+      if (decisionResult.value.type === "Notify") {
+        notifications.push({
+          kind: "deal",
+          source: "salvos",
+          title: `a ${listing.title} is available for $${listing.totalPrice ?? "unknown"} at ${listing.canonicalUrl}`,
+          url: listing.canonicalUrl,
+          price: listing.totalPrice ?? undefined,
+          imageUrl: listing.imageUrl ?? undefined,
+          query: {
+            type: "salvos",
+            id: item.name,
+          },
+        });
+      }
+    }
   }
-  return [];
+
+  return notifications;
 }
 
-export async function getSalvosValues(page: Page, item: SalvosQueryInput) {
+export async function getSalvosListings(
+  page: Page,
+  item: SalvosQueryInput,
+): Promise<SalvosValues[]> {
   const gotoResult = await resultAsync(
     () =>
       page.goto(
         `https://www.salvosstores.com.au/shop?search=${encodeURIComponent(
           item.name,
-        )}&sorting=newestFirst&price=${item.minPrice ?? 0}-${
-          item.maxPrice ?? 99999
-        }`,
+        )}&sorting=newestFirst&price=0-99999`,
         { waitUntil: "domcontentloaded", timeout: 10000 },
       ),
     "Salvos navigation failed",
   );
   if (gotoResult.isErr()) {
     console.warn(gotoResult.error.message);
-    return;
+    return [];
   }
 
-  const grid = await page.$(
-    "div[class='grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-10']",
+  const extractionResult = await resultAsync(
+    () =>
+      page.$$eval(
+        `${salvosGridSelector} ${salvosCardSelector}`,
+        (cards): SalvosValues[] =>
+          cards
+            .map((card): SalvosValues | null => {
+              const parsePrice = (input: string | null): number | null => {
+                if (!input) return null;
+                const value = Number.parseFloat(input.replace(/[^0-9.]+/g, ""));
+                return Number.isFinite(value) ? value : null;
+              };
+              const linkElement = card.querySelector(
+                "a[class='mt-2 text-xs lg:text-base line-clamp-3'], a[href]",
+              );
+              const name = linkElement?.textContent?.trim() ?? null;
+              const link =
+                linkElement instanceof HTMLAnchorElement
+                  ? linkElement.href
+                  : null;
+              const priceText =
+                card
+                  .querySelector(
+                    "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price'], [class*='product-price']",
+                  )
+                  ?.textContent?.trim() ?? null;
+              const imageElement = card.querySelector("img");
+              const image =
+                imageElement instanceof HTMLImageElement ? imageElement.src : null;
+              const price = parsePrice(priceText);
+
+              if (!name || !link || price === null) return null;
+              return { name, price, image, link };
+            })
+            .filter((card): card is SalvosValues => card !== null),
+      ),
+    "Salvos card extraction failed",
   );
-  const pageItem = await grid?.$(
-    "div[class='flex flex-col overflow-hidden rounded shadow-card bg-white h-auto']",
-  );
+  if (extractionResult.isErr()) {
+    console.warn(extractionResult.error.message);
+    return [];
+  }
 
-  if (!pageItem) return;
-
-  const linkElement = await pageItem.$(
-    "a[class='mt-2 text-xs lg:text-base line-clamp-3']",
-  );
-  const name = await linkElement?.evaluate((el) => el.textContent);
-  const link = await linkElement?.evaluate((el) => el.href);
-
-  const priceElement =
-    (await pageItem.$(
-      "div[class='font-medium lg:font-semibold text-xs lg:text-xl product-price']",
-    )) ?? (await pageItem.$("[class*='product-price']"));
-  const priceText = await priceElement?.evaluate((el) => el.textContent ?? "");
-  const price = priceText
-    ? parseFloat(priceText.replace(/[^0-9.]/g, ""))
-    : null;
-
-  const image = await pageItem.$eval("img", (img) => img.src);
-
-  if (!name || !price || !image || !link) return;
-  return { name, price, image, link };
+  return dedupeByUrl(extractionResult.value);
 }
 
-let index = 0;
-async function getSalvosQuery() {
-  const query = await db.salvos.findFirst({
-    skip: index++,
+export async function getSalvosValues(page: Page, item: SalvosQueryInput) {
+  const listings = await getSalvosListings(page, item);
+  return listings[0];
+}
+
+function normalizeSalvosListing(item: SalvosValues): DiscoveredListing {
+  return {
+    source: "salvos",
+    externalId: null,
+    canonicalUrl: item.link,
+    title: item.name,
+    price: item.price,
+    shipping: null,
+    totalPrice: item.price,
+    currency: "AUD",
+    imageUrl: item.image,
+    description: null,
+    availability: "available",
+  };
+}
+
+async function ensureSalvosQueryId(
+  name: string,
+  queryId: string | null,
+): Promise<string> {
+  if (queryId) return queryId;
+  const query = await db.query.create({
+    data: {
+      salvos: {
+        connect: { name },
+      },
+    },
   });
-  if (query) {
-    return query;
+  return query.id;
+}
+
+function dedupeByUrl(items: SalvosValues[]): SalvosValues[] {
+  const seen = new Set<string>();
+  const results: SalvosValues[] = [];
+  for (const item of items) {
+    if (seen.has(item.link)) continue;
+    seen.add(item.link);
+    results.push(item);
   }
-  index = 1; //Will find the first query in the line below
-  return await db.salvos.findFirst();
+  return results;
 }
 
 /* 

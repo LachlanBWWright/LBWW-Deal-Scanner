@@ -2,7 +2,11 @@ import puppeteer from "puppeteer";
 import { describe, expect, test } from "vitest";
 import { getSalvosValues } from "./salvos.js";
 
-test("salvos scanner returns first matching listing shape", async () => {
+const runLiveApiTests = process.env.RUN_LIVE_API_TESTS === "true";
+
+test.skipIf(!runLiveApiTests)(
+  "salvos scanner returns first matching listing shape",
+  async () => {
   const browser = await puppeteer.launch({
     headless: "shell",
     args: ["--no-sandbox"],
@@ -24,7 +28,9 @@ test("salvos scanner returns first matching listing shape", async () => {
   }
 
   await browser.close();
-}, 60000);
+  },
+  60000,
+);
 
 describe("salvos.ts", () => {
   test("exports live scraper function", () => {

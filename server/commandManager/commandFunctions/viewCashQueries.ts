@@ -28,7 +28,12 @@ export default async function viewCashQueries(
     return;
   }
 
-  const list = results.map((r) => `- ${r.url}`).join("\n");
+  const list = results
+    .map(
+      (r) =>
+        `- ${r.url} (mode ${r.scanMode}${r.maxPrice === null ? "" : ` max ${r.maxPrice}`})`,
+    )
+    .join("\n");
   await interaction.editReply(
     `${getResponsePrelude()} saved Cash Converters queries:\n${list}`,
   );

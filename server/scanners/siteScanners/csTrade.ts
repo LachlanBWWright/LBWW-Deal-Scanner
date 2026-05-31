@@ -1,23 +1,33 @@
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import {
-  checkIfNewCsItem,
-  CsSite,
-  getAllTradeBotItems,
-} from "../../functions/csTradeBot.js";
+import { db } from "../../globals/PrismaClient.js";
+import { getAllTradeBotItems } from "../../functions/csTradeBot.js";
 import {
   fetchCsTradeItems,
   warmupCsTradeCache,
 } from "../../functions/csTraceFetcher.js";
 import type { DealNotification } from "../../deals/types.js";
 import type { CsTradeItem } from "../../functions/apiValidators.js";
+import {
+  evaluateListingForQuery,
+  matchPriceRange,
+  persistListingObservation,
+  type DiscoveredListing,
+} from "../listingState.js";
 
 async function checkCsTradeMatch(
   searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
   foundItem: CsTradeItem,
   notifications: DealNotification[],
+  persistedListings: Map<string, string | null>,
 ) {
   const itemWear = foundItem.wear;
+  const listing = normalizeCsTradeListing(foundItem);
+  const persistedListingId = await persistCsTradeListingOnce(
+    listing,
+    persistedListings,
+  );
+
   if (
     foundItem.price > searchItem.maxPrice ||
     itemWear < searchItem.minFloat ||
@@ -27,12 +37,25 @@ async function checkCsTradeMatch(
     return;
   }
 
-  const isNew = await checkIfNewCsItem(
-    foundItem.market_hash_name,
-    itemWear,
-    CsSite.CS_TRADE,
-  );
-  if (!isNew) return;
+  if (persistedListingId === null) {
+    console.warn(`Failed to persist CS.Trade listing ${foundItem.id}`);
+    return;
+  }
+
+  const queryId = await ensureCsTradeBotQueryId(searchItem.name, searchItem.queryId);
+  const decisionResult = await evaluateListingForQuery({
+    queryId,
+    listingId: persistedListingId,
+    source: "csTrade",
+    totalPrice: listing.totalPrice,
+    match: matchPriceRange(listing.totalPrice, null, searchItem.maxPrice),
+    furtherPriceDropRatio: 0.04,
+  });
+  if (decisionResult.isErr()) {
+    console.warn(decisionResult.error.message);
+    return;
+  }
+  if (decisionResult.value.type === "DoNotNotify") return;
 
   notifications.push({
     kind: "deal",
@@ -66,14 +89,40 @@ export async function scanCSTrade(): Promise<DealNotification[]> {
   const foundItems = itemsResult.value;
   const searchItems = await getAllTradeBotItems();
   const notifications: DealNotification[] = [];
+  const persistedListings = new Map<string, string | null>();
 
   for (const searchItem of searchItems) {
     for (const foundItem of foundItems) {
-      await checkCsTradeMatch(searchItem, foundItem, notifications);
+      await checkCsTradeMatch(
+        searchItem,
+        foundItem,
+        notifications,
+        persistedListings,
+      );
     }
   }
 
   return notifications;
+}
+
+async function persistCsTradeListingOnce(
+  listing: DiscoveredListing,
+  persistedListings: Map<string, string | null>,
+): Promise<string | null> {
+  const key = listing.externalId ?? listing.canonicalUrl;
+  if (persistedListings.has(key)) {
+    return persistedListings.get(key) ?? null;
+  }
+
+  const persistedResult = await persistListingObservation({ listing });
+  if (persistedResult.isErr()) {
+    console.warn(persistedResult.error.message);
+    persistedListings.set(key, null);
+    return null;
+  }
+
+  persistedListings.set(key, persistedResult.value.listingId);
+  return persistedResult.value.listingId;
 }
 
 export async function getCsTradeItems() {
@@ -84,6 +133,37 @@ export async function getCsTradeItems() {
   }
 
   return itemsResult.value;
+}
+
+function normalizeCsTradeListing(foundItem: CsTradeItem): DiscoveredListing {
+  return {
+    source: "csTrade",
+    externalId: foundItem.id,
+    canonicalUrl: `https://cs.trade/item/${foundItem.id}`,
+    title: foundItem.market_hash_name,
+    price: foundItem.price,
+    shipping: null,
+    totalPrice: foundItem.price,
+    currency: "USD",
+    imageUrl: foundItem.icon ?? null,
+    description: `float ${foundItem.wear}`,
+    availability: foundItem.status ?? "available",
+  };
+}
+
+async function ensureCsTradeBotQueryId(
+  name: string,
+  queryId: string | null,
+): Promise<string> {
+  if (queryId) return queryId;
+  const query = await db.query.create({
+    data: {
+      csTradeBot: {
+        connect: { name },
+      },
+    },
+  });
+  return query.id;
 }
 
 /* {

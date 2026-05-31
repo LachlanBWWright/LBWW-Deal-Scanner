@@ -2,7 +2,11 @@ import puppeteer from "puppeteer";
 import { getCashConvertersValues } from "./cashConverters.js";
 import { describe, expect, test } from "vitest";
 
-test("cash converters scanner returns latest listing shape", async () => {
+const runLiveApiTests = process.env.RUN_LIVE_API_TESTS === "true";
+
+test.skipIf(!runLiveApiTests)(
+  "cash converters scanner returns latest listing shape",
+  async () => {
   const browser = await puppeteer.launch({
     headless: "shell",
     args: ["--no-sandbox"],
@@ -20,7 +24,9 @@ test("cash converters scanner returns latest listing shape", async () => {
   expect(result?.image).toMatch(/^https?:\/\//);
 
   await browser.close();
-}, 60000);
+  },
+  60000,
+);
 
 describe("cashConverters.ts", () => {
   test("exports live scraper function", () => {

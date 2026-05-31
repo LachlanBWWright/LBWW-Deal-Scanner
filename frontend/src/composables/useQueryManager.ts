@@ -35,6 +35,7 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       maxFloat: "",
       requiredPhrases: "",
       excludePhrases: "",
+      scanMode: "searchUrl",
       dmOnly: false,
     };
   }
@@ -50,6 +51,7 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       item.displayUrl,
       item.requiredPhrases,
       item.excludePhrases,
+      item.scanMode,
       String(item.maxPrice ?? ""),
       String(item.minPrice ?? ""),
       String(item.minFloat ?? ""),
@@ -91,6 +93,8 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
           { label: "Query URL", key: "url", type: "url" },
           { label: "Required phrases", key: "requiredPhrases", type: "text" },
           { label: "Exclude phrases", key: "excludePhrases", type: "text" },
+          { label: "Max price", key: "maxPrice", type: "number" },
+          { label: "Scan mode", key: "scanMode", type: "text" },
         ];
       case "ebay":
       case "gumtree":
@@ -157,6 +161,7 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       maxFloat: item.maxFloat ?? 0,
       requiredPhrases: item.requiredPhrases || "",
       excludePhrases: item.excludePhrases || "",
+      scanMode: item.scanMode || "searchUrl",
       dmOnly: item.dmOnly,
     };
   }
@@ -186,6 +191,10 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
         payload.url = form.value.url;
         payload.requiredPhrases = form.value.requiredPhrases;
         payload.excludePhrases = form.value.excludePhrases;
+        payload.scanMode = form.value.scanMode || "searchUrl";
+        if (form.value.maxPrice !== "") {
+          payload.maxPrice = form.value.maxPrice;
+        }
         break;
       case "ebay":
       case "gumtree":

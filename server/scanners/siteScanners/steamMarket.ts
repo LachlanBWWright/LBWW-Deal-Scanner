@@ -10,6 +10,12 @@ import {
 } from "../../functions/steamMarketFetcher.js";
 import type { DealNotification } from "../../deals/types.js";
 import type { SteamCsMarketResponse } from "../../functions/apiValidators.js";
+import {
+  evaluateListingForQuery,
+  matchPriceRange,
+  persistListingObservation,
+  type DiscoveredListing,
+} from "../listingState.js";
 
 type CsMarketQuery = Awaited<ReturnType<typeof getCsMarketQuery>>;
 type SteamMarketResponse = Pick<HTTPResponse, "url">;
@@ -30,36 +36,59 @@ export async function scanSteamQuery(): Promise<DealNotification[]> {
   const notifications: DealNotification[] = [];
 
   const scanResult = await resultAsync(async () => {
-    const item = await getSteamQuery();
-    if (!item) return;
+    const queries = await db.steamMarket.findMany();
 
-    await sleep(3000);
+    for (const item of queries) {
+      await sleep(3000);
+      const queryId = await ensureSteamMarketQueryId(item.name, item.queryId);
+      const results = await getQueryResults(item.name);
+      const prices = results.map((result) => result.sell_price / 100.0);
+      const lowestPrice = prices.length === 0 ? null : Math.min(...prices);
 
-    const results = await getQueryResults(item.name);
-    if (results.length === 0) return;
-    const result = results[0];
-    const price = result.sell_price / 100.0;
-    if (price < item.maxPrice && price * 1.04 < item.lastPrice) {
-      notifications.push({
-        kind: "deal",
-        source: "steamMarket",
-        title: `a ${result.name} is available for $${price} USD at: ${item.displayUrl}`,
-        url: item.displayUrl,
-        price,
-        query: {
-          type: "steamMarket",
-          id: item.name,
-        },
-      });
-    }
+      for (const result of results) {
+        const listing = normalizeSteamMarketListing(result);
+        const persistedResult = await persistListingObservation({ listing });
+        if (persistedResult.isErr()) {
+          console.warn(persistedResult.error.message);
+          continue;
+        }
 
-    if (price !== item.lastPrice) {
+        const decisionResult = await evaluateListingForQuery({
+          queryId,
+          listingId: persistedResult.value.listingId,
+          source: "steamMarket",
+          totalPrice: listing.totalPrice,
+          match: matchPriceRange(listing.totalPrice, null, item.maxPrice),
+          furtherPriceDropRatio: 0.04,
+        });
+        if (decisionResult.isErr()) {
+          console.warn(decisionResult.error.message);
+          continue;
+        }
+
+        if (decisionResult.value.type === "Notify") {
+          notifications.push({
+            kind: "deal",
+            source: "steamMarket",
+            title: `a ${result.name} is available for $${listing.totalPrice ?? "unknown"} USD at: ${listing.canonicalUrl}`,
+            url: listing.canonicalUrl,
+            price: listing.totalPrice ?? undefined,
+            query: {
+              type: "steamMarket",
+              id: item.name,
+            },
+          });
+        }
+      }
+
+      if (lowestPrice !== null && lowestPrice !== item.lastPrice) {
       await db.steamMarket.update({
         where: { name: item.name },
         data: {
-          lastPrice: price,
+            lastPrice: lowestPrice,
         },
       });
+    }
     }
   }, "Steam query scan failed");
 
@@ -246,18 +275,6 @@ function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-let steamQueryIndex = 0;
-async function getSteamQuery() {
-  const query = await db.steamMarket.findFirst({
-    skip: steamQueryIndex++,
-  });
-  if (query) {
-    return query;
-  }
-  steamQueryIndex = 1; //Will find the first query in the line below
-  return await db.steamMarket.findFirst();
-}
-
 let csMarketIndex = 0;
 async function getCsMarketQuery() {
   const query = await db.csMarket.findFirst({
@@ -268,4 +285,40 @@ async function getCsMarketQuery() {
   }
   csMarketIndex = 1; //Will find the first query in the line below
   return await db.csMarket.findFirst();
+}
+
+function normalizeSteamMarketListing(
+  result: Awaited<ReturnType<typeof getQueryResults>>[number],
+): DiscoveredListing {
+  const appId = result.asset_description?.appid ?? 730;
+  const canonicalUrl = `https://steamcommunity.com/market/listings/${appId}/${encodeURIComponent(result.name)}`;
+  const price = result.sell_price / 100.0;
+  return {
+    source: "steamMarket",
+    externalId: result.name,
+    canonicalUrl,
+    title: result.name,
+    price,
+    shipping: null,
+    totalPrice: price,
+    currency: "USD",
+    imageUrl: null,
+    description: null,
+    availability: "available",
+  };
+}
+
+async function ensureSteamMarketQueryId(
+  name: string,
+  queryId: string | null,
+): Promise<string> {
+  if (queryId) return queryId;
+  const query = await db.query.create({
+    data: {
+      steamMarket: {
+        connect: { name },
+      },
+    },
+  });
+  return query.id;
 }

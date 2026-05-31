@@ -40,5 +40,12 @@ export async function checkIfNewCsItem(
     return false;
   }
 
+  await db.ttlItem.create({
+    data: {
+      itemId: `${itemName}_${float}_${csSite}`,
+      scanner: SCANNER.CS_TRADE_BOT,
+      lastUpdated: new Date(),
+    },
+  });
   return true;
 }

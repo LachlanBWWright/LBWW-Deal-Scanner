@@ -17,6 +17,7 @@ export interface QueryFormState {
   maxFloat: number | "";
   requiredPhrases: string;
   excludePhrases: string;
+  scanMode: string;
   dmOnly: boolean;
 }
 

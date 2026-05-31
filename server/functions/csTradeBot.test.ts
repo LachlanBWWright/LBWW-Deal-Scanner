@@ -35,4 +35,38 @@ describe("csTradeBot.ts", () => {
       },
     });
   });
+
+  it("creates new CS item signatures and suppresses the second check", async () => {
+    const itemName = `new-cs-item-${Date.now()}`;
+    const floatValue = 0.2442;
+    const itemId = `${itemName}_${floatValue}_${CsSite.TRADEIT_GG}`;
+
+    const firstResult = await checkIfNewCsItem(
+      itemName,
+      floatValue,
+      CsSite.TRADEIT_GG,
+    );
+    const secondResult = await checkIfNewCsItem(
+      itemName,
+      floatValue,
+      CsSite.TRADEIT_GG,
+    );
+    const stored = await db.ttlItem.findUnique({
+      where: {
+        itemId,
+        scanner: SCANNER.CS_TRADE_BOT,
+      },
+    });
+
+    expect(firstResult).toBe(true);
+    expect(secondResult).toBe(false);
+    expect(stored).not.toBeNull();
+
+    await db.ttlItem.deleteMany({
+      where: {
+        itemId,
+        scanner: SCANNER.CS_TRADE_BOT,
+      },
+    });
+  });
 });

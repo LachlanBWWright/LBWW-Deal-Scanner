@@ -1,19 +1,25 @@
 import { describe, expect, it, test } from "vitest";
 import { getCsQueryString, getQueryResults } from "./steamMarket.js";
 
-describe("steamMarket.ts", () => {
-  test("fetches live steam render API results", async () => {
-    const res = await getQueryResults(
-      "https://steamcommunity.com/market/search/render/?query=ak-47&start=0&count=10&country=AU&language=english&currency=1&norender=1",
-    );
+const runLiveApiTests = process.env.RUN_LIVE_API_TESTS === "true";
 
-    expect(Array.isArray(res)).toBe(true);
-    if (res.length > 0) {
-      expect(res[0]?.name).toBeTypeOf("string");
-      expect(res[0]?.sell_price).toBeTypeOf("number");
-      expect(res[0]?.asset_description?.appid).toBe(730);
-    }
-  }, 60000);
+describe("steamMarket.ts", () => {
+  test.skipIf(!runLiveApiTests)(
+    "fetches live steam render API results",
+    async () => {
+      const res = await getQueryResults(
+        "https://steamcommunity.com/market/search/render/?query=ak-47&start=0&count=10&country=AU&language=english&currency=1&norender=1",
+      );
+
+      expect(Array.isArray(res)).toBe(true);
+      if (res.length > 0) {
+        expect(res[0]?.name).toBeTypeOf("string");
+        expect(res[0]?.sell_price).toBeTypeOf("number");
+        expect(res[0]?.asset_description?.appid).toBe(730);
+      }
+    },
+    60000,
+  );
 
   it("builds a render API URL from a valid steam search url", async () => {
     const expectedResponseUrl =

@@ -2,7 +2,11 @@ import puppeteer from "puppeteer";
 import { describe, expect, test } from "vitest";
 import { getGumtreeValues } from "./gumtree.js";
 
-test("gumtree scanner performs live scrape without crashing", async () => {
+const runLiveApiTests = process.env.RUN_LIVE_API_TESTS === "true";
+
+test.skipIf(!runLiveApiTests)(
+  "gumtree scanner performs live scrape without crashing",
+  async () => {
   const browser = await puppeteer.launch({
     args: [
       "--no-sandbox",
@@ -24,7 +28,9 @@ test("gumtree scanner performs live scrape without crashing", async () => {
   }
 
   await browser.close();
-}, 60000);
+  },
+  60000,
+);
 
 describe("gumtree.ts", () => {
   test("exports live scraper function", () => {

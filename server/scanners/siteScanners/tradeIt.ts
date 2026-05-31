@@ -1,14 +1,17 @@
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import {
-  checkIfNewCsItem,
-  CsSite,
-  getAllTradeBotItems,
-} from "../../functions/csTradeBot.js";
+import { getAllTradeBotItems } from "../../functions/csTradeBot.js";
 import { resultAsync } from "../../functions/neverthrowUtils.js";
 import { fetchTradeItAllItems } from "../../functions/tradeItFetcher.js";
 import type { DealNotification } from "../../deals/types.js";
 import type { TradeItItem } from "../../functions/apiValidators.js";
+import { db } from "../../globals/PrismaClient.js";
+import {
+  evaluateListingForQuery,
+  matchPriceRange,
+  persistListingObservation,
+  type DiscoveredListing,
+} from "../listingState.js";
 
 function getBestFloat(foundItem: TradeItItem): number {
   if (foundItem.floatValue) return foundItem.floatValue;
@@ -25,6 +28,12 @@ async function checkTradeItMatch(
   foundItem: TradeItItem,
   notifications: DealNotification[],
 ) {
+  const listing = normalizeTradeItListing(foundItem);
+  const persistedResult = await persistListingObservation({ listing });
+  if (persistedResult.isErr()) {
+    console.warn(persistedResult.error.message);
+  }
+
   if (
     foundItem.price / 100.0 > searchItem.maxPrice ||
     foundItem.name !== searchItem.name
@@ -36,13 +45,22 @@ async function checkTradeItMatch(
   if (bestFloat < searchItem.minFloat || bestFloat > searchItem.maxFloat) {
     return;
   }
+  if (persistedResult.isErr()) return;
 
-  const isNew = await checkIfNewCsItem(
-    searchItem.name,
-    bestFloat,
-    CsSite.TRADEIT_GG,
-  );
-  if (!isNew) return;
+  const queryId = await ensureCsTradeBotQueryId(searchItem.name, searchItem.queryId);
+  const decisionResult = await evaluateListingForQuery({
+    queryId,
+    listingId: persistedResult.value.listingId,
+    source: "tradeIt",
+    totalPrice: listing.totalPrice,
+    match: matchPriceRange(listing.totalPrice, null, searchItem.maxPrice),
+    furtherPriceDropRatio: 0.04,
+  });
+  if (decisionResult.isErr()) {
+    console.warn(decisionResult.error.message);
+    return;
+  }
+  if (decisionResult.value.type === "DoNotNotify") return;
 
   notifications.push({
     kind: "deal",
@@ -80,6 +98,39 @@ export async function scanTradeIt(): Promise<DealNotification[]> {
   }
 
   return notifications;
+}
+
+function normalizeTradeItListing(foundItem: TradeItItem): DiscoveredListing {
+  const price = foundItem.price / 100.0;
+  const externalId = foundItem.assetId ?? foundItem.id;
+  return {
+    source: "tradeIt",
+    externalId,
+    canonicalUrl: `https://tradeit.gg/csgo/trade/${externalId}`,
+    title: foundItem.name,
+    price,
+    shipping: null,
+    totalPrice: price,
+    currency: "USD",
+    imageUrl: null,
+    description: `float ${getBestFloat(foundItem)}`,
+    availability: "available",
+  };
+}
+
+async function ensureCsTradeBotQueryId(
+  name: string,
+  queryId: string | null,
+): Promise<string> {
+  if (queryId) return queryId;
+  const query = await db.query.create({
+    data: {
+      csTradeBot: {
+        connect: { name },
+      },
+    },
+  });
+  return query.id;
 }
 
 /* {

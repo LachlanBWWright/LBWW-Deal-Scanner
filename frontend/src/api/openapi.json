@@ -461,6 +461,9 @@
                           },
                           "excludePhrases": {
                             "type": "string"
+                          },
+                          "scanMode": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -577,6 +580,9 @@
                           "type": "string"
                         },
                         "excludePhrases": {
+                          "type": "string"
+                        },
+                        "scanMode": {
                           "type": "string"
                         }
                       },
@@ -698,6 +704,9 @@
                           "type": "string"
                         },
                         "excludePhrases": {
+                          "type": "string"
+                        },
+                        "scanMode": {
                           "type": "string"
                         }
                       },

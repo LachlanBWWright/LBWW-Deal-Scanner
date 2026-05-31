@@ -239,6 +239,7 @@ export interface paths {
                                 maxFloat?: number;
                                 requiredPhrases?: string;
                                 excludePhrases?: string;
+                                scanMode?: string;
                             }[];
                         };
                     };
@@ -288,6 +289,7 @@ export interface paths {
                                 maxFloat?: number;
                                 requiredPhrases?: string;
                                 excludePhrases?: string;
+                                scanMode?: string;
                             };
                         };
                     };
@@ -336,6 +338,7 @@ export interface paths {
                                 maxFloat?: number;
                                 requiredPhrases?: string;
                                 excludePhrases?: string;
+                                scanMode?: string;
                             };
                         };
                     };

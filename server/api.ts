@@ -201,6 +201,7 @@ const queryItemSchema = {
     maxFloat: { type: "number" },
     requiredPhrases: { type: "string" },
     excludePhrases: { type: "string" },
+    scanMode: { type: "string" },
   },
   required: ["type", "id", "dmOnly"],
 } as const;
@@ -320,6 +321,7 @@ interface QueryItem {
   maxFloat?: number;
   requiredPhrases?: string;
   excludePhrases?: string;
+  scanMode?: string;
 }
 
 function parseBoolean(value: unknown) {
@@ -332,6 +334,11 @@ function normalizeNumber(value: unknown, name: string) {
     throw new Error(`${name} must be a number`);
   }
   return numberValue;
+}
+
+function normalizeOptionalNumber(value: unknown, name: string) {
+  if (value === undefined || value === null || value === "") return null;
+  return normalizeNumber(value, name);
 }
 
 async function listSavedQueries(type?: QueryType) {
@@ -363,6 +370,8 @@ async function listSavedQueries(type?: QueryType) {
       url: item.url,
       requiredPhrases: item.requiredPhrases,
       excludePhrases: item.excludePhrases,
+      maxPrice: item.maxPrice ?? undefined,
+      scanMode: item.scanMode,
     })),
     ...ebay.map((item) => ({
       type: "ebay" as const,
@@ -428,6 +437,8 @@ async function createSavedQuery(
       const url = new URL(String(payload.url || "")).toString();
       const requiredPhrases = String(payload.requiredPhrases || "");
       const excludePhrases = String(payload.excludePhrases || "");
+      const maxPrice = normalizeOptionalNumber(payload.maxPrice, "maxPrice");
+      const scanMode = String(payload.scanMode || "searchUrl");
       await db.query.create({
         data: {
           dmOnly,
@@ -436,6 +447,8 @@ async function createSavedQuery(
               url,
               requiredPhrases,
               excludePhrases,
+              maxPrice,
+              scanMode,
             },
           },
         },
@@ -447,6 +460,8 @@ async function createSavedQuery(
         url,
         requiredPhrases,
         excludePhrases,
+        maxPrice: maxPrice ?? undefined,
+        scanMode,
       };
     }
     case "ebay": {
@@ -575,6 +590,8 @@ async function updateSavedQuery(
       const url = new URL(String(payload.url || id)).toString();
       const requiredPhrases = String(payload.requiredPhrases || "");
       const excludePhrases = String(payload.excludePhrases || "");
+      const maxPrice = normalizeOptionalNumber(payload.maxPrice, "maxPrice");
+      const scanMode = String(payload.scanMode || "searchUrl");
       const dmOnly = parseBoolean(payload.dmOnly);
       const updated = await db.cashConverters.update({
         where: { url: id },
@@ -582,6 +599,8 @@ async function updateSavedQuery(
           url,
           requiredPhrases,
           excludePhrases,
+          maxPrice,
+          scanMode,
           query: { update: { dmOnly } },
         },
       });
@@ -592,6 +611,8 @@ async function updateSavedQuery(
         url: updated.url,
         requiredPhrases,
         excludePhrases,
+        maxPrice: updated.maxPrice ?? undefined,
+        scanMode: updated.scanMode,
       };
     }
     case "ebay": {

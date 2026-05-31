@@ -470,7 +470,15 @@ async function runFetchOnlyTemporaryScan(
         };
         items.push(item);
         if (passedFilters) {
-          notifications.push(notificationFromItem(item, type));
+          notifications.push({
+            kind: "deal",
+            source: "csTrade",
+            title: item.title,
+            url: item.url,
+            price: item.price ?? undefined,
+            imageUrl: item.imageUrl ?? undefined,
+            query: { type, id: name },
+          });
         }
       }
       break;

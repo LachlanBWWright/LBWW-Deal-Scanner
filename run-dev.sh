@@ -61,10 +61,10 @@ echo "Starting backend and frontend. Press Ctrl+C to stop both."
 echo "Using API_PORT=$SERVER_PORT and frontend port $FRONTEND_PORT"
 echo "Testing API enabled: $ENABLE_TESTING_VALUE"
 
-run_with_prefix "server" "server" env API_PORT="$SERVER_PORT" API_SECRET="$API_SECRET_VALUE" ENABLE_TESTING_API="$ENABLE_TESTING_VALUE" npm run dev &
+run_with_prefix "server" "server" env API_PORT="$SERVER_PORT" API_SECRET="$API_SECRET_VALUE" ENABLE_TESTING_API="$ENABLE_TESTING_VALUE" pnpm run dev &
 SERVER_PID=$!
 
-run_with_prefix "frontend" "frontend" env API_PORT="$SERVER_PORT" VITE_API_SECRET="$API_SECRET_VALUE" npm run dev -- --port "$FRONTEND_PORT" &
+run_with_prefix "frontend" "frontend" env API_PORT="$SERVER_PORT" VITE_API_SECRET="$API_SECRET_VALUE" pnpm run dev -- --port "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 
 wait -n "$SERVER_PID" "$FRONTEND_PID"

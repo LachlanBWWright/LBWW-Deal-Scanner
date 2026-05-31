@@ -5,13 +5,21 @@ import createCashQuery from "./createCashQuery.js";
 interface InteractionOptions {
   query: string;
   dmOnly?: boolean;
+  maxPrice?: number;
+  scanMode?: string;
 }
 
 function makeInteraction(input: InteractionOptions) {
   const replies: string[] = [];
   const interaction = {
     options: {
-      getString: (name: string) => (name === "query" ? input.query : null),
+      getString: (name: string) => {
+        if (name === "query") return input.query;
+        if (name === "scanmode") return input.scanMode ?? null;
+        return null;
+      },
+      getNumber: (name: string) =>
+        name === "maxprice" ? (input.maxPrice ?? null) : null,
       getBoolean: (name: string) =>
         name === "dmonly" ? (input.dmOnly ?? false) : null,
     },
@@ -33,12 +41,16 @@ describe("createCashQuery.ts", () => {
     const { interaction, replies } = makeInteraction({
       query: url,
       dmOnly: true,
+      maxPrice: 120,
+      scanMode: "siteWide",
     });
 
     await createCashQuery(interaction);
 
     const created = await db.cashConverters.findUnique({ where: { url } });
     expect(created).not.toBeNull();
+    expect(created?.maxPrice).toBe(120);
+    expect(created?.scanMode).toBe("siteWide");
     expect(replies[0]).toContain("search has been created");
     expect(replies[0]).toContain("DM only");
 

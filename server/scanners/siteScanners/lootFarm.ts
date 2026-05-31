@@ -1,13 +1,16 @@
 import globals from "../../globals/Globals.js";
 import setStatus from "../../functions/setStatus.js";
-import {
-  checkIfNewCsItem,
-  CsSite,
-  getAllTradeBotItems,
-} from "../../functions/csTradeBot.js";
+import { getAllTradeBotItems } from "../../functions/csTradeBot.js";
 import { fetchLootFarmItems } from "../../functions/lootFarmFetcher.js";
 import type { DealNotification } from "../../deals/types.js";
 import type { LootFarmSkin } from "../../functions/apiValidators.js";
+import { db } from "../../globals/PrismaClient.js";
+import {
+  evaluateListingForQuery,
+  matchPriceRange,
+  persistListingObservation,
+  type DiscoveredListing,
+} from "../listingState.js";
 
 async function checkLootFarmItem(
   searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
@@ -20,6 +23,11 @@ async function checkLootFarmItem(
   if (!item?.f) return;
 
   const itemFloat = parseInt(item.f) / 100000;
+  const listing = normalizeLootFarmListing(skin, skinPriceCents, item.id, itemFloat);
+  const persistedResult = await persistListingObservation({ listing });
+  if (persistedResult.isErr()) {
+    console.warn(persistedResult.error.message);
+  }
 
   const meetsFloatCriteria =
     itemFloat >= searchItem.minFloat && itemFloat <= searchItem.maxFloat;
@@ -27,13 +35,22 @@ async function checkLootFarmItem(
     !searchItem.name.includes("StatTrak") || item.st != null;
 
   if (!meetsFloatCriteria || !meetsStatTrakCriteria) return;
+  if (persistedResult.isErr()) return;
 
-  const isNew = await checkIfNewCsItem(
-    searchItem.name,
-    itemFloat,
-    CsSite.LOOT_FARM,
-  );
-  if (!isNew) return;
+  const queryId = await ensureCsTradeBotQueryId(searchItem.name, searchItem.queryId);
+  const decisionResult = await evaluateListingForQuery({
+    queryId,
+    listingId: persistedResult.value.listingId,
+    source: "lootFarm",
+    totalPrice: listing.totalPrice,
+    match: matchPriceRange(listing.totalPrice, null, searchItem.maxPrice),
+    furtherPriceDropRatio: 0.04,
+  });
+  if (decisionResult.isErr()) {
+    console.warn(decisionResult.error.message);
+    return;
+  }
+  if (decisionResult.value.type === "DoNotNotify") return;
 
   notifications.push({
     kind: "deal",
@@ -94,6 +111,43 @@ export async function scanLootFarm(): Promise<DealNotification[]> {
   }
 
   return notifications;
+}
+
+function normalizeLootFarmListing(
+  skin: LootFarmSkin,
+  skinPriceCents: number,
+  itemId: string,
+  itemFloat: number,
+): DiscoveredListing {
+  const price = skinPriceCents / 100;
+  return {
+    source: "lootFarm",
+    externalId: itemId,
+    canonicalUrl: `https://loot.farm/item/${itemId}`,
+    title: skin.n,
+    price,
+    shipping: null,
+    totalPrice: price,
+    currency: "USD",
+    imageUrl: null,
+    description: `float ${itemFloat}`,
+    availability: "available",
+  };
+}
+
+async function ensureCsTradeBotQueryId(
+  name: string,
+  queryId: string | null,
+): Promise<string> {
+  if (queryId) return queryId;
+  const query = await db.query.create({
+    data: {
+      csTradeBot: {
+        connect: { name },
+      },
+    },
+  });
+  return query.id;
 }
 
 /* "27623861":{

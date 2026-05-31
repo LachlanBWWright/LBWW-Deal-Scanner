@@ -31,6 +31,7 @@ function queryUrl(item: QueryItem) {
 function queryMeta(item: QueryItem) {
   const entries: string[] = [];
   if (item.maxPrice != null) entries.push(`max $${item.maxPrice}`);
+  if (item.scanMode) entries.push(`mode ${item.scanMode}`);
   if (item.minPrice != null) entries.push(`min $${item.minPrice}`);
   if (item.minFloat != null) entries.push(`min float ${item.minFloat}`);
   if (item.maxFloat != null) entries.push(`max float ${item.maxFloat}`);
