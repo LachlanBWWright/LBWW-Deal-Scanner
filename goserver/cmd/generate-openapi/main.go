@@ -1,4 +1,13 @@
-{
+package main
+
+import (
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+)
+
+const openApiJSON = `{
   "openapi": "3.1.0",
   "info": {
     "title": "DealScanner Control API",
@@ -1275,4 +1284,34 @@
       }
     }
   }
+}`
+
+func main() {
+	log.Println("Generating OpenAPI spec...")
+
+	apiDir := filepath.Join("..", "frontend", "src", "api")
+	openApiPath := filepath.Join(apiDir, "openapi.json")
+
+	// Ensure API dir exists
+	if err := os.MkdirAll(apiDir, 0755); err != nil {
+		log.Fatalf("Failed to create frontend API directory: %v", err)
+	}
+
+	// Write openapi.json
+	if err := os.WriteFile(openApiPath, []byte(openApiJSON+"\n"), 0644); err != nil {
+		log.Fatalf("Failed to write openapi.json: %v", err)
+	}
+	log.Printf("Successfully wrote openapi.json to %s", openApiPath)
+
+	// Run npx openapi-typescript to generate schema.d.ts
+	log.Println("Regenerating schema.d.ts typings...")
+	cmd := exec.Command("npx", "openapi-typescript", openApiPath, "-o", filepath.Join(apiDir, "schema.d.ts"))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		log.Fatalf("Failed to execute openapi-typescript: %v", err)
+	}
+
+	log.Println("OpenAPI schema typings regenerated successfully.")
 }

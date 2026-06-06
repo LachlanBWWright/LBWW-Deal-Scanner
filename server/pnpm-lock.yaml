@@ -53,6 +53,9 @@ importers:
       puppeteer:
         specifier: ^24.37.3
         version: 24.43.1(typescript@5.9.3)
+      undici:
+        specifier: ^6.24.1
+        version: 6.24.1
       vitest:
         specifier: ^4.0.18
         version: 4.1.7(@types/node@25.9.1)(vite@7.3.3(@types/node@25.9.1)(jiti@2.7.0)(yaml@2.9.0))
