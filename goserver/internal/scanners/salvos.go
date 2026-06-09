@@ -160,8 +160,14 @@ func (s *SalvosScanner) scrapeSalvos(ctx context.Context, term string) ([]qry.Di
 
 	// Look up cards
 	doc.Find("div.flex.flex-col.overflow-hidden.rounded.shadow-card.bg-white.h-auto, [class*='rounded'][class*='shadow-card']").Each(func(i int, sel *goquery.Selection) {
-		linkSel := sel.Find("a[class*='line-clamp-3'], a[href]").First()
+		linkSel := sel.Find("a.line-clamp-3, [class*='line-clamp-3']").First()
 		title := strings.TrimSpace(linkSel.Text())
+		if title == "" {
+			linkSel = sel.Find("a[href]").FilterFunction(func(i int, s *goquery.Selection) bool {
+				return strings.TrimSpace(s.Text()) != ""
+			}).First()
+			title = strings.TrimSpace(linkSel.Text())
+		}
 		href, exists := linkSel.Attr("href")
 		if !exists || title == "" {
 			return

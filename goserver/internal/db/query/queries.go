@@ -12,19 +12,22 @@ import (
 )
 
 type QueryItem struct {
-	Type            string   `json:"type"`
-	Id              string   `json:"id"`
-	DmOnly          bool     `json:"dmOnly"`
-	Url             *string  `json:"url,omitempty"`
-	Name            *string  `json:"name,omitempty"`
-	DisplayUrl      *string  `json:"displayUrl,omitempty"`
-	MaxPrice        *float64 `json:"maxPrice,omitempty"`
-	MinPrice        *float64 `json:"minPrice,omitempty"`
-	MinFloat        *float64 `json:"minFloat,omitempty"`
-	MaxFloat        *float64 `json:"maxFloat,omitempty"`
-	RequiredPhrases *string  `json:"requiredPhrases,omitempty"`
-	ExcludePhrases  *string  `json:"excludePhrases,omitempty"`
-	ScanMode        *string  `json:"scanMode,omitempty"`
+	QueryId               string   `json:"queryId"`
+	Type                  string   `json:"type"`
+	Id                    string   `json:"id"`
+	DmOnly                bool     `json:"dmOnly"`
+	Url                   *string  `json:"url,omitempty"`
+	Name                  *string  `json:"name,omitempty"`
+	DisplayUrl            *string  `json:"displayUrl,omitempty"`
+	MaxPrice              *float64 `json:"maxPrice,omitempty"`
+	MinPrice              *float64 `json:"minPrice,omitempty"`
+	MinFloat              *float64 `json:"minFloat,omitempty"`
+	MaxFloat              *float64 `json:"maxFloat,omitempty"`
+	RequiredPhrases       *string  `json:"requiredPhrases,omitempty"`
+	ExcludePhrases        *string  `json:"excludePhrases,omitempty"`
+	RequiredInDescription *string  `json:"requiredInDescription,omitempty"`
+	ExcludeInDescription  *string  `json:"excludeInDescription,omitempty"`
+	ScanMode              *string  `json:"scanMode,omitempty"`
 }
 
 func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]QueryItem, error) {
@@ -39,16 +42,21 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				urlVal := r.Url
 				reqPhrases := r.RequiredPhrases
 				exclPhrases := r.ExcludePhrases
+				reqInDesc := r.RequiredInDescription
+				exclInDesc := r.ExcludeInDescription
 				scanMode := r.ScanMode
 				list = append(list, QueryItem{
-					Type:            "cashConverters",
-					Id:              r.Url,
-					DmOnly:          r.Query.DmOnly,
-					Url:             &urlVal,
-					RequiredPhrases: &reqPhrases,
-					ExcludePhrases:  &exclPhrases,
-					ScanMode:        &scanMode,
-					MaxPrice:        r.MaxPrice,
+					QueryId:               r.QueryId,
+					Type:                  "cashConverters",
+					Id:                    r.Url,
+					DmOnly:                r.Query.DmOnly,
+					Url:                   &urlVal,
+					RequiredPhrases:       &reqPhrases,
+					ExcludePhrases:        &exclPhrases,
+					RequiredInDescription: &reqInDesc,
+					ExcludeInDescription:  &exclInDesc,
+					ScanMode:              &scanMode,
+					MaxPrice:              r.MaxPrice,
 				})
 			}
 		}
@@ -63,6 +71,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				urlVal := r.Url
 				maxPrice := r.MaxPrice
 				list = append(list, QueryItem{
+					QueryId:  r.QueryId,
 					Type:     "ebay",
 					Id:       r.Url,
 					DmOnly:   r.Query.DmOnly,
@@ -82,6 +91,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				urlVal := r.Url
 				maxPrice := r.MaxPrice
 				list = append(list, QueryItem{
+					QueryId:  r.QueryId,
 					Type:     "gumtree",
 					Id:       r.Url,
 					DmOnly:   r.Query.DmOnly,
@@ -102,6 +112,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				minPrice := r.MinPrice
 				maxPrice := r.MaxPrice
 				list = append(list, QueryItem{
+					QueryId:  r.QueryId,
 					Type:     "salvos",
 					Id:       r.Name,
 					DmOnly:   r.Query.DmOnly,
@@ -124,6 +135,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				maxPrice := r.MaxPrice
 				maxFloat := r.MaxFloat
 				list = append(list, QueryItem{
+					QueryId:    r.QueryId,
 					Type:       "csMarket",
 					Id:         r.Url,
 					DmOnly:     r.Query.DmOnly,
@@ -146,6 +158,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				displayUrl := r.DisplayUrl
 				maxPrice := r.MaxPrice
 				list = append(list, QueryItem{
+					QueryId:    r.QueryId,
 					Type:       "steamMarket",
 					Id:         r.Name,
 					DmOnly:     r.Query.DmOnly,
@@ -168,6 +181,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				minFloat := r.MinFloat
 				maxFloat := r.MaxFloat
 				list = append(list, QueryItem{
+					QueryId:  r.QueryId,
 					Type:     "csTradeBot",
 					Id:       r.Name,
 					DmOnly:   r.Query.DmOnly,
@@ -363,11 +377,13 @@ func (q *Query) UpdateCashConvertersQuery(ctx context.Context, id string, dmOnly
 			cc.ScanMode = "searchUrl"
 		}
 		_, err = tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(id)).Updates(map[string]interface{}{
-			"url":             cc.Url,
-			"requiredPhrases": cc.RequiredPhrases,
-			"excludePhrases":  cc.ExcludePhrases,
-			"maxPrice":        cc.MaxPrice,
-			"scanMode":        cc.ScanMode,
+			"url":                   cc.Url,
+			"requiredPhrases":       cc.RequiredPhrases,
+			"excludePhrases":        cc.ExcludePhrases,
+			"requiredInDescription": cc.RequiredInDescription,
+			"excludeInDescription":  cc.ExcludeInDescription,
+			"maxPrice":              cc.MaxPrice,
+			"scanMode":              cc.ScanMode,
 		})
 		return err
 	})
@@ -594,3 +610,57 @@ func (q *Query) DeleteSavedQuery(ctx context.Context, queryType string, id strin
 		return err
 	})
 }
+
+type FoundItem struct {
+	Title        string
+	Url          string
+	Price        float64
+	LastMatched  time.Time
+}
+
+func (q *Query) GetLastFoundItems(ctx context.Context, queryId string, limit int) ([]FoundItem, error) {
+	var results []struct {
+		Title                  string
+		CanonicalUrl           string
+		LastNotifiedTotalPrice *float64
+		LowestObservedPrice    *float64
+		LastMatchedAt          *time.Time
+	}
+
+	err := q.db.WithContext(ctx).
+		Table("QueryListingState").
+		Select("Listing.title, Listing.canonicalUrl, QueryListingState.lastNotifiedTotalPrice, QueryListingState.lowestObservedPrice, QueryListingState.lastMatchedAt").
+		Joins("JOIN Listing ON QueryListingState.listingId = Listing.id").
+		Where("QueryListingState.queryId = ? AND QueryListingState.status IN (?)", queryId, []string{"notified", "matched"}).
+		Order("QueryListingState.lastMatchedAt DESC").
+		Limit(limit).
+		Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	var items []FoundItem
+	for _, r := range results {
+		price := 0.0
+		if r.LastNotifiedTotalPrice != nil {
+			price = *r.LastNotifiedTotalPrice
+		} else if r.LowestObservedPrice != nil {
+			price = *r.LowestObservedPrice
+		}
+
+		matchedAt := time.Time{}
+		if r.LastMatchedAt != nil {
+			matchedAt = *r.LastMatchedAt
+		}
+
+		items = append(items, FoundItem{
+			Title:       r.Title,
+			Url:         r.CanonicalUrl,
+			Price:       price,
+			LastMatched: matchedAt,
+		})
+	}
+	return items, nil
+}
+

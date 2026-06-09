@@ -2,17 +2,20 @@ package scanners
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -43,6 +46,90 @@ type CcDetail struct {
 	Availability string
 }
 
+type CcApiProductItem struct {
+	Title            string `json:"Title"`
+	Sp               string `json:"Sp"`
+	ShippingCost     string `json:"ShippingCost"`
+	AbsoluteImageUrl string `json:"AbsoluteImageUrl"`
+	Url              string `json:"Url"`
+}
+
+type CcApiResponse struct {
+	WasSuccessful bool `json:"WasSuccessful"`
+	Value         struct {
+		ProductList struct {
+			ProductListItems []CcApiProductItem `json:"ProductListItems"`
+		} `json:"ProductList"`
+	} `json:"Value"`
+}
+
+func buildCcApiUrl(searchUrl string) string {
+	if !strings.HasPrefix(searchUrl, "http") {
+		apiUrl := url.URL{
+			Scheme: "https",
+			Host:   "www.cashconverters.com.au",
+			Path:   "/c3api/search/results",
+		}
+		newQ := url.Values{}
+		newQ.Set("query", searchUrl)
+		newQ.Set("Sort", "Default")
+		newQ.Set("SalePrice", "20|99999999|C")
+		newQ.Set("page", "1")
+		apiUrl.RawQuery = newQ.Encode()
+		return apiUrl.String()
+	}
+
+	if strings.Contains(searchUrl, "/c3api/search/results") {
+		return searchUrl
+	}
+
+	parsed, err := url.Parse(searchUrl)
+	if err != nil {
+		return searchUrl
+	}
+
+	q := parsed.Query()
+	queryVal := q.Get("query")
+	if queryVal == "" {
+		queryVal = q.Get("q")
+	}
+
+	sortVal := q.Get("Sort")
+	if sortVal == "" {
+		sortVal = q.Get("sort")
+	}
+	if sortVal == "" {
+		sortVal = "Default"
+	}
+
+	salePriceVal := q.Get("SalePrice")
+	if salePriceVal == "" {
+		salePriceVal = q.Get("saleprice")
+	}
+	if salePriceVal == "" {
+		salePriceVal = "20|99999999|C"
+	}
+
+	pageVal := q.Get("page")
+	if pageVal == "" {
+		pageVal = "1"
+	}
+
+	apiUrl := url.URL{
+		Scheme: "https",
+		Host:   "www.cashconverters.com.au",
+		Path:   "/c3api/search/results",
+	}
+	newQ := url.Values{}
+	newQ.Set("query", queryVal)
+	newQ.Set("Sort", sortVal)
+	newQ.Set("SalePrice", salePriceVal)
+	newQ.Set("page", pageVal)
+	apiUrl.RawQuery = newQ.Encode()
+
+	return apiUrl.String()
+}
+
 func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNotification, error) {
 	globals, err := s.dbClient.GetGlobals(ctx)
 	if err != nil {
@@ -69,18 +156,30 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 		summaries, err := s.discoverCcItems(ctx, *query.Url)
 		if err != nil {
-			log.Printf("Cash Converters scrape failed for URL %s: %v", *query.Url, err)
+			log.Printf("Cash Converters API fetch failed for URL %s: %v", *query.Url, err)
 			continue
 		}
 
 		for _, sum := range summaries {
-			// Get or fetch detail
-			detail, err := s.getCcDetail(ctx, sum)
-			if err != nil {
-				continue
+			needDescription := (query.RequiredInDescription != nil && *query.RequiredInDescription != "") ||
+				(query.ExcludeInDescription != nil && *query.ExcludeInDescription != "")
+
+			var detail CcDetail
+			if needDescription {
+				detail, err = s.getCcDetail(ctx, sum)
+				if err != nil {
+					log.Printf("Failed to get product details for %s: %v", sum.CanonicalUrl, err)
+					continue
+				}
+			} else {
+				detail = CcDetail{
+					CcSummary:    sum,
+					Description:  "",
+					Availability: "available",
+				}
 			}
 
-			// Persist
+			// Persist listing observation
 			found := qry.DiscoveredListing{
 				Source:       "cashConverters",
 				CanonicalUrl: detail.CanonicalUrl,
@@ -98,7 +197,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				continue
 			}
 
-			// Evaluate keywords and max price
+			// Evaluate keyword and description filters
 			matched := true
 			var rejectReason *string
 
@@ -119,6 +218,29 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 					if strings.Contains(searchable, phrase) {
 						matched = false
 						reason := "ExcludedPhrase"
+						rejectReason = &reason
+						break
+					}
+				}
+			}
+
+			descSearchable := strings.ToLower(detail.Description)
+			if matched && query.RequiredInDescription != nil && *query.RequiredInDescription != "" {
+				for _, phrase := range parsePhrases(*query.RequiredInDescription) {
+					if !strings.Contains(descSearchable, phrase) {
+						matched = false
+						reason := "MissingRequiredInDescription"
+						rejectReason = &reason
+						break
+					}
+				}
+			}
+
+			if matched && query.ExcludeInDescription != nil && *query.ExcludeInDescription != "" {
+				for _, phrase := range parsePhrases(*query.ExcludeInDescription) {
+					if strings.Contains(descSearchable, phrase) {
+						matched = false
+						reason := "ExcludedFromDescription"
 						rejectReason = &reason
 						break
 					}
@@ -201,53 +323,57 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 }
 
 func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl string) ([]CcSummary, error) {
-	parsed, err := url.Parse(searchUrl)
+	apiUrl := buildCcApiUrl(searchUrl)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", apiUrl, nil)
 	if err != nil {
 		return nil, err
 	}
-	q := parsed.Query()
-	q.Set("page", "1")
-	parsed.RawQuery = q.Encode()
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
-	doc, err := scrapeUrlWithBrowser(ctx, parsed.String())
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status code: %d", resp.StatusCode)
+	}
+
+	var apiResp CcApiResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
+	}
+
+	if !apiResp.WasSuccessful {
+		return nil, fmt.Errorf("API response indicates failure")
 	}
 
 	var results []CcSummary
+	for _, item := range apiResp.Value.ProductList.ProductListItems {
+		price := parseCcPrice(item.Sp)
+		shipping := parseCcShipping(item.ShippingCost)
+		total := price + shipping
 
-	doc.Find("div.product-item, .product-item").Each(func(i int, sel *goquery.Selection) {
-		titleSel := sel.Find("span.product-item__title__description, [class*='title']").First()
-		title := strings.TrimSpace(titleSel.Text())
-
-		linkSel := sel.Find("a").First()
-		href, exists := linkSel.Attr("href")
-		if !exists || title == "" {
-			return
-		}
-
+		href := item.Url
 		if !strings.HasPrefix(href, "http") {
 			href = "https://www.cashconverters.com.au" + href
 		}
 
-		priceText := strings.TrimSpace(sel.Find(".product-item__price").First().Text())
-		shippingText := strings.TrimSpace(sel.Find(".product-item__postage").First().Text())
-		imgSel := sel.Find("img").First()
-		imgUrl, _ := imgSel.Attr("src")
-
-		price := parseCcPrice(priceText)
-		shipping := parseCcShipping(shippingText)
-		total := price + shipping
-
 		results = append(results, CcSummary{
 			CanonicalUrl: href,
-			Title:        title,
+			Title:        item.Title,
 			Price:        price,
 			Shipping:     shipping,
 			TotalPrice:   total,
-			ImageUrl:     imgUrl,
+			ImageUrl:     item.AbsoluteImageUrl,
 		})
-	})
+	}
 
 	return results, nil
 }
@@ -292,7 +418,27 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 	// Fetch fresh page detail
 	time.Sleep(2 * time.Second)
 
-	doc, err := scrapeUrlWithBrowser(ctx, sum.CanonicalUrl)
+	req, err := http.NewRequestWithContext(ctx, "GET", sum.CanonicalUrl, nil)
+	if err != nil {
+		return CcDetail{}, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return CcDetail{}, err
+	}
+	if resp == nil {
+		return CcDetail{}, fmt.Errorf("http response is nil")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return CcDetail{}, fmt.Errorf("bad status code: %d", resp.StatusCode)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return CcDetail{}, err
 	}
@@ -302,7 +448,26 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 		title = sum.Title
 	}
 
-	description := strings.TrimSpace(doc.Find(".product-detail__description, .product-description, [class*='description']").First().Text())
+	var description string
+	// Try standard meta description tag
+	doc.Find("meta[name='description']").Each(func(i int, sel *goquery.Selection) {
+		if content, exists := sel.Attr("content"); exists {
+			description = strings.TrimSpace(content)
+		}
+	})
+	// Fall back to og:description
+	if description == "" {
+		doc.Find("meta[property='og:description']").Each(func(i int, sel *goquery.Selection) {
+			if content, exists := sel.Attr("content"); exists {
+				description = strings.TrimSpace(content)
+			}
+		})
+	}
+	// Fall back to selector description
+	if description == "" {
+		description = strings.TrimSpace(doc.Find(".product-detail__description, .product-description, [class*='description']").First().Text())
+	}
+
 	regSpace := regexp.MustCompile(`\s+`)
 	description = regSpace.ReplaceAllString(description, " ")
 

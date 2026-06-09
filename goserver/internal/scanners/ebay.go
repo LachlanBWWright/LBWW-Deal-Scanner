@@ -150,24 +150,25 @@ func (e *EbayScanner) scrapeEbay(ctx context.Context, url string) ([]qry.Discove
 
 	var listings []qry.DiscoveredListing
 
-	// Select card elements
-	doc.Find("li.s-item").Each(func(i int, s *goquery.Selection) {
-		titleSel := s.Find("div.s-item__title, div[role=\"heading\"]").First()
+	// Select card elements (supports traditional s-item and newer s-card layouts)
+	doc.Find("li.s-item, li.s-card").Each(func(i int, s *goquery.Selection) {
+		titleSel := s.Find("div.s-item__title, div[role=\"heading\"]").Clone()
+		// Remove noisy/extra screen reader text and badge elements
+		titleSel.Find("span.clipped, span.s-card__new-listing, span.s-item__new-listing, span.s-item__watch-heart, .LIGHT_HIGHLIGHT").Remove()
 		title := strings.TrimSpace(titleSel.Text())
 		if title == "" || strings.HasPrefix(title, "Shop on eBay") {
 			return
 		}
 
-		// Clean new listing label if present
-		title = strings.TrimPrefix(title, "New listing")
-		title = strings.TrimSpace(title)
-
-		priceText := strings.TrimSpace(s.Find(".s-item__price").First().Text())
+		priceText := strings.TrimSpace(s.Find(".s-item__price, .s-card__price").First().Text())
 		if priceText == "" {
 			return
 		}
 
-		linkSel := s.Find("a.s-item__link, a[href]").First()
+		linkSel := s.Find("a.s-item__link, a.s-card__link").First()
+		if linkSel.Length() == 0 {
+			linkSel = s.Find("a[href]").First()
+		}
 		link, exists := linkSel.Attr("href")
 		if !exists || link == "" {
 			return

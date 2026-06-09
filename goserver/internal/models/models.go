@@ -25,13 +25,15 @@ func (UserQuery) TableName() string {
 }
 
 type CashConverters struct {
-	Url             string      `gorm:"primaryKey;column:url" json:"url"`
-	RequiredPhrases string      `gorm:"column:requiredPhrases" json:"requiredPhrases"`
-	ExcludePhrases  string      `gorm:"column:excludePhrases" json:"excludePhrases"`
-	MaxPrice        *float64    `gorm:"column:maxPrice" json:"maxPrice"`
-	ScanMode        string      `gorm:"column:scanMode" json:"scanMode"`
-	QueryId         string      `gorm:"column:queryId" json:"queryId"`
-	Query           SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Url                   string      `gorm:"primaryKey;column:url" json:"url"`
+	RequiredPhrases       string      `gorm:"column:requiredPhrases" json:"requiredPhrases"`
+	ExcludePhrases        string      `gorm:"column:excludePhrases" json:"excludePhrases"`
+	RequiredInDescription string      `gorm:"column:requiredInDescription" json:"requiredInDescription"`
+	ExcludeInDescription  string      `gorm:"column:excludeInDescription" json:"excludeInDescription"`
+	MaxPrice              *float64    `gorm:"column:maxPrice" json:"maxPrice"`
+	ScanMode              string      `gorm:"column:scanMode" json:"scanMode"`
+	QueryId               string      `gorm:"column:queryId" json:"queryId"`
+	Query                 SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (CashConverters) TableName() string {

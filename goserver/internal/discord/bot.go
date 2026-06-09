@@ -1,10 +1,14 @@
 package discord
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"strings"
+	"strconv"
 	"time"
 
 	"dealscanner/internal/config"
@@ -14,6 +18,47 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
 )
+
+var httpClient = &http.Client{
+	Timeout: 5 * time.Second,
+}
+
+func downloadFile(url string) (*discordgo.File, error) {
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch image: status code %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract filename from URL
+	name := "image.jpg"
+	parts := strings.Split(url, "/")
+	if len(parts) > 0 {
+		lastName := parts[len(parts)-1]
+		if idx := strings.Index(lastName, "?"); idx != -1 {
+			lastName = lastName[:idx]
+		}
+		if lastName != "" {
+			name = lastName
+		}
+	}
+
+	return &discordgo.File{
+		Name:        name,
+		ContentType: resp.Header.Get("Content-Type"),
+		Reader:      bytes.NewReader(data),
+	}, nil
+}
+
 
 type Bot struct {
 	cfg          *config.Config
@@ -87,12 +132,13 @@ func (b *Bot) registerCommands() {
 		}},
 		{Name: "viewebayqueries", Description: "List all saved eBay queries"},
 
-		// Cash Converters
 		{Name: "createcashquery", Description: "Creates a saved query for Cash Converters", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "The URL of the query.", Required: true},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Enter the maximum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredphrases", Description: "Comma-separated required phrases.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excludephrases", Description: "Comma-separated excluded phrases.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredindescription", Description: "Required phrases in description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excludeindescription", Description: "Excluded phrases in description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
 				{Name: "Search URL", Value: "searchUrl"},
 				{Name: "Site wide", Value: "siteWide"},
@@ -105,6 +151,8 @@ func (b *Bot) registerCommands() {
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Optional maximum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredphrases", Description: "Optional required phrases", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excludephrases", Description: "Optional excluded phrases", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredindescription", Description: "Optional required phrases in description", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excludeindescription", Description: "Optional excluded phrases in description", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
 				{Name: "Search URL", Value: "searchUrl"},
 				{Name: "Site wide", Value: "siteWide"},
@@ -307,23 +355,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted eBay query: `%s`", id)
 		}
 	case "viewebayqueries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "ebay")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved eBay queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved eBay Queries:**\n")
-			for _, q := range queries {
-				priceStr := "Any"
-				if q.MaxPrice != nil {
-					priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
-				}
-				sb.WriteString(fmt.Sprintf("- ID: `%s` | Max Price: %s\n", *q.Url, priceStr))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "ebay", "Saved eBay Queries", 1)
 
 	// Cash Converters
 	case "createcashquery":
@@ -341,17 +373,27 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if opt, ok := options["excludephrases"]; ok && opt != nil {
 			excludePhrases = opt.StringValue()
 		}
+		var requiredInDesc string
+		if opt, ok := options["requiredindescription"]; ok && opt != nil {
+			requiredInDesc = opt.StringValue()
+		}
+		var excludeInDesc string
+		if opt, ok := options["excludeindescription"]; ok && opt != nil {
+			excludeInDesc = opt.StringValue()
+		}
 		var scanMode string
 		if opt, ok := options["scanmode"]; ok && opt != nil {
 			scanMode = opt.StringValue()
 		}
 		dmOnly := getBoolOption(options, "dmonly")
 		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, &models.CashConverters{
-			Url:             query,
-			MaxPrice:        maxPrice,
-			RequiredPhrases: requiredPhrases,
-			ExcludePhrases:  excludePhrases,
-			ScanMode:        scanMode,
+			Url:                   query,
+			MaxPrice:              maxPrice,
+			RequiredPhrases:       requiredPhrases,
+			ExcludePhrases:        excludePhrases,
+			RequiredInDescription: requiredInDesc,
+			ExcludeInDescription:  excludeInDesc,
+			ScanMode:              scanMode,
 		})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -385,13 +427,23 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if opt, ok := options["excludephrases"]; ok && opt != nil {
 				excludePhrases = opt.StringValue()
 			}
+			requiredInDesc := cc.RequiredInDescription
+			if opt, ok := options["requiredindescription"]; ok && opt != nil {
+				requiredInDesc = opt.StringValue()
+			}
+			excludeInDesc := cc.ExcludeInDescription
+			if opt, ok := options["excludeindescription"]; ok && opt != nil {
+				excludeInDesc = opt.StringValue()
+			}
 
 			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, false, &models.CashConverters{
-				Url:             urlVal,
-				MaxPrice:        maxPrice,
-				ScanMode:        scanMode,
-				RequiredPhrases: requiredPhrases,
-				ExcludePhrases:  excludePhrases,
+				Url:                   urlVal,
+				MaxPrice:              maxPrice,
+				ScanMode:              scanMode,
+				RequiredPhrases:       requiredPhrases,
+				ExcludePhrases:        excludePhrases,
+				RequiredInDescription: requiredInDesc,
+				ExcludeInDescription:  excludeInDesc,
 			})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -408,23 +460,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted Cash Converters query: `%s`", id)
 		}
 	case "viewcashqueries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "cashConverters")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved Cash Converters queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved Cash Converters Queries:**\n")
-			for _, q := range queries {
-				priceStr := "Any"
-				if q.MaxPrice != nil {
-					priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
-				}
-				sb.WriteString(fmt.Sprintf("- ID: `%s` | Max Price: %s\n", *q.Url, priceStr))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "cashConverters", "Saved Cash Converters Queries", 1)
 
 	// Gumtree
 	case "creategumtreequery":
@@ -467,23 +503,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted Gumtree query: `%s`", id)
 		}
 	case "viewgumtreequeries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "gumtree")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved Gumtree queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved Gumtree Queries:**\n")
-			for _, q := range queries {
-				priceStr := "Any"
-				if q.MaxPrice != nil {
-					priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
-				}
-				sb.WriteString(fmt.Sprintf("- ID: `%s` | Max Price: %s\n", *q.Url, priceStr))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "gumtree", "Saved Gumtree Queries", 1)
 
 	// Salvos
 	case "createsalvosquery":
@@ -531,19 +551,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted Salvos query: `%s`", id)
 		}
 	case "viewsalvosqueries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "salvos")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved Salvos queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved Salvos Queries:**\n")
-			for _, q := range queries {
-				sb.WriteString(fmt.Sprintf("- Name: `%s` | Price Range: $%.2f - $%.2f\n", *q.Name, *q.MinPrice, *q.MaxPrice))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "salvos", "Saved Salvos Queries", 1)
 
 	case "createcsmarket":
 		query := getStringOption(options, "query")
@@ -590,19 +598,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted CS Market query: `%s`", id)
 		}
 	case "viewcsmarketqueries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "csMarket")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved CS Market queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved CS Market Queries:**\n")
-			for _, q := range queries {
-				sb.WriteString(fmt.Sprintf("- URL: `%s` | Max Price: $%.2f | Max Float: %.5f\n", *q.Url, *q.MaxPrice, *q.MaxFloat))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "csMarket", "Saved CS Market Queries", 1)
 
 	// CS Trade Bot / MultiSearch
 	case "createmultisearch":
@@ -670,19 +666,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted multisearch query: `%s`", id)
 		}
 	case "viewmultisearchqueries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "csTradeBot")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved CS Trade Bot multisearch queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved CS Trade Bot Multisearches:**\n")
-			for _, q := range queries {
-				sb.WriteString(fmt.Sprintf("- Name: `%s` | Max Price: $%.2f | Float Range: %.5f - %.5f\n", *q.Name, *q.MaxPrice, *q.MinFloat, *q.MaxFloat))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "csTradeBot", "Saved CS Trade Bot Multisearches", 1)
 
 	// Steam SCM
 	case "createscmquery":
@@ -725,46 +709,46 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = fmt.Sprintf("✅ Deleted Steam SCM query: `%s`", id)
 		}
 	case "viewscmqueries":
-		queries, err := b.dbClient.ListSavedQueries(ctx, "steamMarket")
-		if err != nil {
-			responseContent = fmt.Sprintf("❌ Error: %v", err)
-		} else if len(queries) == 0 {
-			responseContent = "No saved Steam SCM queries found."
-		} else {
-			var sb strings.Builder
-			sb.WriteString("**Saved Steam SCM Queries:**\n")
-			for _, q := range queries {
-				sb.WriteString(fmt.Sprintf("- Name: `%s` | Max Price: $%.2f\n", *q.Name, *q.MaxPrice))
-			}
-			responseContent = sb.String()
-		}
+		b.sendPaginatedQueries(ctx, s, i, "steamMarket", "Saved Steam SCM Queries", 1)
 
 	default:
 		responseContent = fmt.Sprintf("Command %s not supported.", data.Name)
 	}
 
-	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: &responseContent,
-	})
+	if responseContent != "" {
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &responseContent,
+		})
+	}
 }
 
 func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	ctx := context.Background()
 	customId := i.MessageComponentData().CustomID
 
-	// Defer reply ephemerally (visible only to user)
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	action, err := b.dbClient.GetAction(ctx, customId)
 	if err != nil || action == nil {
-		content := "❌ Action expired or not found."
-		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content})
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "❌ Action expired or not found.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
 		return
+	}
+
+	if action.Type == "view_page" {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		})
+	} else {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags: discordgo.MessageFlagsEphemeral,
+			},
+		})
 	}
 
 	var responseContent string
@@ -889,6 +873,33 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 				b.dbClient.DeleteAction(ctx, customId)
 			}
 		}
+
+	case "view_page":
+		if action.QueryType != nil && action.QueryId != nil {
+			pageVal, err := strconv.Atoi(*action.QueryId)
+			if err == nil {
+				title := ""
+				switch *action.QueryType {
+				case "ebay":
+					title = "Saved eBay Queries"
+				case "cashConverters":
+					title = "Saved Cash Converters Queries"
+				case "gumtree":
+					title = "Saved Gumtree Queries"
+				case "salvos":
+					title = "Saved Salvos Queries"
+				case "csMarket":
+					title = "Saved CS Market Queries"
+				case "csTradeBot":
+					title = "Saved CS Trade Bot Multisearches"
+				case "steamMarket":
+					title = "Saved Steam SCM Queries"
+				}
+				b.sendPaginatedQueries(ctx, s, i, *action.QueryType, title, pageVal)
+				b.dbClient.DeleteAction(ctx, customId)
+				return
+			}
+		}
 	}
 
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
@@ -935,12 +946,10 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 						},
 					}
 					if imageUrl != nil && *imageUrl != "" {
-						dmMsg.Embeds = []*discordgo.MessageEmbed{
-							{
-								Image: &discordgo.MessageEmbedImage{
-									URL: *imageUrl,
-								},
-							},
+						if file, err := downloadFile(*imageUrl); err == nil {
+							dmMsg.Files = []*discordgo.File{file}
+						} else {
+							log.Printf("Failed to download image %s for DM: %v", *imageUrl, err)
 						}
 					}
 					b.session.ChannelMessageSendComplex(dmChan.ID, dmMsg)
@@ -999,12 +1008,10 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 	}
 
 	if imageUrl != nil && *imageUrl != "" {
-		msgData.Embeds = []*discordgo.MessageEmbed{
-			{
-				Image: &discordgo.MessageEmbedImage{
-					URL: *imageUrl,
-				},
-			},
+		if file, err := downloadFile(*imageUrl); err == nil {
+			msgData.Files = []*discordgo.File{file}
+		} else {
+			log.Printf("Failed to download image %s for public channel: %v", *imageUrl, err)
 		}
 	}
 
@@ -1113,4 +1120,186 @@ func getBoolOption(opts map[string]*discordgo.ApplicationCommandInteractionDataO
 		return opt.BoolValue()
 	}
 	return false
+}
+
+func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.QueryItem, title string) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("**%s**\n", title))
+	for _, q := range queries {
+		var info string
+		switch q.Type {
+		case "ebay", "gumtree", "cashConverters":
+			priceStr := "Any"
+			if q.MaxPrice != nil {
+				priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
+			}
+			info = fmt.Sprintf("- ID: `%s` | Max Price: %s", q.Id, priceStr)
+		case "salvos":
+			info = fmt.Sprintf("- Name: `%s` | Price Range: $%.2f - $%.2f", q.Id, *q.MinPrice, *q.MaxPrice)
+		case "csMarket":
+			info = fmt.Sprintf("- URL: `%s` | Max Price: $%.2f | Max Float: %.5f", q.Id, *q.MaxPrice, *q.MaxFloat)
+		case "csTradeBot":
+			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f | Float Range: %.5f - %.5f", q.Id, *q.MaxPrice, *q.MinFloat, *q.MaxFloat)
+		case "steamMarket":
+			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f", q.Id, *q.MaxPrice)
+		}
+
+		sb.WriteString(info)
+		if q.DmOnly {
+			sb.WriteString(" (DM Only)")
+		}
+		sb.WriteString("\n")
+
+		found, err := b.dbClient.GetLastFoundItems(ctx, q.QueryId, 3)
+		if err == nil && len(found) > 0 {
+			sb.WriteString("  *Last Found:*\n")
+			for _, item := range found {
+				sb.WriteString(fmt.Sprintf("  • [%s](<%s>) - $%.2f\n", item.Title, item.Url, item.Price))
+			}
+		} else {
+			sb.WriteString("  *Last Found:* None\n")
+		}
+	}
+	return sb.String()
+}
+
+func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, queryType string, title string, page int) {
+	queries, err := b.dbClient.ListSavedQueries(ctx, queryType)
+	if err != nil {
+		content := fmt.Sprintf("❌ Error: %v", err)
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content})
+		return
+	}
+
+	total := len(queries)
+	if total == 0 {
+		var content string
+		if queryType == "csTradeBot" {
+			content = "No saved CS Trade Bot multisearch queries found."
+		} else if queryType == "steamMarket" {
+			content = "No saved Steam SCM queries found."
+		} else {
+			name := queryType
+			if name == "cashConverters" {
+				name = "Cash Converters"
+			} else if name == "csMarket" {
+				name = "CS Market"
+			} else {
+				name = strings.Title(name)
+			}
+			content = fmt.Sprintf("No saved %s queries found.", name)
+		}
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content})
+		return
+	}
+
+	pageSize := 10
+	totalPages := (total + pageSize - 1) / pageSize
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * pageSize
+	end := offset + pageSize
+	if end > total {
+		end = total
+	}
+
+	slicedQueries := queries[offset:end]
+
+	formattedTitle := fmt.Sprintf("%s (Page %d/%d)", title, page, totalPages)
+	content := b.formatQueriesWithFoundItems(ctx, slicedQueries, formattedTitle)
+
+	var components []discordgo.MessageComponent
+	if totalPages > 1 {
+		firstKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+		backKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+		forwardKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+		lastKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+
+		now := time.Now().UnixMilli()
+
+		b.dbClient.SetAction(ctx, firstKey, models.ActionRegistry{
+			ID:         firstKey,
+			Type:       "view_page",
+			QueryType:  &queryType,
+			QueryId:    stringPtr("1"),
+			Timestamp:  now,
+		})
+
+		backPage := page - 1
+		if backPage < 1 {
+			backPage = 1
+		}
+		b.dbClient.SetAction(ctx, backKey, models.ActionRegistry{
+			ID:         backKey,
+			Type:       "view_page",
+			QueryType:  &queryType,
+			QueryId:    stringPtr(strconv.Itoa(backPage)),
+			Timestamp:  now,
+		})
+
+		forwardPage := page + 1
+		if forwardPage > totalPages {
+			forwardPage = totalPages
+		}
+		b.dbClient.SetAction(ctx, forwardKey, models.ActionRegistry{
+			ID:         forwardKey,
+			Type:       "view_page",
+			QueryType:  &queryType,
+			QueryId:    stringPtr(strconv.Itoa(forwardPage)),
+			Timestamp:  now,
+		})
+
+		b.dbClient.SetAction(ctx, lastKey, models.ActionRegistry{
+			ID:         lastKey,
+			Type:       "view_page",
+			QueryType:  &queryType,
+			QueryId:    stringPtr(strconv.Itoa(totalPages)),
+			Timestamp:  now,
+		})
+
+		components = []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "⏮️ First",
+						Style:    discordgo.SecondaryButton,
+						CustomID: firstKey,
+						Disabled: page == 1,
+					},
+					discordgo.Button{
+						Label:    "◀️ Back",
+						Style:    discordgo.SecondaryButton,
+						CustomID: backKey,
+						Disabled: page == 1,
+					},
+					discordgo.Button{
+						Label:    "▶️ Forward",
+						Style:    discordgo.SecondaryButton,
+						CustomID: forwardKey,
+						Disabled: page == totalPages,
+					},
+					discordgo.Button{
+						Label:    "⏭️ Last",
+						Style:    discordgo.SecondaryButton,
+						CustomID: lastKey,
+						Disabled: page == totalPages,
+					},
+				},
+			},
+		}
+	}
+
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content:    &content,
+		Components: &components,
+	})
+}
+
+func stringPtr(s string) *string {
+	return &s
 }

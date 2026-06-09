@@ -23,6 +23,11 @@ import (
 func main() {
 	log.Println("Starting DealScanner Server in Go...")
 
+	// Check Browser availability
+	if err := scanners.CheckBrowser(context.Background()); err != nil {
+		log.Fatalf("Fatal error: Headless browser not found or failed to initialize: %v. Please make sure Google Chrome or Chromium is installed and in your system PATH.", err)
+	}
+
 	// 1. Load Config
 	cfg := config.LoadConfig()
 

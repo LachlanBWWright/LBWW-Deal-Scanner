@@ -77,3 +77,41 @@ func TestParsePhrases(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildCcApiUrl(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "raw query term",
+			input:    "bananza",
+			expected: "https://www.cashconverters.com.au/c3api/search/results?SalePrice=20%7C99999999%7CC&Sort=Default&page=1&query=bananza",
+		},
+		{
+			name:     "already API url",
+			input:    "https://www.cashconverters.com.au/c3api/search/results?Sort=Default&page=1&SalePrice=20%7C99999999%7CC&query=bananza",
+			expected: "https://www.cashconverters.com.au/c3api/search/results?Sort=Default&page=1&SalePrice=20%7C99999999%7CC&query=bananza",
+		},
+		{
+			name:     "web search url",
+			input:    "https://www.cashconverters.com.au/search-results?query=bananza&Sort=newest",
+			expected: "https://www.cashconverters.com.au/c3api/search/results?SalePrice=20%7C99999999%7CC&Sort=newest&page=1&query=bananza",
+		},
+		{
+			name:     "web search url with different casing and page",
+			input:    "https://www.cashconverters.com.au/search-results?q=bananza&sort=price%2Cdesc&page=2",
+			expected: "https://www.cashconverters.com.au/c3api/search/results?SalePrice=20%7C99999999%7CC&Sort=price%2Cdesc&page=2&query=bananza",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			res := buildCcApiUrl(tc.input)
+			if res != tc.expected {
+				t.Errorf("buildCcApiUrl(%q) =\n%s\nexpected:\n%s", tc.input, res, tc.expected)
+			}
+		})
+	}
+}

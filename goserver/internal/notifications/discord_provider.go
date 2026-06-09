@@ -3,6 +3,8 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"dealscanner/internal/config"
 )
@@ -32,6 +34,25 @@ func (d *DiscordProvider) IsEnabled() bool {
 	return d.cfg.DiscordToken != "" && d.cfg.BotClientId != "" && d.cfg.DiscordGuildId != ""
 }
 
+var standardPreludes = []string{
+	"Listen up, Jack,",
+	"My fellow Americans,",
+	"Folks,",
+	"Here's the deal,",
+}
+
+var rareNotificationPreludes = []string{
+	"This is a big fu- ...uh... flippable deal,",
+}
+
+func getNotificationPrelude() string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	if r.Float64() < 0.01 {
+		return rareNotificationPreludes[r.Intn(len(rareNotificationPreludes))]
+	}
+	return standardPreludes[r.Intn(len(standardPreludes))]
+}
+
 func (d *DiscordProvider) Send(ctx context.Context, notification AppNotification) error {
 	if notification.Kind == "error" {
 		if d.cfg.ErrorChannelId == "" {
@@ -50,16 +71,13 @@ func (d *DiscordProvider) Send(ctx context.Context, notification AppNotification
 		return nil
 	}
 
-	prelude := "🔔 [DealScanner]" // simple preview prefix
+	prelude := getNotificationPrelude()
 	roleMention := ""
 	if roleId != "" {
 		roleMention = fmt.Sprintf("<@&%s> ", roleId)
 	}
 
 	message := fmt.Sprintf("%s%s %s", roleMention, prelude, notification.Title)
-	if notification.Url != "" {
-		message += fmt.Sprintf("\nLink: %s", notification.Url)
-	}
 
 	qType := ""
 	qId := ""

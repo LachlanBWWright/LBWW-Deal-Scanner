@@ -7,38 +7,88 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/chromedp/chromedp"
+	"github.com/playwright-community/playwright-go"
 )
 
-// GetPageHTMLWithBrowser launches a headless browser, navigates to the URL,
-// waits for the page to render, and returns the outer HTML.
-func GetPageHTMLWithBrowser(ctx context.Context, url string, timeout time.Duration) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.NoSandbox,
-		chromedp.Flag("headless", true),
-		chromedp.Flag("disable-gpu", true),
-		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"),
-	)
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, opts...)
-	defer allocCancel()
-
-	chromeCtx, chromeCancel := chromedp.NewContext(allocCtx)
-	defer chromeCancel()
-
-	var htmlContent string
-
-	err := chromedp.Run(chromeCtx,
-		chromedp.Navigate(url),
-		chromedp.WaitVisible("body", chromedp.ByQuery),
-		chromedp.Sleep(3*time.Second),
-		chromedp.OuterHTML("html", &htmlContent, chromedp.ByQuery),
-	)
+// GetPageHTMLWithBrowser launches the best suited browser engine (headless or headed)
+// depending on the target URL to bypass blocks, navigates to the URL, and returns the outer HTML.
+func GetPageHTMLWithBrowser(ctx context.Context, targetUrl string, timeout time.Duration) (string, error) {
+	pw, err := playwright.Run()
 	if err != nil {
-		return "", fmt.Errorf("failed to scrape URL %s with browser emulator: %w", url, err)
+		return "", fmt.Errorf("failed to start playwright: %w", err)
+	}
+	defer pw.Stop()
+
+	var browser playwright.Browser
+	var userAgent string
+
+	if strings.Contains(targetUrl, "ebay.com.au") || strings.Contains(targetUrl, "ebay.com") {
+		// eBay blocks Chromium but works flawlessly headlessly with WebKit (Safari engine)
+		browser, err = pw.WebKit.Launch(playwright.BrowserTypeLaunchOptions{
+			Headless: playwright.Bool(true),
+		})
+		userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15"
+	} else if strings.Contains(targetUrl, "gumtree.com.au") || strings.Contains(targetUrl, "gumtree.com") {
+		// Gumtree requires headed Chromium to bypass anti-bot blocks
+		// We launch it off-screen so it is completely invisible to the user
+		browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+			Headless: playwright.Bool(false),
+			Args: []string{
+				"--disable-blink-features=AutomationControlled",
+				"--no-sandbox",
+				"--window-position=-10000,-10000",
+			},
+		})
+		userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+	} else {
+		// Default to Chromium in headless mode (e.g. for Salvos)
+		browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+			Headless: playwright.Bool(true),
+			Args: []string{
+				"--disable-blink-features=AutomationControlled",
+				"--no-sandbox",
+			},
+		})
+		userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to launch browser for %s: %w", targetUrl, err)
+	}
+	defer browser.Close()
+
+	browserCtx, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		UserAgent: playwright.String(userAgent),
+		Viewport: &playwright.Size{
+			Width:  1920,
+			Height: 1080,
+		},
+		Locale: playwright.String("en-US"),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create browser context: %w", err)
+	}
+	defer browserCtx.Close()
+
+	page, err := browserCtx.NewPage()
+	if err != nil {
+		return "", fmt.Errorf("failed to open new page: %w", err)
+	}
+
+	_, err = page.Goto(targetUrl, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad,
+		Timeout:   playwright.Float(float64(timeout.Milliseconds())),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to navigate to URL %s: %w", targetUrl, err)
+	}
+
+	// Sleep 3 seconds to let dynamic content render
+	time.Sleep(3 * time.Second)
+
+	htmlContent, err := page.Content()
+	if err != nil {
+		return "", fmt.Errorf("failed to get page content: %w", err)
 	}
 
 	return htmlContent, nil
@@ -49,6 +99,29 @@ func scrapeUrlWithBrowser(ctx context.Context, url string) (*goquery.Document, e
 	if err != nil {
 		return nil, err
 	}
-	// Import strings in browser.go
 	return goquery.NewDocumentFromReader(strings.NewReader(htmlStr))
+}
+
+// CheckBrowser checks if Playwright driver can be initialized and Chromium launched.
+// It automatically installs/verifies browser binaries when run.
+func CheckBrowser(ctx context.Context) error {
+	if err := playwright.Install(); err != nil {
+		return fmt.Errorf("failed to install playwright driver/browsers: %w", err)
+	}
+
+	pw, err := playwright.Run()
+	if err != nil {
+		return fmt.Errorf("failed to start playwright runtime: %w", err)
+	}
+	defer pw.Stop()
+
+	// Launch chromium in headless mode for checks
+	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: playwright.Bool(true),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to launch chromium: %w", err)
+	}
+	browser.Close()
+	return nil
 }
