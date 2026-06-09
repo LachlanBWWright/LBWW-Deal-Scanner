@@ -1,9 +1,10 @@
-package db
+package query
 
 import (
 	"context"
 	"testing"
 
+	"dealscanner/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -13,7 +14,7 @@ func TestCheckIfNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open test DB: %v", err)
 	}
-	err = gdb.AutoMigrate(&TtlItem{})
+	err = gdb.AutoMigrate(&models.TtlItem{})
 	if err != nil {
 		t.Fatalf("Failed to migrate test DB: %v", err)
 	}
@@ -24,7 +25,7 @@ func TestCheckIfNew(t *testing.T) {
 		}
 	}()
 
-	dbClient := &DB{gdb}
+	dbClient := Use(gdb)
 	ctx := context.Background()
 
 	itemId := "test-item-123"

@@ -11,18 +11,19 @@ import (
 	"sync"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 )
 
 type CsMarketScanner struct {
-	dbClient   *db.DB
+	dbClient   *qry.Query
 	mu         sync.Mutex
 	index      int
 	itemsFound map[string]int
 }
 
-func NewCsMarketScanner(dbClient *db.DB) *CsMarketScanner {
+func NewCsMarketScanner(dbClient *qry.Query) *CsMarketScanner {
 	return &CsMarketScanner{
 		dbClient:   dbClient,
 		itemsFound: make(map[string]int),
@@ -71,20 +72,19 @@ func (s *CsMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 		return nil, nil
 	}
 
-	var queries []db.CsMarket
-	err = s.dbClient.Find(&queries).Error
+	results, err := s.dbClient.CsMarket.WithContext(ctx).Find()
 	if err != nil {
 		return nil, err
 	}
-	if len(queries) == 0 {
+	if len(results) == 0 {
 		return nil, nil
 	}
 
 	s.mu.Lock()
-	if s.index >= len(queries) {
+	if s.index >= len(results) {
 		s.index = 0
 	}
-	item := queries[s.index]
+	item := *results[s.index]
 	s.index++
 	s.mu.Unlock()
 
@@ -113,6 +113,9 @@ func (s *CsMarketScanner) fetchSteamCsMarketListing(ctx context.Context, itemUrl
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
@@ -146,7 +149,7 @@ func (s *CsMarketScanner) fetchSteamCsMarketListing(ctx context.Context, itemUrl
 	return res, nil
 }
 
-func (s *CsMarketScanner) processCsMarketListings(ctx context.Context, item db.CsMarket, listingData *SteamCsMarketResponse, notifs *[]notifications.AppNotification) {
+func (s *CsMarketScanner) processCsMarketListings(ctx context.Context, item models.CsMarket, listingData *SteamCsMarketResponse, notifs *[]notifications.AppNotification) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -217,6 +220,9 @@ func (s *CsMarketScanner) fetchSteamItemInfo(ctx context.Context, itemUrl string
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 

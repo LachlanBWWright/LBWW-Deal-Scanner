@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"dealscanner/internal/config"
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	"dealscanner/internal/db/query"
 	"dealscanner/internal/runtime"
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
@@ -16,12 +17,12 @@ import (
 
 type Bot struct {
 	cfg          *config.Config
-	dbClient     *db.DB
+	dbClient     *query.Query
 	stateManager *runtime.StateManager
 	session      *discordgo.Session
 }
 
-func NewBot(cfg *config.Config, dbClient *db.DB, stateManager *runtime.StateManager) *Bot {
+func NewBot(cfg *config.Config, dbClient *query.Query, stateManager *runtime.StateManager) *Bot {
 	return &Bot{
 		cfg:          cfg,
 		dbClient:     dbClient,
@@ -56,7 +57,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	b.stateManager.SetBotStatus(runtime.BotStatusReady, nil)
 	log.Println("Discord bot connected and running.")
 
-	b.registerCommands()
+	b.SetStatus("Starting up...")
+	go b.registerCommands()
 
 	return nil
 }
@@ -265,36 +267,31 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	switch data.Name {
 	// eBay
-	case "createebayquery":
-		query := options["query"].StringValue()
-		maxPrice := options["maxprice"].FloatValue()
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
-		payload := map[string]interface{}{"url": query, "maxPrice": maxPrice}
-		_, err := b.dbClient.CreateSavedQuery(ctx, "ebay", dmOnly, payload)
+		case "createebayquery":
+		query := getStringOption(options, "query")
+		maxPrice := getFloatOption(options, "maxprice")
+		dmOnly := getBoolOption(options, "dmonly")
+		_, err := b.dbClient.CreateEbayQuery(ctx, dmOnly, &models.Ebay{Url: query, MaxPrice: maxPrice})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
 			responseContent = fmt.Sprintf("✅ Created eBay query for `%s` (Max Price: $%.2f)", query, maxPrice)
 		}
 	case "editedbayquery":
-		id := options["id"].StringValue()
-		var eb db.Ebay
-		if err := b.dbClient.Where("url = ?", id).First(&eb).Error; err != nil {
+		id := getStringOption(options, "id")
+		eb, err := b.dbClient.Ebay.WithContext(ctx).Where(b.dbClient.Ebay.Url.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			urlVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				urlVal = opt.StringValue()
 			}
 			maxPrice := eb.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				maxPrice = opt.FloatValue()
 			}
-			payload := map[string]interface{}{"url": urlVal, "maxPrice": maxPrice}
-			_, err := b.dbClient.UpdateSavedQuery(ctx, "ebay", id, false, payload)
+			_, err := b.dbClient.UpdateEbayQuery(ctx, id, false, &models.Ebay{Url: urlVal, MaxPrice: maxPrice})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -302,7 +299,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deleteebayquery":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "ebay", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -330,68 +327,72 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	// Cash Converters
 	case "createcashquery":
-		query := options["query"].StringValue()
-		payload := map[string]interface{}{"url": query}
-		if opt, ok := options["maxprice"]; ok {
-			payload["maxPrice"] = opt.FloatValue()
+		query := getStringOption(options, "query")
+		var maxPrice *float64
+		if opt, ok := options["maxprice"]; ok && opt != nil {
+			val := opt.FloatValue()
+			maxPrice = &val
 		}
-		if opt, ok := options["requiredphrases"]; ok {
-			payload["requiredPhrases"] = opt.StringValue()
+		var requiredPhrases string
+		if opt, ok := options["requiredphrases"]; ok && opt != nil {
+			requiredPhrases = opt.StringValue()
 		}
-		if opt, ok := options["excludephrases"]; ok {
-			payload["excludePhrases"] = opt.StringValue()
+		var excludePhrases string
+		if opt, ok := options["excludephrases"]; ok && opt != nil {
+			excludePhrases = opt.StringValue()
 		}
-		if opt, ok := options["scanmode"]; ok {
-			payload["scanMode"] = opt.StringValue()
+		var scanMode string
+		if opt, ok := options["scanmode"]; ok && opt != nil {
+			scanMode = opt.StringValue()
 		}
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
-		_, err := b.dbClient.CreateSavedQuery(ctx, "cashConverters", dmOnly, payload)
+		dmOnly := getBoolOption(options, "dmonly")
+		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, &models.CashConverters{
+			Url:             query,
+			MaxPrice:        maxPrice,
+			RequiredPhrases: requiredPhrases,
+			ExcludePhrases:  excludePhrases,
+			ScanMode:        scanMode,
+		})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
 			responseContent = fmt.Sprintf("✅ Created Cash Converters query for `%s`", query)
 		}
 	case "editcashquery":
-		id := options["id"].StringValue()
-		var cc db.CashConverters
-		if err := b.dbClient.Where("url = ?", id).First(&cc).Error; err != nil {
+		id := getStringOption(options, "id")
+		cc, err := b.dbClient.CashConverters.WithContext(ctx).Where(b.dbClient.CashConverters.Url.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			urlVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				urlVal = opt.StringValue()
 			}
 			maxPrice := cc.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				val := opt.FloatValue()
 				maxPrice = &val
 			}
 			scanMode := cc.ScanMode
-			if opt, ok := options["scanmode"]; ok {
+			if opt, ok := options["scanmode"]; ok && opt != nil {
 				scanMode = opt.StringValue()
 			}
 			requiredPhrases := cc.RequiredPhrases
-			if opt, ok := options["requiredphrases"]; ok {
+			if opt, ok := options["requiredphrases"]; ok && opt != nil {
 				requiredPhrases = opt.StringValue()
 			}
 			excludePhrases := cc.ExcludePhrases
-			if opt, ok := options["excludephrases"]; ok {
+			if opt, ok := options["excludephrases"]; ok && opt != nil {
 				excludePhrases = opt.StringValue()
 			}
 
-			payload := map[string]interface{}{
-				"url":             urlVal,
-				"scanMode":        scanMode,
-				"requiredPhrases": requiredPhrases,
-				"excludePhrases":  excludePhrases,
-			}
-			if maxPrice != nil {
-				payload["maxPrice"] = *maxPrice
-			}
-			_, err = b.dbClient.UpdateSavedQuery(ctx, "cashConverters", id, false, payload)
+			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, false, &models.CashConverters{
+				Url:             urlVal,
+				MaxPrice:        maxPrice,
+				ScanMode:        scanMode,
+				RequiredPhrases: requiredPhrases,
+				ExcludePhrases:  excludePhrases,
+			})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -399,7 +400,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deletecashquery":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "cashConverters", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -427,35 +428,30 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	// Gumtree
 	case "creategumtreequery":
-		query := options["query"].StringValue()
-		maxPrice := options["maxprice"].FloatValue()
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
-		payload := map[string]interface{}{"url": query, "maxPrice": maxPrice}
-		_, err := b.dbClient.CreateSavedQuery(ctx, "gumtree", dmOnly, payload)
+		query := getStringOption(options, "query")
+		maxPrice := getFloatOption(options, "maxprice")
+		dmOnly := getBoolOption(options, "dmonly")
+		_, err := b.dbClient.CreateGumtreeQuery(ctx, dmOnly, &models.Gumtree{Url: query, MaxPrice: maxPrice})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
 			responseContent = fmt.Sprintf("✅ Created Gumtree query for `%s` (Max Price: $%.2f)", query, maxPrice)
 		}
 	case "editgumtreequery":
-		id := options["id"].StringValue()
-		var gt db.Gumtree
-		if err := b.dbClient.Where("url = ?", id).First(&gt).Error; err != nil {
+		id := getStringOption(options, "id")
+		gt, err := b.dbClient.Gumtree.WithContext(ctx).Where(b.dbClient.Gumtree.Url.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			urlVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				urlVal = opt.StringValue()
 			}
 			maxPrice := gt.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				maxPrice = opt.FloatValue()
 			}
-			payload := map[string]interface{}{"url": urlVal, "maxPrice": maxPrice}
-			_, err := b.dbClient.UpdateSavedQuery(ctx, "gumtree", id, false, payload)
+			_, err := b.dbClient.UpdateGumtreeQuery(ctx, id, false, &models.Gumtree{Url: urlVal, MaxPrice: maxPrice})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -463,7 +459,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deletegumtreequery":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "gumtree", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -491,40 +487,35 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	// Salvos
 	case "createsalvosquery":
-		name := options["name"].StringValue()
-		minPrice := options["minprice"].FloatValue()
-		maxPrice := options["maxprice"].FloatValue()
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
-		payload := map[string]interface{}{"name": name, "minPrice": minPrice, "maxPrice": maxPrice}
-		_, err := b.dbClient.CreateSavedQuery(ctx, "salvos", dmOnly, payload)
+		name := getStringOption(options, "name")
+		minPrice := getFloatOption(options, "minprice")
+		maxPrice := getFloatOption(options, "maxprice")
+		dmOnly := getBoolOption(options, "dmonly")
+		_, err := b.dbClient.CreateSalvosQuery(ctx, dmOnly, &models.Salvos{Name: name, MinPrice: minPrice, MaxPrice: maxPrice})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
 			responseContent = fmt.Sprintf("✅ Created Salvos query for `%s` (Price Range: $%.2f - $%.2f)", name, minPrice, maxPrice)
 		}
 	case "editsalvosquery":
-		id := options["id"].StringValue()
-		var sa db.Salvos
-		if err := b.dbClient.Where("name = ?", id).First(&sa).Error; err != nil {
+		id := getStringOption(options, "id")
+		sa, err := b.dbClient.Salvos.WithContext(ctx).Where(b.dbClient.Salvos.Name.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			nameVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				nameVal = opt.StringValue()
 			}
 			minPrice := sa.MinPrice
-			if opt, ok := options["minprice"]; ok {
+			if opt, ok := options["minprice"]; ok && opt != nil {
 				minPrice = opt.FloatValue()
 			}
 			maxPrice := sa.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				maxPrice = opt.FloatValue()
 			}
-			payload := map[string]interface{}{"name": nameVal, "minPrice": minPrice, "maxPrice": maxPrice}
-			_, err = b.dbClient.UpdateSavedQuery(ctx, "salvos", id, false, payload)
+			_, err = b.dbClient.UpdateSalvosQuery(ctx, id, false, &models.Salvos{Name: nameVal, MinPrice: minPrice, MaxPrice: maxPrice})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -532,7 +523,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deletesalvosquery":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "salvos", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -554,42 +545,36 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			responseContent = sb.String()
 		}
 
-	// CS Market
 	case "createcsmarket":
-		query := options["query"].StringValue()
-		maxPrice := options["maxprice"].FloatValue()
-		maxFloat := options["maxfloat"].FloatValue()
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
-		payload := map[string]interface{}{"url": query, "maxPrice": maxPrice, "maxFloat": maxFloat}
-		_, err := b.dbClient.CreateSavedQuery(ctx, "csMarket", dmOnly, payload)
+		query := getStringOption(options, "query")
+		maxPrice := getFloatOption(options, "maxprice")
+		maxFloat := getFloatOption(options, "maxfloat")
+		dmOnly := getBoolOption(options, "dmonly")
+		_, err := b.dbClient.CreateCsMarketQuery(ctx, dmOnly, &models.CsMarket{Url: query, MaxPrice: maxPrice, MaxFloat: maxFloat})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
 			responseContent = fmt.Sprintf("✅ Created CS Market query for `%s` (Max Price: $%.2f, Max Float: %.5f)", query, maxPrice, maxFloat)
 		}
 	case "editcsmarket":
-		id := options["id"].StringValue()
-		var cm db.CsMarket
-		if err := b.dbClient.Where("url = ?", id).First(&cm).Error; err != nil {
+		id := getStringOption(options, "id")
+		cm, err := b.dbClient.CsMarket.WithContext(ctx).Where(b.dbClient.CsMarket.Url.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			urlVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				urlVal = opt.StringValue()
 			}
 			maxPrice := cm.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				maxPrice = opt.FloatValue()
 			}
 			maxFloat := cm.MaxFloat
-			if opt, ok := options["maxfloat"]; ok {
+			if opt, ok := options["maxfloat"]; ok && opt != nil {
 				maxFloat = opt.FloatValue()
 			}
-			payload := map[string]interface{}{"url": urlVal, "maxPrice": maxPrice, "maxFloat": maxFloat}
-			_, err := b.dbClient.UpdateSavedQuery(ctx, "csMarket", id, false, payload)
+			_, err := b.dbClient.UpdateCsMarketQuery(ctx, id, false, &models.CsMarket{Url: urlVal, MaxPrice: maxPrice, MaxFloat: maxFloat})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -597,7 +582,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deletecsmarket":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "csMarket", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -621,17 +606,14 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	// CS Trade Bot / MultiSearch
 	case "createmultisearch":
-		skinName := options["skinname"].StringValue()
-		minFloat := options["minfloat"].FloatValue()
-		maxFloat := options["maxfloat"].FloatValue()
+		skinName := getStringOption(options, "skinname")
+		minFloat := getFloatOption(options, "minfloat")
+		maxFloat := getFloatOption(options, "maxfloat")
 		maxPrice := -1.0
-		if opt, ok := options["maxprice"]; ok {
+		if opt, ok := options["maxprice"]; ok && opt != nil {
 			maxPrice = opt.FloatValue()
 		}
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
+		dmOnly := getBoolOption(options, "dmonly")
 
 		if minFloat > maxFloat {
 			responseContent = "❌ Error: The minimum float cannot be higher than the maximum float value."
@@ -642,8 +624,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		} else if maxPrice <= 0 && maxPrice != -1.0 {
 			responseContent = "❌ Error: The price must be positive, and greater than $0."
 		} else {
-			payload := map[string]interface{}{"name": skinName, "maxPrice": maxPrice, "minFloat": minFloat, "maxFloat": maxFloat}
-			_, err := b.dbClient.CreateSavedQuery(ctx, "csTradeBot", dmOnly, payload)
+			_, err := b.dbClient.CreateCsTradeBotQuery(ctx, dmOnly, &models.CsTradeBot{Name: skinName, MaxPrice: maxPrice, MinFloat: minFloat, MaxFloat: maxFloat})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -651,30 +632,29 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "editmultisearchquery":
-		id := options["id"].StringValue()
-		var ct db.CsTradeBot
-		if err := b.dbClient.Where("name = ?", id).First(&ct).Error; err != nil {
+		id := getStringOption(options, "id")
+		ct, err := b.dbClient.CsTradeBot.WithContext(ctx).Where(b.dbClient.CsTradeBot.Name.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			nameVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				nameVal = opt.StringValue()
 			}
 			maxPrice := ct.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				maxPrice = opt.FloatValue()
 			}
 			minFloat := ct.MinFloat
-			if opt, ok := options["minfloat"]; ok {
+			if opt, ok := options["minfloat"]; ok && opt != nil {
 				minFloat = opt.FloatValue()
 			}
 			maxFloat := ct.MaxFloat
-			if opt, ok := options["maxfloat"]; ok {
+			if opt, ok := options["maxfloat"]; ok && opt != nil {
 				maxFloat = opt.FloatValue()
 			}
 
-			payload := map[string]interface{}{"name": nameVal, "maxPrice": maxPrice, "minFloat": minFloat, "maxFloat": maxFloat}
-			_, err := b.dbClient.UpdateSavedQuery(ctx, "csTradeBot", id, false, payload)
+			_, err := b.dbClient.UpdateCsTradeBotQuery(ctx, id, false, &models.CsTradeBot{Name: nameVal, MaxPrice: maxPrice, MinFloat: minFloat, MaxFloat: maxFloat})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -682,7 +662,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deletemultisearchquery":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "csTradeBot", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -706,35 +686,30 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	// Steam SCM
 	case "createscmquery":
-		name := options["name"].StringValue()
-		maxPrice := options["maxprice"].FloatValue()
-		dmOnly := false
-		if opt, ok := options["dmonly"]; ok {
-			dmOnly = opt.BoolValue()
-		}
-		payload := map[string]interface{}{"name": name, "maxPrice": maxPrice}
-		_, err := b.dbClient.CreateSavedQuery(ctx, "steamMarket", dmOnly, payload)
+		name := getStringOption(options, "name")
+		maxPrice := getFloatOption(options, "maxprice")
+		dmOnly := getBoolOption(options, "dmonly")
+		_, err := b.dbClient.CreateSteamMarketQuery(ctx, dmOnly, &models.SteamMarket{Name: name, MaxPrice: maxPrice})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
 			responseContent = fmt.Sprintf("✅ Created Steam SCM query for `%s` (Max Price: $%.2f)", name, maxPrice)
 		}
 	case "editscmquery":
-		id := options["id"].StringValue()
-		var sm db.SteamMarket
-		if err := b.dbClient.Where("name = ?", id).First(&sm).Error; err != nil {
+		id := getStringOption(options, "id")
+		sm, err := b.dbClient.SteamMarket.WithContext(ctx).Where(b.dbClient.SteamMarket.Name.Eq(id)).First()
+		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
 			nameVal := id
-			if opt, ok := options["query"]; ok {
+			if opt, ok := options["query"]; ok && opt != nil {
 				nameVal = opt.StringValue()
 			}
 			maxPrice := sm.MaxPrice
-			if opt, ok := options["maxprice"]; ok {
+			if opt, ok := options["maxprice"]; ok && opt != nil {
 				maxPrice = opt.FloatValue()
 			}
-			payload := map[string]interface{}{"name": nameVal, "maxPrice": maxPrice}
-			_, err := b.dbClient.UpdateSavedQuery(ctx, "steamMarket", id, false, payload)
+			_, err := b.dbClient.UpdateSteamMarketQuery(ctx, id, false, &models.SteamMarket{Name: nameVal, MaxPrice: maxPrice})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
@@ -742,7 +717,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 		}
 	case "deletescmquery":
-		id := options["id"].StringValue()
+		id := getStringOption(options, "id")
 		err := b.dbClient.DeleteSavedQuery(ctx, "steamMarket", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -801,7 +776,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 		cancelKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
 		now := time.Now().UnixMilli()
 
-		b.dbClient.SetAction(ctx, confirmKey, db.ActionRegistry{
+		b.dbClient.SetAction(ctx, confirmKey, models.ActionRegistry{
 			ID:         confirmKey,
 			Type:       "confirm_delete",
 			QueryType:  action.QueryType,
@@ -811,7 +786,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			RelatedKey: &customId,
 		})
 
-		b.dbClient.SetAction(ctx, cancelKey, db.ActionRegistry{
+		b.dbClient.SetAction(ctx, cancelKey, models.ActionRegistry{
 			ID:         cancelKey,
 			Type:       "cancel_delete",
 			QueryType:  action.QueryType,
@@ -872,19 +847,18 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if err != nil || parentQueryId == "" {
 			responseContent = "❌ Query not found."
 		} else {
-			var count int64
-			b.dbClient.Table("UserQuery").Where("userId = ? AND queryId = ?", memberID, parentQueryId).Count(&count)
-			if count > 0 {
+			count, err := b.dbClient.UserQuery.WithContext(ctx).Where(b.dbClient.UserQuery.UserId.Eq(memberID), b.dbClient.UserQuery.QueryId.Eq(parentQueryId)).Count()
+			if err == nil && count > 0 {
 				responseContent = "✅ You are already subscribed to DMs for this query."
 			} else {
-				uq := db.UserQuery{
+				uq := models.UserQuery{
 					ID:        uuid.New().String(),
 					UserId:    memberID,
 					QueryId:   parentQueryId,
 					QueryType: *action.QueryType,
 					CreatedAt: time.Now().UTC(),
 				}
-				if err := b.dbClient.Create(&uq).Error; err != nil {
+				if err := b.dbClient.UserQuery.WithContext(ctx).Create(&uq); err != nil {
 					responseContent = fmt.Sprintf("❌ Failed to subscribe: %v", err)
 				} else {
 					responseContent = fmt.Sprintf("✅ You have been subscribed to DM notifications for this %s query.", *action.QueryType)
@@ -905,9 +879,9 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 		if err != nil || parentQueryId == "" {
 			responseContent = "❌ Query not found."
 		} else {
-			res := b.dbClient.Where("userId = ? AND queryId = ?", memberID, parentQueryId).Delete(&db.UserQuery{})
-			if res.Error != nil {
-				responseContent = fmt.Sprintf("❌ Failed to unsubscribe: %v", res.Error)
+			res, err := b.dbClient.UserQuery.WithContext(ctx).Where(b.dbClient.UserQuery.UserId.Eq(memberID), b.dbClient.UserQuery.QueryId.Eq(parentQueryId)).Delete()
+			if err != nil {
+				responseContent = fmt.Sprintf("❌ Failed to unsubscribe: %v", err)
 			} else if res.RowsAffected == 0 {
 				responseContent = "❌ You are not subscribed to this query."
 			} else {
@@ -932,51 +906,51 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 	// 1. Fetch parent queryId and send DMs to subscribed users
 	parentQueryId, err := b.getQueryIdByTypeAndKey(ctx, queryType, queryId)
 	if err == nil && parentQueryId != "" {
-		var userQueries []db.UserQuery
-		b.dbClient.Where("queryId = ?", parentQueryId).Find(&userQueries)
+		userQueries, err := b.dbClient.UserQuery.WithContext(ctx).Where(b.dbClient.UserQuery.QueryId.Eq(parentQueryId)).Find()
+		if err == nil {
+			for _, uq := range userQueries {
+				dmChan, err := b.session.UserChannelCreate(uq.UserId)
+				if err == nil && dmChan != nil {
+					unsubscribeActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+					b.dbClient.SetAction(ctx, unsubscribeActionKey, models.ActionRegistry{
+						ID:        unsubscribeActionKey,
+						Type:      "unsubscribe_dm",
+						QueryType: &queryType,
+						QueryId:   &queryId,
+						Timestamp: time.Now().UnixMilli(),
+					})
 
-		for _, uq := range userQueries {
-			dmChan, err := b.session.UserChannelCreate(uq.UserId)
-			if err == nil {
-				unsubscribeActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
-				b.dbClient.SetAction(ctx, unsubscribeActionKey, db.ActionRegistry{
-					ID:        unsubscribeActionKey,
-					Type:      "unsubscribe_dm",
-					QueryType: &queryType,
-					QueryId:   &queryId,
-					Timestamp: time.Now().UnixMilli(),
-				})
-
-				dmMsg := &discordgo.MessageSend{
-					Content: message,
-					Components: []discordgo.MessageComponent{
-						discordgo.ActionsRow{
-							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									Label:    "Unsubscribe from DM",
-									Style:    discordgo.SecondaryButton,
-									CustomID: unsubscribeActionKey,
+					dmMsg := &discordgo.MessageSend{
+						Content: message,
+						Components: []discordgo.MessageComponent{
+							discordgo.ActionsRow{
+								Components: []discordgo.MessageComponent{
+									discordgo.Button{
+										Label:    "Unsubscribe from DM",
+										Style:    discordgo.SecondaryButton,
+										CustomID: unsubscribeActionKey,
+									},
 								},
 							},
 						},
-					},
-				}
-				if imageUrl != nil && *imageUrl != "" {
-					dmMsg.Embeds = []*discordgo.MessageEmbed{
-						{
-							Image: &discordgo.MessageEmbedImage{
-								URL: *imageUrl,
-							},
-						},
 					}
+					if imageUrl != nil && *imageUrl != "" {
+						dmMsg.Embeds = []*discordgo.MessageEmbed{
+							{
+								Image: &discordgo.MessageEmbedImage{
+									URL: *imageUrl,
+								},
+							},
+						}
+					}
+					b.session.ChannelMessageSendComplex(dmChan.ID, dmMsg)
 				}
-				b.session.ChannelMessageSendComplex(dmChan.ID, dmMsg)
 			}
 		}
 
 		// If query is DM-only, do not notify public channel
-		var parentQuery db.Query
-		if err := b.dbClient.Where("id = ?", parentQueryId).First(&parentQuery).Error; err == nil && parentQuery.DmOnly {
+		parentQuery, err := b.dbClient.SearchQuery.WithContext(ctx).Where(b.dbClient.SearchQuery.ID.Eq(parentQueryId)).First()
+		if err == nil && parentQuery.DmOnly {
 			return nil
 		}
 	}
@@ -986,7 +960,7 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 
 	if queryType != "" && queryId != "" {
 		deleteActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
-		b.dbClient.SetAction(ctx, deleteActionKey, db.ActionRegistry{
+		b.dbClient.SetAction(ctx, deleteActionKey, models.ActionRegistry{
 			ID:        deleteActionKey,
 			Type:      "delete",
 			QueryType: &queryType,
@@ -995,7 +969,7 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 		})
 
 		subscribeDMActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
-		b.dbClient.SetAction(ctx, subscribeDMActionKey, db.ActionRegistry{
+		b.dbClient.SetAction(ctx, subscribeDMActionKey, models.ActionRegistry{
 			ID:        subscribeDMActionKey,
 			Type:      "subscribe_dm",
 			QueryType: &queryType,
@@ -1052,33 +1026,47 @@ func (b *Bot) getQueryIdByTypeAndKey(ctx context.Context, qType, key string) (st
 	var err error
 	switch qType {
 	case "salvos":
-		var sa db.Salvos
-		err = b.dbClient.Where("name = ?", key).First(&sa).Error
-		qId = sa.QueryId
+		var sa *models.Salvos
+		sa, err = b.dbClient.Salvos.WithContext(ctx).Where(b.dbClient.Salvos.Name.Eq(key)).First()
+		if err == nil {
+			qId = sa.QueryId
+		}
 	case "ebay":
-		var eb db.Ebay
-		err = b.dbClient.Where("url = ?", key).First(&eb).Error
-		qId = eb.QueryId
+		var eb *models.Ebay
+		eb, err = b.dbClient.Ebay.WithContext(ctx).Where(b.dbClient.Ebay.Url.Eq(key)).First()
+		if err == nil {
+			qId = eb.QueryId
+		}
 	case "gumtree":
-		var gt db.Gumtree
-		err = b.dbClient.Where("url = ?", key).First(&gt).Error
-		qId = gt.QueryId
+		var gt *models.Gumtree
+		gt, err = b.dbClient.Gumtree.WithContext(ctx).Where(b.dbClient.Gumtree.Url.Eq(key)).First()
+		if err == nil {
+			qId = gt.QueryId
+		}
 	case "cashConverters":
-		var cc db.CashConverters
-		err = b.dbClient.Where("url = ?", key).First(&cc).Error
-		qId = cc.QueryId
+		var cc *models.CashConverters
+		cc, err = b.dbClient.CashConverters.WithContext(ctx).Where(b.dbClient.CashConverters.Url.Eq(key)).First()
+		if err == nil {
+			qId = cc.QueryId
+		}
 	case "steamMarket":
-		var sm db.SteamMarket
-		err = b.dbClient.Where("name = ?", key).First(&sm).Error
-		qId = sm.QueryId
+		var sm *models.SteamMarket
+		sm, err = b.dbClient.SteamMarket.WithContext(ctx).Where(b.dbClient.SteamMarket.Name.Eq(key)).First()
+		if err == nil {
+			qId = sm.QueryId
+		}
 	case "csTradeBot":
-		var ct db.CsTradeBot
-		err = b.dbClient.Where("name = ?", key).First(&ct).Error
-		qId = ct.QueryId
+		var ct *models.CsTradeBot
+		ct, err = b.dbClient.CsTradeBot.WithContext(ctx).Where(b.dbClient.CsTradeBot.Name.Eq(key)).First()
+		if err == nil {
+			qId = ct.QueryId
+		}
 	case "csMarket":
-		var cm db.CsMarket
-		err = b.dbClient.Where("url = ?", key).First(&cm).Error
-		qId = cm.QueryId
+		var cm *models.CsMarket
+		cm, err = b.dbClient.CsMarket.WithContext(ctx).Where(b.dbClient.CsMarket.Url.Eq(key)).First()
+		if err == nil {
+			qId = cm.QueryId
+		}
 	default:
 		return "", fmt.Errorf("unknown query type: %s", qType)
 	}
@@ -1087,4 +1075,42 @@ func (b *Bot) getQueryIdByTypeAndKey(ctx context.Context, qType, key string) (st
 		return "", err
 	}
 	return qId, nil
+}
+
+func (b *Bot) SetStatus(statusText string) {
+	if b.session == nil {
+		return
+	}
+	usd := discordgo.UpdateStatusData{
+		Status: "online",
+		Activities: []*discordgo.Activity{
+			{
+				Name:  "Custom Status",
+				Type:  discordgo.ActivityTypeCustom,
+				State: statusText,
+			},
+		},
+	}
+	b.session.UpdateStatusComplex(usd)
+}
+
+func getStringOption(opts map[string]*discordgo.ApplicationCommandInteractionDataOption, name string) string {
+	if opt, ok := opts[name]; ok && opt != nil {
+		return opt.StringValue()
+	}
+	return ""
+}
+
+func getFloatOption(opts map[string]*discordgo.ApplicationCommandInteractionDataOption, name string) float64 {
+	if opt, ok := opts[name]; ok && opt != nil {
+		return opt.FloatValue()
+	}
+	return 0
+}
+
+func getBoolOption(opts map[string]*discordgo.ApplicationCommandInteractionDataOption, name string) bool {
+	if opt, ok := opts[name]; ok && opt != nil {
+		return opt.BoolValue()
+	}
+	return false
 }

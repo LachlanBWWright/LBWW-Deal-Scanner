@@ -1,14 +1,14 @@
-package db
+package models
 
 import "time"
 
-type Query struct {
+type SearchQuery struct {
 	ID        string    `gorm:"primaryKey;column:id"`
 	DmOnly    bool      `gorm:"column:dmOnly"`
 	CreatedAt time.Time `gorm:"column:createdAt"`
 }
 
-func (Query) TableName() string {
+func (SearchQuery) TableName() string {
 	return "Query"
 }
 
@@ -25,12 +25,13 @@ func (UserQuery) TableName() string {
 }
 
 type CashConverters struct {
-	Url             string   `gorm:"primaryKey;column:url"`
-	RequiredPhrases string   `gorm:"column:requiredPhrases"`
-	ExcludePhrases  string   `gorm:"column:excludePhrases"`
-	MaxPrice        *float64 `gorm:"column:maxPrice"`
-	ScanMode        string   `gorm:"column:scanMode"`
-	QueryId         string   `gorm:"column:queryId"`
+	Url             string      `gorm:"primaryKey;column:url" json:"url"`
+	RequiredPhrases string      `gorm:"column:requiredPhrases" json:"requiredPhrases"`
+	ExcludePhrases  string      `gorm:"column:excludePhrases" json:"excludePhrases"`
+	MaxPrice        *float64    `gorm:"column:maxPrice" json:"maxPrice"`
+	ScanMode        string      `gorm:"column:scanMode" json:"scanMode"`
+	QueryId         string      `gorm:"column:queryId" json:"queryId"`
+	Query           SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (CashConverters) TableName() string {
@@ -38,9 +39,10 @@ func (CashConverters) TableName() string {
 }
 
 type Ebay struct {
-	Url      string  `gorm:"primaryKey;column:url"`
-	MaxPrice float64 `gorm:"column:maxPrice"`
-	QueryId  string  `gorm:"column:queryId"`
+	Url      string      `gorm:"primaryKey;column:url" json:"url"`
+	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
+	QueryId  string      `gorm:"column:queryId" json:"queryId"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (Ebay) TableName() string {
@@ -48,9 +50,10 @@ func (Ebay) TableName() string {
 }
 
 type Gumtree struct {
-	Url      string  `gorm:"primaryKey;column:url"`
-	MaxPrice float64 `gorm:"column:maxPrice"`
-	QueryId  string  `gorm:"column:queryId"`
+	Url      string      `gorm:"primaryKey;column:url" json:"url"`
+	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
+	QueryId  string      `gorm:"column:queryId" json:"queryId"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (Gumtree) TableName() string {
@@ -58,10 +61,11 @@ func (Gumtree) TableName() string {
 }
 
 type Salvos struct {
-	Name     string  `gorm:"primaryKey;column:name"`
-	MinPrice float64 `gorm:"column:minPrice"`
-	MaxPrice float64 `gorm:"column:maxPrice"`
-	QueryId  string  `gorm:"column:queryId"`
+	Name     string      `gorm:"primaryKey;column:name" json:"name"`
+	MinPrice float64     `gorm:"column:minPrice" json:"minPrice"`
+	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
+	QueryId  string      `gorm:"column:queryId" json:"queryId"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (Salvos) TableName() string {
@@ -69,12 +73,13 @@ func (Salvos) TableName() string {
 }
 
 type CsMarket struct {
-	Url        string  `gorm:"primaryKey;column:url"`
-	DisplayUrl string  `gorm:"column:displayUrl"`
-	MaxPrice   float64 `gorm:"column:maxPrice"`
-	MaxFloat   float64 `gorm:"column:maxFloat"`
-	LastPrice  float64 `gorm:"column:lastPrice"`
-	QueryId    string  `gorm:"column:queryId"`
+	Url        string      `gorm:"primaryKey;column:url" json:"url"`
+	DisplayUrl string      `gorm:"column:displayUrl" json:"displayUrl"`
+	MaxPrice   float64     `gorm:"column:maxPrice" json:"maxPrice"`
+	MaxFloat   float64     `gorm:"column:maxFloat" json:"maxFloat"`
+	LastPrice  float64     `gorm:"column:lastPrice" json:"lastPrice"`
+	QueryId    string      `gorm:"column:queryId" json:"queryId"`
+	Query      SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (CsMarket) TableName() string {
@@ -82,11 +87,12 @@ func (CsMarket) TableName() string {
 }
 
 type SteamMarket struct {
-	Name       string  `gorm:"primaryKey;column:name"`
-	DisplayUrl string  `gorm:"column:displayUrl"`
-	MaxPrice   float64 `gorm:"column:maxPrice"`
-	LastPrice  float64 `gorm:"column:lastPrice"`
-	QueryId    string  `gorm:"column:queryId"`
+	Name       string      `gorm:"primaryKey;column:name" json:"name"`
+	DisplayUrl string      `gorm:"column:displayUrl" json:"displayUrl"`
+	MaxPrice   float64     `gorm:"column:maxPrice" json:"maxPrice"`
+	LastPrice  float64     `gorm:"column:lastPrice" json:"lastPrice"`
+	QueryId    string      `gorm:"column:queryId" json:"queryId"`
+	Query      SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (SteamMarket) TableName() string {
@@ -94,11 +100,12 @@ func (SteamMarket) TableName() string {
 }
 
 type CsTradeBot struct {
-	Name     string  `gorm:"primaryKey;column:name"`
-	MaxPrice float64 `gorm:"column:maxPrice"`
-	MinFloat float64 `gorm:"column:minFloat"`
-	MaxFloat float64 `gorm:"column:maxFloat"`
-	QueryId  string  `gorm:"column:queryId"`
+	Name     string      `gorm:"primaryKey;column:name" json:"name"`
+	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
+	MinFloat float64     `gorm:"column:minFloat" json:"minFloat"`
+	MaxFloat float64     `gorm:"column:maxFloat" json:"maxFloat"`
+	QueryId  string      `gorm:"column:queryId" json:"queryId"`
+	Query      SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (CsTradeBot) TableName() string {
@@ -226,4 +233,14 @@ type ActionRegistry struct {
 
 func (ActionRegistry) TableName() string {
 	return "ActionRegistry"
+}
+
+type TtlItem struct {
+	ItemId      string    `gorm:"primaryKey;column:itemId" json:"itemId"`
+	Scanner     int       `gorm:"primaryKey;column:scanner" json:"scanner"`
+	LastUpdated time.Time `gorm:"column:lastUpdated" json:"lastUpdated"`
+}
+
+func (TtlItem) TableName() string {
+	return "TtlItem"
 }

@@ -8,15 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 )
 
 type CsTradeScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewCsTradeScanner(dbClient *db.DB) *CsTradeScanner {
+func NewCsTradeScanner(dbClient *qry.Query) *CsTradeScanner {
 	return &CsTradeScanner{dbClient: dbClient}
 }
 
@@ -60,6 +61,9 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
+	}
 	defer resp.Body.Close()
 
 	var data CsTradeResponse
@@ -86,7 +90,7 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 
 			// Persist
 			canonicalUrl := fmt.Sprintf("https://cs.trade/item/%s", item.ID)
-			found := db.DiscoveredListing{
+			found := qry.DiscoveredListing{
 				Source:       "csTrade",
 				ExternalId:   &item.ID,
 				CanonicalUrl: canonicalUrl,
@@ -96,7 +100,7 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				ImageUrl:     &item.Icon,
 				Availability: &item.Status,
 			}
-			listingId := db.StableListingId("csTrade", canonicalUrl)
+			listingId := qry.StableListingId("csTrade", canonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
 			if err != nil {
 				continue
@@ -123,7 +127,7 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 					},
 				})
 
-				state := &db.QueryListingState{
+				state := &models.QueryListingState{
 					QueryId:                query.Id,
 					ListingId:              listingId,
 					Source:                 "csTrade",
@@ -144,10 +148,10 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 }
 
 type LootFarmScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewLootFarmScanner(dbClient *db.DB) *LootFarmScanner {
+func NewLootFarmScanner(dbClient *qry.Query) *LootFarmScanner {
 	return &LootFarmScanner{dbClient: dbClient}
 }
 
@@ -193,6 +197,9 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
+	}
 	defer resp.Body.Close()
 
 	var data LootFarmResponse
@@ -237,7 +244,7 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 					}
 
 					canonicalUrl := fmt.Sprintf("https://loot.farm/item/%s", item.ID)
-					found := db.DiscoveredListing{
+					found := qry.DiscoveredListing{
 						Source:       "lootFarm",
 						ExternalId:   &item.ID,
 						CanonicalUrl: canonicalUrl,
@@ -245,7 +252,7 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 						Price:        &price,
 						TotalPrice:   &price,
 					}
-					listingId := db.StableListingId("lootFarm", canonicalUrl)
+					listingId := qry.StableListingId("lootFarm", canonicalUrl)
 					_, err = s.dbClient.PersistListingObservation(ctx, found, now)
 					if err != nil {
 						continue
@@ -271,7 +278,7 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 							},
 						})
 
-						state := &db.QueryListingState{
+						state := &models.QueryListingState{
 							QueryId:                query.Id,
 							ListingId:              listingId,
 							Source:                 "lootFarm",
@@ -294,10 +301,10 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 }
 
 type TradeItScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewTradeItScanner(dbClient *db.DB) *TradeItScanner {
+func NewTradeItScanner(dbClient *qry.Query) *TradeItScanner {
 	return &TradeItScanner{dbClient: dbClient}
 }
 
@@ -351,6 +358,9 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 		if err != nil {
 			break
 		}
+		if resp == nil {
+			break
+		}
 
 		var batchData TradeItResponse
 		json.NewDecoder(resp.Body).Decode(&batchData)
@@ -397,7 +407,7 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 			}
 
 			canonicalUrl := fmt.Sprintf("https://tradeit.gg/item/%s", item.ID)
-			found := db.DiscoveredListing{
+			found := qry.DiscoveredListing{
 				Source:       "tradeIt",
 				ExternalId:   &item.ID,
 				CanonicalUrl: canonicalUrl,
@@ -405,7 +415,7 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				Price:        &price,
 				TotalPrice:   &price,
 			}
-			listingId := db.StableListingId("tradeIt", canonicalUrl)
+			listingId := qry.StableListingId("tradeIt", canonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
 			if err != nil {
 				continue
@@ -431,7 +441,7 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 					},
 				})
 
-				state := &db.QueryListingState{
+				state := &models.QueryListingState{
 					QueryId:                query.Id,
 					ListingId:              listingId,
 					Source:                 "tradeIt",

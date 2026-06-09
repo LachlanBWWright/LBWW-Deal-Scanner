@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"dealscanner/internal/config"
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	"dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 	"dealscanner/internal/runtime"
 	"dealscanner/internal/scanners"
@@ -21,7 +22,7 @@ import (
 
 type Server struct {
 	cfg          *config.Config
-	dbClient     *db.DB
+	dbClient     *query.Query
 	stateManager *runtime.StateManager
 	runner       *scanners.Runner
 	notifService *notifications.NotificationService
@@ -33,7 +34,7 @@ type Server struct {
 	scanHistory         []map[string]interface{}
 }
 
-func NewServer(cfg *config.Config, dbClient *db.DB, stateManager *runtime.StateManager, runner *scanners.Runner, notifService *notifications.NotificationService) *Server {
+func NewServer(cfg *config.Config, dbClient *query.Query, stateManager *runtime.StateManager, runner *scanners.Runner, notifService *notifications.NotificationService) *Server {
 	s := &Server{
 		cfg:          cfg,
 		dbClient:     dbClient,
@@ -234,8 +235,8 @@ func (s *Server) handleListQueries(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateQuery(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Type    string                 `json:"type"`
-		Payload map[string]interface{} `json:"payload"`
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -244,14 +245,55 @@ func (s *Server) handleCreateQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dmOnly := false
-	if dmVal, ok := body.Payload["dmOnly"]; ok {
-		if b, ok := dmVal.(bool); ok {
-			dmOnly = b
+	var dmStruct struct {
+		DmOnly bool `json:"dmOnly"`
+	}
+	_ = json.Unmarshal(body.Payload, &dmStruct)
+	dmOnly := dmStruct.DmOnly
+
+	var query query.QueryItem
+	var err error
+
+	switch body.Type {
+	case "cashConverters":
+		var cc models.CashConverters
+		if err = json.Unmarshal(body.Payload, &cc); err == nil {
+			query, err = s.dbClient.CreateCashConvertersQuery(r.Context(), dmOnly, &cc)
 		}
+	case "ebay":
+		var eb models.Ebay
+		if err = json.Unmarshal(body.Payload, &eb); err == nil {
+			query, err = s.dbClient.CreateEbayQuery(r.Context(), dmOnly, &eb)
+		}
+	case "gumtree":
+		var gt models.Gumtree
+		if err = json.Unmarshal(body.Payload, &gt); err == nil {
+			query, err = s.dbClient.CreateGumtreeQuery(r.Context(), dmOnly, &gt)
+		}
+	case "salvos":
+		var sa models.Salvos
+		if err = json.Unmarshal(body.Payload, &sa); err == nil {
+			query, err = s.dbClient.CreateSalvosQuery(r.Context(), dmOnly, &sa)
+		}
+	case "csMarket":
+		var cm models.CsMarket
+		if err = json.Unmarshal(body.Payload, &cm); err == nil {
+			query, err = s.dbClient.CreateCsMarketQuery(r.Context(), dmOnly, &cm)
+		}
+	case "steamMarket":
+		var sm models.SteamMarket
+		if err = json.Unmarshal(body.Payload, &sm); err == nil {
+			query, err = s.dbClient.CreateSteamMarketQuery(r.Context(), dmOnly, &sm)
+		}
+	case "csTradeBot":
+		var ct models.CsTradeBot
+		if err = json.Unmarshal(body.Payload, &ct); err == nil {
+			query, err = s.dbClient.CreateCsTradeBotQuery(r.Context(), dmOnly, &ct)
+		}
+	default:
+		err = fmt.Errorf("unknown query type: %s", body.Type)
 	}
 
-	query, err := s.dbClient.CreateSavedQuery(r.Context(), body.Type, dmOnly, body.Payload)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -268,9 +310,9 @@ func (s *Server) handleCreateQuery(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateQuery(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Type    string                 `json:"type"`
-		Id      string                 `json:"id"`
-		Payload map[string]interface{} `json:"payload"`
+		Type    string          `json:"type"`
+		Id      string          `json:"id"`
+		Payload json.RawMessage `json:"payload"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -279,14 +321,55 @@ func (s *Server) handleUpdateQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dmOnly := false
-	if dmVal, ok := body.Payload["dmOnly"]; ok {
-		if b, ok := dmVal.(bool); ok {
-			dmOnly = b
+	var dmStruct struct {
+		DmOnly bool `json:"dmOnly"`
+	}
+	_ = json.Unmarshal(body.Payload, &dmStruct)
+	dmOnly := dmStruct.DmOnly
+
+	var query query.QueryItem
+	var err error
+
+	switch body.Type {
+	case "cashConverters":
+		var cc models.CashConverters
+		if err = json.Unmarshal(body.Payload, &cc); err == nil {
+			query, err = s.dbClient.UpdateCashConvertersQuery(r.Context(), body.Id, dmOnly, &cc)
 		}
+	case "ebay":
+		var eb models.Ebay
+		if err = json.Unmarshal(body.Payload, &eb); err == nil {
+			query, err = s.dbClient.UpdateEbayQuery(r.Context(), body.Id, dmOnly, &eb)
+		}
+	case "gumtree":
+		var gt models.Gumtree
+		if err = json.Unmarshal(body.Payload, &gt); err == nil {
+			query, err = s.dbClient.UpdateGumtreeQuery(r.Context(), body.Id, dmOnly, &gt)
+		}
+	case "salvos":
+		var sa models.Salvos
+		if err = json.Unmarshal(body.Payload, &sa); err == nil {
+			query, err = s.dbClient.UpdateSalvosQuery(r.Context(), body.Id, dmOnly, &sa)
+		}
+	case "csMarket":
+		var cm models.CsMarket
+		if err = json.Unmarshal(body.Payload, &cm); err == nil {
+			query, err = s.dbClient.UpdateCsMarketQuery(r.Context(), body.Id, dmOnly, &cm)
+		}
+	case "steamMarket":
+		var sm models.SteamMarket
+		if err = json.Unmarshal(body.Payload, &sm); err == nil {
+			query, err = s.dbClient.UpdateSteamMarketQuery(r.Context(), body.Id, dmOnly, &sm)
+		}
+	case "csTradeBot":
+		var ct models.CsTradeBot
+		if err = json.Unmarshal(body.Payload, &ct); err == nil {
+			query, err = s.dbClient.UpdateCsTradeBotQuery(r.Context(), body.Id, dmOnly, &ct)
+		}
+	default:
+		err = fmt.Errorf("unknown query type: %s", body.Type)
 	}
 
-	query, err := s.dbClient.UpdateSavedQuery(r.Context(), body.Type, body.Id, dmOnly, body.Payload)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)

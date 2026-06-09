@@ -12,7 +12,8 @@ import (
 
 	"dealscanner/internal/api"
 	"dealscanner/internal/config"
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	"dealscanner/internal/db/query"
 	"dealscanner/internal/discord"
 	"dealscanner/internal/notifications"
 	"dealscanner/internal/runtime"
@@ -26,18 +27,30 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// 2. Open DB
-	dbClient, err := db.Open(cfg.DatabaseUrl)
+	gormDB, err := models.Open(cfg.DatabaseUrl)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer dbClient.Close()
+	sqlDB, err := gormDB.DB()
+	if err == nil && sqlDB != nil {
+		defer sqlDB.Close()
+	}
 	log.Println("Database connection established.")
+
+	// Initialize GORM Gen query client
+	queryClient := query.Use(gormDB)
+	query.SetDefault(gormDB)
+
+	// Seed default database globals from env variables if empty
+	if err := queryClient.SeedGlobals(context.Background(), cfg); err != nil {
+		log.Printf("Failed to seed default database globals: %v", err)
+	}
 
 	// 3. Initialize StateManager
 	stateManager := runtime.NewStateManager(cfg.ApiPort)
 
 	// 4. Initialize Discord Bot
-	bot := discord.NewBot(cfg, dbClient, stateManager)
+	bot := discord.NewBot(cfg, queryClient, stateManager)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -53,22 +66,22 @@ func main() {
 	})
 
 	// 6. Initialize Scanner Runner and Site Scanners
-	runner := scanners.NewRunner(cfg, dbClient, stateManager, notifService)
-	runner.RegisterScanner(scanners.NewEbayScanner(dbClient))
-	runner.RegisterScanner(scanners.NewSteamMarketScanner(dbClient))
-	runner.RegisterScanner(scanners.NewSalvosScanner(dbClient))
-	runner.RegisterScanner(scanners.NewGumtreeScanner(dbClient))
-	runner.RegisterScanner(scanners.NewCashConvertersScanner(dbClient))
-	runner.RegisterScanner(scanners.NewCsTradeScanner(dbClient))
-	runner.RegisterScanner(scanners.NewLootFarmScanner(dbClient))
-	runner.RegisterScanner(scanners.NewTradeItScanner(dbClient))
-	runner.RegisterScanner(scanners.NewCsMarketScanner(dbClient))
+	runner := scanners.NewRunner(cfg, queryClient, stateManager, notifService, bot)
+	runner.RegisterScanner(scanners.NewEbayScanner(queryClient))
+	runner.RegisterScanner(scanners.NewSteamMarketScanner(queryClient))
+	runner.RegisterScanner(scanners.NewSalvosScanner(queryClient))
+	runner.RegisterScanner(scanners.NewGumtreeScanner(queryClient))
+	runner.RegisterScanner(scanners.NewCashConvertersScanner(queryClient))
+	runner.RegisterScanner(scanners.NewCsTradeScanner(queryClient))
+	runner.RegisterScanner(scanners.NewLootFarmScanner(queryClient))
+	runner.RegisterScanner(scanners.NewTradeItScanner(queryClient))
+	runner.RegisterScanner(scanners.NewCsMarketScanner(queryClient))
 
 	// 7. Start Scanners background process
 	runner.Start(ctx)
 
 	// 8. Start HTTP API Server
-	apiServer := api.NewServer(cfg, dbClient, stateManager, runner, notifService)
+	apiServer := api.NewServer(cfg, queryClient, stateManager, runner, notifService)
 	addr := cfg.ApiHost + ":" + strconv.Itoa(cfg.ApiPort)
 	srv := &http.Server{
 		Addr:    addr,

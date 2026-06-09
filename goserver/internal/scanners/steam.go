@@ -8,15 +8,16 @@ import (
 	"net/http"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 )
 
 type SteamMarketScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewSteamMarketScanner(dbClient *db.DB) *SteamMarketScanner {
+func NewSteamMarketScanner(dbClient *qry.Query) *SteamMarketScanner {
 	return &SteamMarketScanner{dbClient: dbClient}
 }
 
@@ -71,15 +72,20 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 			log.Printf("Steam SCM request failed for %s: %v", *item.Name, err)
 			continue
 		}
-		defer resp.Body.Close()
+		if resp == nil {
+			continue
+		}
 
 		if resp.StatusCode != http.StatusOK {
 			log.Printf("Steam SCM returned status: %d for %s", resp.StatusCode, *item.Name)
+			resp.Body.Close()
 			continue
 		}
 
 		var steamResponse SteamMarketResponse
-		if err := json.NewDecoder(resp.Body).Decode(&steamResponse); err != nil {
+		err = json.NewDecoder(resp.Body).Decode(&steamResponse)
+		resp.Body.Close()
+		if err != nil {
 			log.Printf("Failed to decode Steam response for %s: %v", *item.Name, err)
 			continue
 		}
@@ -91,7 +97,7 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 
 			// Persist listing
 			canonicalUrl := fmt.Sprintf("https://steamcommunity.com/market/listings/730/%s", result.Name)
-			found := db.DiscoveredListing{
+			found := qry.DiscoveredListing{
 				Source:       "steamMarket",
 				CanonicalUrl: canonicalUrl,
 				Title:        result.Name,
@@ -99,7 +105,7 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				TotalPrice:   &price,
 			}
 
-			listingId := db.StableListingId("steamMarket", canonicalUrl)
+			listingId := qry.StableListingId("steamMarket", canonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, time.Now().UTC())
 			if err != nil {
 				log.Printf("Failed to persist SCM observation: %v", err)
@@ -136,7 +142,7 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 			}
 
 			now := time.Now().UTC()
-			state := &db.QueryListingState{
+			state := &models.QueryListingState{
 				QueryId:            item.Id,
 				ListingId:          listingId,
 				Source:             "steamMarket",
@@ -191,7 +197,7 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				}
 			}
 
-			s.dbClient.WithContext(ctx).Model(&db.SteamMarket{}).Where("name = ?", *item.Name).Update("lastPrice", lowestPrice)
+			s.dbClient.SteamMarket.WithContext(ctx).Where(s.dbClient.SteamMarket.Name.Eq(*item.Name)).Update(s.dbClient.SteamMarket.LastPrice, lowestPrice)
 		}
 	}
 

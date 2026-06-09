@@ -4,22 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
 
 type GumtreeScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewGumtreeScanner(dbClient *db.DB) *GumtreeScanner {
+func NewGumtreeScanner(dbClient *qry.Query) *GumtreeScanner {
 	return &GumtreeScanner{dbClient: dbClient}
 }
 
@@ -58,7 +58,7 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 		}
 
 		for _, found := range listings {
-			listingId := db.StableListingId("gumtree", found.CanonicalUrl)
+			listingId := qry.StableListingId("gumtree", found.CanonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
 			if err != nil {
 				continue
@@ -93,7 +93,7 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				}
 			}
 
-			state := &db.QueryListingState{
+			state := &models.QueryListingState{
 				QueryId:            item.Id,
 				ListingId:          listingId,
 				Source:             "gumtree",
@@ -143,13 +143,13 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 	return notifs, nil
 }
 
-func (s *GumtreeScanner) scrapeGumtree(ctx context.Context, searchUrl string) ([]db.DiscoveredListing, error) {
+func (s *GumtreeScanner) scrapeGumtree(ctx context.Context, searchUrl string) ([]qry.DiscoveredListing, error) {
 	doc, err := scrapeUrlWithBrowser(ctx, searchUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	var listings []db.DiscoveredListing
+	var listings []qry.DiscoveredListing
 
 	// Look up cards
 	doc.Find("a[class*='user-ad-row-new-design'], a[href*='/s-ad/']").Each(func(i int, sel *goquery.Selection) {
@@ -181,7 +181,7 @@ func (s *GumtreeScanner) scrapeGumtree(ctx context.Context, searchUrl string) ([
 		}
 
 		avail := "available"
-		listings = append(listings, db.DiscoveredListing{
+		listings = append(listings, qry.DiscoveredListing{
 			Source:       "gumtree",
 			CanonicalUrl: href,
 			Title:        title,

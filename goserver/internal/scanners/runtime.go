@@ -7,16 +7,21 @@ import (
 	"time"
 
 	"dealscanner/internal/config"
-	"dealscanner/internal/db"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 	"dealscanner/internal/runtime"
 )
 
+type StatusSetter interface {
+	SetStatus(statusText string)
+}
+
 type Runner struct {
 	cfg          *config.Config
-	dbClient     *db.DB
+	dbClient     *qry.Query
 	stateManager *runtime.StateManager
 	notifService *notifications.NotificationService
+	statusSetter StatusSetter
 	scanners     []Scanner
 }
 
@@ -27,15 +32,17 @@ type Scanner interface {
 
 func NewRunner(
 	cfg *config.Config,
-	dbClient *db.DB,
+	dbClient *qry.Query,
 	stateManager *runtime.StateManager,
 	notifService *notifications.NotificationService,
+	statusSetter StatusSetter,
 ) *Runner {
 	return &Runner{
 		cfg:          cfg,
 		dbClient:     dbClient,
 		stateManager: stateManager,
 		notifService: notifService,
+		statusSetter: statusSetter,
 	}
 }
 
@@ -150,6 +157,9 @@ func (r *Runner) runScanPass(ctx context.Context, steamScanCnt, csTradeScanCnt i
 		}
 
 		log.Printf("Executing scanner: %s", sc.Name())
+		if r.statusSetter != nil {
+			r.statusSetter.SetStatus(getStatusText(sc.Name()))
+		}
 		notifs, err := sc.Scan(ctx)
 		if err != nil {
 			log.Printf("Scanner %q encountered an error: %v", sc.Name(), err)
@@ -199,6 +209,9 @@ func (r *Runner) RunManualScanOnce(ctx context.Context) {
 
 	for _, sc := range r.scanners {
 		log.Printf("[Manual] Executing scanner: %s", sc.Name())
+		if r.statusSetter != nil {
+			r.statusSetter.SetStatus(getStatusText(sc.Name()))
+		}
 		notifs, err := sc.Scan(ctx)
 		if err != nil {
 			log.Printf("[Manual] Scanner %q failed: %v", sc.Name(), err)
@@ -211,6 +224,21 @@ func (r *Runner) RunManualScanOnce(ctx context.Context) {
 
 	r.stateManager.FinishScanRun(record, nil)
 	log.Println("Manual scan run completed.")
+}
+
+func getStatusText(name string) string {
+	switch name {
+	case "Steam Market":
+		return "Scanning the Steam Community Market"
+	case "CS Trade":
+		return "Scanning CS.Trade"
+	case "Loot Farm":
+		return "Scanning loot.farm"
+	case "Trade It":
+		return "Scanning tradeit.gg"
+	default:
+		return "Scanning " + name
+	}
 }
 
 // Helper to sleep with random jitter

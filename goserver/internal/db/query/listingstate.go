@@ -1,9 +1,11 @@
-package db
+package query
 
 import (
 	"context"
 	"strings"
 	"time"
+
+	"dealscanner/internal/models"
 )
 
 type MatchType string
@@ -97,7 +99,7 @@ func CombineMatchResults(phraseResult, priceResult MatchResult) MatchResult {
 	return MatchResult{Type: MatchTypeMatched}
 }
 
-func (db *DB) EvaluateListingForQuery(
+func (q *Query) EvaluateListingForQuery(
 	ctx context.Context,
 	queryId string,
 	listingId string,
@@ -107,8 +109,7 @@ func (db *DB) EvaluateListingForQuery(
 	evaluatedAt time.Time,
 	furtherPriceDropRatio float64,
 ) (NotificationDecision, error) {
-	var previous QueryListingState
-	err := db.WithContext(ctx).Where("queryId = ? AND listingId = ?", queryId, listingId).First(&previous).Error
+	previous, err := q.QueryListingState.WithContext(ctx).Where(q.QueryListingState.QueryId.Eq(queryId), q.QueryListingState.ListingId.Eq(listingId)).First()
 	var previousStatus *string
 	var lastNotifiedTotalPrice *float64
 	var lowestObsPrice *float64
@@ -127,7 +128,7 @@ func (db *DB) EvaluateListingForQuery(
 
 		lowest := lowestPrice(lowestObsPrice, totalPrice)
 
-		state := QueryListingState{
+		state := models.QueryListingState{
 			QueryId:             queryId,
 			ListingId:           listingId,
 			Source:              source,
@@ -137,7 +138,7 @@ func (db *DB) EvaluateListingForQuery(
 			LowestObservedPrice: lowest,
 		}
 
-		err = db.UpsertQueryListingState(ctx, &state)
+		err = q.UpsertQueryListingState(ctx, &state)
 		if err != nil {
 			return NotificationDecision{}, err
 		}
@@ -162,7 +163,7 @@ func (db *DB) EvaluateListingForQuery(
 
 	lowest := lowestPrice(lowestObsPrice, totalPrice)
 
-	state := QueryListingState{
+	state := models.QueryListingState{
 		QueryId:             queryId,
 		ListingId:           listingId,
 		Source:              source,
@@ -185,7 +186,7 @@ func (db *DB) EvaluateListingForQuery(
 		state.LastNotifiedTotalPrice = totalPrice
 	}
 
-	err = db.UpsertQueryListingState(ctx, &state)
+	err = q.UpsertQueryListingState(ctx, &state)
 	if err != nil {
 		return NotificationDecision{}, err
 	}

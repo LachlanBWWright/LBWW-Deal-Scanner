@@ -4,22 +4,22 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
 
 type EbayScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewEbayScanner(dbClient *db.DB) *EbayScanner {
+func NewEbayScanner(dbClient *qry.Query) *EbayScanner {
 	return &EbayScanner{dbClient: dbClient}
 }
 
@@ -47,7 +47,7 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 		}
 
 		for _, found := range listings {
-			listingId := db.StableListingId("ebay", found.CanonicalUrl)
+			listingId := qry.StableListingId("ebay", found.CanonicalUrl)
 			obsId, err := e.dbClient.PersistListingObservation(ctx, found, time.Now().UTC())
 			if err != nil {
 				log.Printf("Failed to persist eBay observation: %v", err)
@@ -86,7 +86,7 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 			}
 
 			now := time.Now().UTC()
-			state := &db.QueryListingState{
+			state := &models.QueryListingState{
 				QueryId:            item.Id,
 				ListingId:          listingId,
 				Source:             "ebay",
@@ -142,13 +142,13 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 	return notifs, nil
 }
 
-func (e *EbayScanner) scrapeEbay(ctx context.Context, url string) ([]db.DiscoveredListing, error) {
+func (e *EbayScanner) scrapeEbay(ctx context.Context, url string) ([]qry.DiscoveredListing, error) {
 	doc, err := scrapeUrlWithBrowser(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
-	var listings []db.DiscoveredListing
+	var listings []qry.DiscoveredListing
 
 	// Select card elements
 	doc.Find("li.s-item").Each(func(i int, s *goquery.Selection) {
@@ -184,7 +184,7 @@ func (e *EbayScanner) scrapeEbay(ctx context.Context, url string) ([]db.Discover
 		extId := parseExternalId(link)
 		avail := "available"
 
-		listings = append(listings, db.DiscoveredListing{
+		listings = append(listings, qry.DiscoveredListing{
 			Source:       "ebay",
 			ExternalId:   extId,
 			CanonicalUrl: link,

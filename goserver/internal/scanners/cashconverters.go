@@ -4,23 +4,23 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
 
 type CashConvertersScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewCashConvertersScanner(dbClient *db.DB) *CashConvertersScanner {
+func NewCashConvertersScanner(dbClient *qry.Query) *CashConvertersScanner {
 	return &CashConvertersScanner{dbClient: dbClient}
 }
 
@@ -81,7 +81,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			}
 
 			// Persist
-			found := db.DiscoveredListing{
+			found := qry.DiscoveredListing{
 				Source:       "cashConverters",
 				CanonicalUrl: detail.CanonicalUrl,
 				Title:        detail.Title,
@@ -92,7 +92,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				Description:  &detail.Description,
 				Availability: &detail.Availability,
 			}
-			listingId := db.StableListingId("cashConverters", detail.CanonicalUrl)
+			listingId := qry.StableListingId("cashConverters", detail.CanonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
 			if err != nil {
 				continue
@@ -150,7 +150,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				}
 			}
 
-			state := &db.QueryListingState{
+			state := &models.QueryListingState{
 				QueryId:            query.Id,
 				ListingId:          listingId,
 				Source:             "cashConverters",
@@ -254,8 +254,12 @@ func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl s
 
 func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) (CcDetail, error) {
 	// Look up listing in DB
-	var listing db.Listing
-	err := s.dbClient.Where("id = ?", db.StableListingId("cashConverters", sum.CanonicalUrl)).First(&listing).Error
+	id := qry.StableListingId("cashConverters", sum.CanonicalUrl)
+	var listing models.Listing
+	listingPtr, err := s.dbClient.Listing.WithContext(ctx).Where(s.dbClient.Listing.ID.Eq(id)).First()
+	if err == nil {
+		listing = *listingPtr
+	}
 
 	// If detail exists and is fresh (less than 24 hours), reuse it
 	if err == nil && listing.LastDetailAt != nil && time.Since(*listing.LastDetailAt) < 24*time.Hour {
@@ -310,7 +314,7 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 
 	// Update last detail time in DB Listing
 	now := time.Now().UTC()
-	s.dbClient.Model(&db.Listing{}).Where("id = ?", db.StableListingId("cashConverters", sum.CanonicalUrl)).Update("lastDetailAt", &now)
+	s.dbClient.Listing.WithContext(ctx).Where(s.dbClient.Listing.ID.Eq(id)).Update(s.dbClient.Listing.LastDetailAt, &now)
 
 	return CcDetail{
 		CcSummary: CcSummary{

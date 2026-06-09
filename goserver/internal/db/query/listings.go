@@ -1,10 +1,11 @@
-package db
+package query
 
 import (
 	"context"
 	"errors"
 	"time"
 
+	"dealscanner/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -27,14 +28,13 @@ func StableListingId(source, canonicalUrl string) string {
 	return source + ":" + canonicalUrl
 }
 
-func (db *DB) PersistListingObservation(ctx context.Context, listing DiscoveredListing, observedAt time.Time) (string, error) {
+func (q *Query) PersistListingObservation(ctx context.Context, listing DiscoveredListing, observedAt time.Time) (string, error) {
 	listingId := StableListingId(listing.Source, listing.CanonicalUrl)
 
-	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var existing Listing
-		err := tx.Where("id = ?", listingId).First(&existing).Error
+	err := q.Transaction(func(tx *Query) error {
+		_, err := tx.Listing.WithContext(ctx).Where(tx.Listing.ID.Eq(listingId)).First()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			lst := Listing{
+			lst := models.Listing{
 				ID:           listingId,
 				Source:       listing.Source,
 				ExternalId:   listing.ExternalId,
@@ -49,7 +49,7 @@ func (db *DB) PersistListingObservation(ctx context.Context, listing DiscoveredL
 			if listing.Availability != nil && *listing.Availability == "unavailable" {
 				lst.UnavailableAt = &observedAt
 			}
-			if err := tx.Create(&lst).Error; err != nil {
+			if err := tx.Listing.WithContext(ctx).Create(&lst); err != nil {
 				return err
 			}
 		} else if err == nil {
@@ -64,7 +64,7 @@ func (db *DB) PersistListingObservation(ctx context.Context, listing DiscoveredL
 			if listing.Availability != nil && *listing.Availability == "unavailable" {
 				updates["unavailableAt"] = &observedAt
 			}
-			if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+			if _, err := tx.Listing.WithContext(ctx).Where(tx.Listing.ID.Eq(listingId)).Updates(updates); err != nil {
 				return err
 			}
 		} else {
@@ -72,7 +72,7 @@ func (db *DB) PersistListingObservation(ctx context.Context, listing DiscoveredL
 		}
 
 		// Insert observation
-		obs := ListingObservation{
+		obs := models.ListingObservation{
 			ID:           uuid.New().String(),
 			ListingId:    listingId,
 			Source:       listing.Source,
@@ -86,7 +86,7 @@ func (db *DB) PersistListingObservation(ctx context.Context, listing DiscoveredL
 			Description:  listing.Description,
 			Availability: listing.Availability,
 		}
-		return tx.Create(&obs).Error
+		return tx.ListingObservation.WithContext(ctx).Create(&obs)
 	})
 
 	if err != nil {
@@ -96,18 +96,17 @@ func (db *DB) PersistListingObservation(ctx context.Context, listing DiscoveredL
 	return listingId, nil
 }
 
-func (db *DB) GetQueryListingState(ctx context.Context, queryId, listingId string) (*QueryListingState, error) {
-	var s QueryListingState
-	if err := db.WithContext(ctx).Where("queryId = ? AND listingId = ?", queryId, listingId).First(&s).Error; err != nil {
+func (q *Query) GetQueryListingState(ctx context.Context, queryId, listingId string) (*models.QueryListingState, error) {
+	s, err := q.QueryListingState.WithContext(ctx).Where(q.QueryListingState.QueryId.Eq(queryId), q.QueryListingState.ListingId.Eq(listingId)).First()
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return &s, nil
+	return s, nil
 }
 
-func (db *DB) UpsertQueryListingState(ctx context.Context, state *QueryListingState) error {
-	// GORM Save will handle upsert correctly
-	return db.WithContext(ctx).Save(state).Error
+func (q *Query) UpsertQueryListingState(ctx context.Context, state *models.QueryListingState) error {
+	return q.QueryListingState.WithContext(ctx).Save(state)
 }

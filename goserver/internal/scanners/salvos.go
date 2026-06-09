@@ -4,23 +4,23 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"dealscanner/internal/db"
+	"dealscanner/internal/models"
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
 
 type SalvosScanner struct {
-	dbClient *db.DB
+	dbClient *qry.Query
 }
 
-func NewSalvosScanner(dbClient *db.DB) *SalvosScanner {
+func NewSalvosScanner(dbClient *qry.Query) *SalvosScanner {
 	return &SalvosScanner{dbClient: dbClient}
 }
 
@@ -59,7 +59,7 @@ func (s *SalvosScanner) Scan(ctx context.Context) ([]notifications.AppNotificati
 		}
 
 		for _, found := range listings {
-			listingId := db.StableListingId("salvos", found.CanonicalUrl)
+			listingId := qry.StableListingId("salvos", found.CanonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
 			if err != nil {
 				continue
@@ -98,7 +98,7 @@ func (s *SalvosScanner) Scan(ctx context.Context) ([]notifications.AppNotificati
 				}
 			}
 
-			state := &db.QueryListingState{
+			state := &models.QueryListingState{
 				QueryId:            item.Id,
 				ListingId:          listingId,
 				Source:             "salvos",
@@ -148,7 +148,7 @@ func (s *SalvosScanner) Scan(ctx context.Context) ([]notifications.AppNotificati
 	return notifs, nil
 }
 
-func (s *SalvosScanner) scrapeSalvos(ctx context.Context, term string) ([]db.DiscoveredListing, error) {
+func (s *SalvosScanner) scrapeSalvos(ctx context.Context, term string) ([]qry.DiscoveredListing, error) {
 	searchUrl := fmt.Sprintf("https://www.salvosstores.com.au/shop?search=%s&sorting=newestFirst&price=0-99999", url.QueryEscape(term))
 
 	doc, err := scrapeUrlWithBrowser(ctx, searchUrl)
@@ -156,7 +156,7 @@ func (s *SalvosScanner) scrapeSalvos(ctx context.Context, term string) ([]db.Dis
 		return nil, err
 	}
 
-	var listings []db.DiscoveredListing
+	var listings []qry.DiscoveredListing
 
 	// Look up cards
 	doc.Find("div.flex.flex-col.overflow-hidden.rounded.shadow-card.bg-white.h-auto, [class*='rounded'][class*='shadow-card']").Each(func(i int, sel *goquery.Selection) {
@@ -185,7 +185,7 @@ func (s *SalvosScanner) scrapeSalvos(ctx context.Context, term string) ([]db.Dis
 		}
 
 		avail := "available"
-		listings = append(listings, db.DiscoveredListing{
+		listings = append(listings, qry.DiscoveredListing{
 			Source:       "salvos",
 			CanonicalUrl: href,
 			Title:        title,

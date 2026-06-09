@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/chromedp"
 )
 

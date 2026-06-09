@@ -345,6 +345,9 @@ func collectEbayItems(ctx context.Context, searchUrl string, maxPrice float64) (
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -419,6 +422,9 @@ func collectGumtreeItems(ctx context.Context, searchUrl string, maxPrice float64
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
@@ -503,6 +509,9 @@ func collectCashConvertersItems(ctx context.Context, searchUrl string, requiredP
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -570,6 +579,9 @@ func collectSalvosItems(ctx context.Context, name string, minPrice, maxPrice flo
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
@@ -645,6 +657,9 @@ func collectSteamMarketItems(ctx context.Context, name string, maxPrice float64,
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -692,6 +707,9 @@ func collectCsMarketItems(ctx context.Context, itemUrl string, maxPrice, maxFloa
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
@@ -747,6 +765,9 @@ func collectCsMarketItems(ctx context.Context, itemUrl string, maxPrice, maxFloa
 		if err != nil {
 			continue
 		}
+		if infoResp == nil {
+			continue
+		}
 
 		var itemInfo SteamItemInfoResponse
 		decodeErr := json.NewDecoder(infoResp.Body).Decode(&itemInfo)
@@ -789,6 +810,9 @@ func collectCsTradeBotItems(ctx context.Context, name string, maxPrice, minFloat
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
