@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -106,7 +106,7 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				continue
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, query.Id, listingId)
+			prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
 			if err != nil {
 				continue
 			}
@@ -128,7 +128,7 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				})
 
 				state := &models.QueryListingState{
-					QueryId:                query.Id,
+					QueryId:                query.QueryId,
 					ListingId:              listingId,
 					Source:                 "csTrade",
 					Status:                 "notified",
@@ -258,7 +258,7 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 						continue
 					}
 
-					prev, err := s.dbClient.GetQueryListingState(ctx, query.Id, listingId)
+					prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
 					if err != nil {
 						continue
 					}
@@ -279,7 +279,7 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 						})
 
 						state := &models.QueryListingState{
-							QueryId:                query.Id,
+							QueryId:                query.QueryId,
 							ListingId:              listingId,
 							Source:                 "lootFarm",
 							Status:                 "notified",
@@ -421,7 +421,7 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				continue
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, query.Id, listingId)
+			prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
 			if err != nil {
 				continue
 			}
@@ -442,7 +442,7 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				})
 
 				state := &models.QueryListingState{
-					QueryId:                query.Id,
+					QueryId:                query.QueryId,
 					ListingId:              listingId,
 					Source:                 "tradeIt",
 					Status:                 "notified",

@@ -1,25 +1,51 @@
-FROM node:22
+# Stage 1: Build the Vue Frontend
+FROM node:22-bookworm AS frontend-builder
+WORKDIR /app/frontend
+RUN corepack enable
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN printf "allowBuilds:\n  esbuild: true\n" > pnpm-workspace.yaml
+RUN pnpm install --frozen-lockfile
+COPY frontend/ ./
+RUN pnpm run build
 
-RUN mkdir /app
+# Stage 2: Build the Go Backend
+FROM golang:1.26-bookworm AS backend-builder
+WORKDIR /app/goserver
+# We need gcc for sqlite3 CGO compilation
+RUN apt-get update && apt-get install -y gcc musl-dev
+COPY goserver/go.mod goserver/go.sum ./
+RUN go mod download
+COPY goserver/ ./
+# Build the binary with CGO enabled
+ENV CGO_ENABLED=1
+RUN go build -ldflags="-w -s" -o dealscanner cmd/dealscanner/main.go
+
+# Stage 3: Run the application
+FROM debian:bookworm-slim
 WORKDIR /app
 
-RUN corepack enable
-
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
-# Puppeteer runtime dependencies. Debian's chromium package is available on
-# both amd64 and arm64, which keeps this image compatible with OCI A1 Flex.
+# Install chromium and dependencies for chromedp headless browser scraping
 RUN apt-get update && \
     apt-get install -y --no-install-recommends chromium ca-certificates fonts-liberation && \
     rm -rf /var/lib/apt/lists/*
 
-COPY server/package.json server/pnpm-lock.yaml ./server/
-COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
-RUN pnpm --dir server install --frozen-lockfile && pnpm --dir frontend install --frozen-lockfile
-COPY ./ ./
+# Environment variables for Chromium/chromedp
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-RUN pnpm --dir server run build
-RUN pnpm --dir frontend run build
+# Copy the built Go binary
+COPY --from=backend-builder /app/goserver/dealscanner /app/dealscanner
 
-CMD ["pnpm", "--dir", "server", "run", "start"]
+# Copy the built frontend static assets
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+
+# Expose port
+EXPOSE 3000
+
+# Set default env values
+ENV API_PORT=3000
+ENV API_HOST=0.0.0.0
+ENV DATABASE_URL=file:/app/db/dealscanner.db
+
+# Run the app
+CMD ["/app/dealscanner"]

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -72,7 +72,7 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 			}
 
 			// Check previous state
-			prev, err := e.dbClient.GetQueryListingState(ctx, item.Id, listingId)
+			prev, err := e.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
 			if err != nil {
 				log.Printf("Failed to get eBay query listing state: %v", err)
 				continue
@@ -87,7 +87,7 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 
 			now := time.Now().UTC()
 			state := &models.QueryListingState{
-				QueryId:            item.Id,
+				QueryId:            item.QueryId,
 				ListingId:          listingId,
 				Source:             "ebay",
 				Status:             status,
@@ -155,7 +155,7 @@ func (e *EbayScanner) scrapeEbay(ctx context.Context, url string) ([]qry.Discove
 		titleSel := s.Find("div.s-item__title, div[role=\"heading\"]").Clone()
 		// Remove noisy/extra screen reader text and badge elements
 		titleSel.Find("span.clipped, span.s-card__new-listing, span.s-item__new-listing, span.s-item__watch-heart, .LIGHT_HIGHLIGHT").Remove()
-		title := strings.TrimSpace(titleSel.Text())
+		title := CleanSelectionText(titleSel)
 		if title == "" || strings.HasPrefix(title, "Shop on eBay") {
 			return
 		}

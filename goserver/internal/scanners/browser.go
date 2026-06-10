@@ -8,7 +8,31 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/playwright-community/playwright-go"
+	"golang.org/x/net/html"
 )
+
+// CleanSelectionText extracts text from a goquery.Selection and normalizes spacing between elements and words.
+func CleanSelectionText(s *goquery.Selection) string {
+	var parts []string
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.TextNode {
+			txt := strings.TrimSpace(n.Data)
+			if txt != "" {
+				parts = append(parts, txt)
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	for _, n := range s.Nodes {
+		walk(n)
+	}
+	raw := strings.Join(parts, " ")
+	return strings.Join(strings.Fields(raw), " ")
+}
+
 
 // GetPageHTMLWithBrowser launches the best suited browser engine (headless or headed)
 // depending on the target URL to bypass blocks, navigates to the URL, and returns the outer HTML.

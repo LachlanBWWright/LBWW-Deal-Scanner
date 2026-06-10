@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -86,7 +86,7 @@ func (s *SalvosScanner) Scan(ctx context.Context) ([]notifications.AppNotificati
 				status = "rejected"
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, item.Id, listingId)
+			prev, err := s.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
 			if err != nil {
 				continue
 			}
@@ -99,7 +99,7 @@ func (s *SalvosScanner) Scan(ctx context.Context) ([]notifications.AppNotificati
 			}
 
 			state := &models.QueryListingState{
-				QueryId:            item.Id,
+				QueryId:            item.QueryId,
 				ListingId:          listingId,
 				Source:             "salvos",
 				Status:             status,
@@ -161,12 +161,12 @@ func (s *SalvosScanner) scrapeSalvos(ctx context.Context, term string) ([]qry.Di
 	// Look up cards
 	doc.Find("div.flex.flex-col.overflow-hidden.rounded.shadow-card.bg-white.h-auto, [class*='rounded'][class*='shadow-card']").Each(func(i int, sel *goquery.Selection) {
 		linkSel := sel.Find("a.line-clamp-3, [class*='line-clamp-3']").First()
-		title := strings.TrimSpace(linkSel.Text())
+		title := CleanSelectionText(linkSel)
 		if title == "" {
 			linkSel = sel.Find("a[href]").FilterFunction(func(i int, s *goquery.Selection) bool {
 				return strings.TrimSpace(s.Text()) != ""
 			}).First()
-			title = strings.TrimSpace(linkSel.Text())
+			title = CleanSelectionText(linkSel)
 		}
 		href, exists := linkSel.Attr("href")
 		if !exists || title == "" {

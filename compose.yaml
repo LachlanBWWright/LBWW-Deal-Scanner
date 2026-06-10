@@ -1,8 +1,17 @@
 services:
   app:
-    build: .
-    deploy:
-      resources:
-        limits:
-          cpus: "0.1"
-          memory: 500M
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - db-data:/app/db
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=file:/app/db/dealscanner.db
+    restart: unless-stopped
+
+volumes:
+  db-data:

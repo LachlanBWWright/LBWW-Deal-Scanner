@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -81,7 +81,7 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				status = "rejected"
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, item.Id, listingId)
+			prev, err := s.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
 			if err != nil {
 				continue
 			}
@@ -94,7 +94,7 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 			}
 
 			state := &models.QueryListingState{
-				QueryId:            item.Id,
+				QueryId:            item.QueryId,
 				ListingId:          listingId,
 				Source:             "gumtree",
 				Status:             status,
@@ -162,7 +162,7 @@ func (s *GumtreeScanner) scrapeGumtree(ctx context.Context, searchUrl string) ([
 			href = "https://www.gumtree.com.au" + href
 		}
 
-		title := strings.TrimSpace(sel.Find("p.user-ad-row-new-design__title, [class*='title']").First().Text())
+		title := CleanSelectionText(sel.Find("p.user-ad-row-new-design__title, [class*='title']").First())
 		if title == "" {
 			return
 		}

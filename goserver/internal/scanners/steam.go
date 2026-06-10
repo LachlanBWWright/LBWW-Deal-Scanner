@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -129,7 +129,7 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				status = "rejected"
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, item.Id, listingId)
+			prev, err := s.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
 			if err != nil {
 				continue
 			}
@@ -143,7 +143,7 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 
 			now := time.Now().UTC()
 			state := &models.QueryListingState{
-				QueryId:            item.Id,
+				QueryId:            item.QueryId,
 				ListingId:          listingId,
 				Source:             "steamMarket",
 				Status:             status,

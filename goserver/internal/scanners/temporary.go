@@ -366,7 +366,7 @@ func collectEbayItems(ctx context.Context, searchUrl string, maxPrice float64) (
 			return
 		}
 		titleSel := s.Find("div.s-item__title, div[role=\"heading\"]").First()
-		title := strings.TrimSpace(titleSel.Text())
+		title := CleanSelectionText(titleSel)
 		if title == "" || strings.HasPrefix(title, "Shop on eBay") {
 			return
 		}
@@ -451,7 +451,7 @@ func collectGumtreeItems(ctx context.Context, searchUrl string, maxPrice float64
 			href = "https://www.gumtree.com.au" + href
 		}
 
-		title := strings.TrimSpace(sel.Find("p.user-ad-row-new-design__title, [class*='title']").First().Text())
+		title := CleanSelectionText(sel.Find("p.user-ad-row-new-design__title, [class*='title']").First())
 		if title == "" {
 			return
 		}
@@ -530,7 +530,7 @@ func collectCashConvertersItems(ctx context.Context, searchUrl string, requiredP
 			return
 		}
 		titleSel := sel.Find("span.product-item__title__description, [class*='title']").First()
-		title := strings.TrimSpace(titleSel.Text())
+		title := CleanSelectionText(titleSel)
 
 		linkSel := sel.Find("a").First()
 		href, exists := linkSel.Attr("href")
@@ -601,7 +601,7 @@ func collectSalvosItems(ctx context.Context, name string, minPrice, maxPrice flo
 			return
 		}
 		linkSel := sel.Find("a[class*='line-clamp-3'], a[href]").First()
-		title := strings.TrimSpace(linkSel.Text())
+		title := CleanSelectionText(linkSel)
 		href, exists := linkSel.Attr("href")
 		if !exists || title == "" {
 			return

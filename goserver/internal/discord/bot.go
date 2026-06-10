@@ -7,13 +7,13 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 
 	"dealscanner/internal/config"
-	"dealscanner/internal/models"
 	"dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/runtime"
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/uuid"
@@ -58,7 +58,6 @@ func downloadFile(url string) (*discordgo.File, error) {
 		Reader:      bytes.NewReader(data),
 	}, nil
 }
-
 
 type Bot struct {
 	cfg          *config.Config
@@ -315,7 +314,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	switch data.Name {
 	// eBay
-		case "createebayquery":
+	case "createebayquery":
 		query := getStringOption(options, "query")
 		maxPrice := getFloatOption(options, "maxprice")
 		dmOnly := getBoolOption(options, "dmonly")
@@ -1103,7 +1102,10 @@ func (b *Bot) SetStatus(statusText string) {
 
 func getStringOption(opts map[string]*discordgo.ApplicationCommandInteractionDataOption, name string) string {
 	if opt, ok := opts[name]; ok && opt != nil {
-		return opt.StringValue()
+		val := opt.StringValue()
+		val = strings.ReplaceAll(val, "\r", "")
+		val = strings.ReplaceAll(val, "\n", "")
+		return strings.TrimSpace(val)
 	}
 	return ""
 }
@@ -1125,6 +1127,18 @@ func getBoolOption(opts map[string]*discordgo.ApplicationCommandInteractionDataO
 func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.QueryItem, title string) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("**%s**\n", title))
+
+	queryIds := make([]string, 0, len(queries))
+	for _, q := range queries {
+		queryIds = append(queryIds, q.QueryId)
+	}
+
+	foundMap, err := b.dbClient.GetLastFoundItemsBatch(ctx, queryIds, 3)
+	if err != nil {
+		log.Printf("Failed to batch get last found items: %v", err)
+		foundMap = make(map[string][]query.FoundItem)
+	}
+
 	for _, q := range queries {
 		var info string
 		switch q.Type {
@@ -1133,32 +1147,39 @@ func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.Q
 			if q.MaxPrice != nil {
 				priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
 			}
-			info = fmt.Sprintf("- ID: `%s` | Max Price: %s", q.Id, priceStr)
+			info = fmt.Sprintf("- URL: <%s> | Max Price: %s", q.Id, priceStr)
 		case "salvos":
 			info = fmt.Sprintf("- Name: `%s` | Price Range: $%.2f - $%.2f", q.Id, *q.MinPrice, *q.MaxPrice)
 		case "csMarket":
-			info = fmt.Sprintf("- URL: `%s` | Max Price: $%.2f | Max Float: %.5f", q.Id, *q.MaxPrice, *q.MaxFloat)
+			info = fmt.Sprintf("- URL: <%s> | Max Price: $%.2f | Max Float: %.5f", q.Id, *q.MaxPrice, *q.MaxFloat)
 		case "csTradeBot":
 			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f | Float Range: %.5f - %.5f", q.Id, *q.MaxPrice, *q.MinFloat, *q.MaxFloat)
 		case "steamMarket":
-			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f", q.Id, *q.MaxPrice)
+			urlPart := ""
+			if q.DisplayUrl != nil && *q.DisplayUrl != "" {
+				urlPart = fmt.Sprintf(" | [Market Link](<%s>)", *q.DisplayUrl)
+			}
+			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f%s", q.Id, *q.MaxPrice, urlPart)
 		}
 
 		sb.WriteString(info)
 		if q.DmOnly {
 			sb.WriteString(" (DM Only)")
 		}
-		sb.WriteString("\n")
+		sb.WriteString("\n\n")
 
-		found, err := b.dbClient.GetLastFoundItems(ctx, q.QueryId, 3)
-		if err == nil && len(found) > 0 {
+		found := foundMap[q.QueryId]
+		if len(found) > 0 {
 			sb.WriteString("  *Last Found:*\n")
 			for _, item := range found {
-				sb.WriteString(fmt.Sprintf("  • [%s](<%s>) - $%.2f\n", item.Title, item.Url, item.Price))
+				titleClean := strings.Join(strings.Fields(item.Title), " ")
+				urlClean := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(item.Url, "\r", ""), "\n", ""))
+				sb.WriteString(fmt.Sprintf("  • [%s](<%s>) - $%.2f\n", titleClean, urlClean, item.Price))
 			}
 		} else {
 			sb.WriteString("  *Last Found:* None\n")
 		}
+		sb.WriteString("\n")
 	}
 	return sb.String()
 }
@@ -1223,11 +1244,11 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 		now := time.Now().UnixMilli()
 
 		b.dbClient.SetAction(ctx, firstKey, models.ActionRegistry{
-			ID:         firstKey,
-			Type:       "view_page",
-			QueryType:  &queryType,
-			QueryId:    stringPtr("1"),
-			Timestamp:  now,
+			ID:        firstKey,
+			Type:      "view_page",
+			QueryType: &queryType,
+			QueryId:   stringPtr("1"),
+			Timestamp: now,
 		})
 
 		backPage := page - 1
@@ -1235,11 +1256,11 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 			backPage = 1
 		}
 		b.dbClient.SetAction(ctx, backKey, models.ActionRegistry{
-			ID:         backKey,
-			Type:       "view_page",
-			QueryType:  &queryType,
-			QueryId:    stringPtr(strconv.Itoa(backPage)),
-			Timestamp:  now,
+			ID:        backKey,
+			Type:      "view_page",
+			QueryType: &queryType,
+			QueryId:   stringPtr(strconv.Itoa(backPage)),
+			Timestamp: now,
 		})
 
 		forwardPage := page + 1
@@ -1247,19 +1268,19 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 			forwardPage = totalPages
 		}
 		b.dbClient.SetAction(ctx, forwardKey, models.ActionRegistry{
-			ID:         forwardKey,
-			Type:       "view_page",
-			QueryType:  &queryType,
-			QueryId:    stringPtr(strconv.Itoa(forwardPage)),
-			Timestamp:  now,
+			ID:        forwardKey,
+			Type:      "view_page",
+			QueryType: &queryType,
+			QueryId:   stringPtr(strconv.Itoa(forwardPage)),
+			Timestamp: now,
 		})
 
 		b.dbClient.SetAction(ctx, lastKey, models.ActionRegistry{
-			ID:         lastKey,
-			Type:       "view_page",
-			QueryType:  &queryType,
-			QueryId:    stringPtr(strconv.Itoa(totalPages)),
-			Timestamp:  now,
+			ID:        lastKey,
+			Type:      "view_page",
+			QueryType: &queryType,
+			QueryId:   stringPtr(strconv.Itoa(totalPages)),
+			Timestamp: now,
 		})
 
 		components = []discordgo.MessageComponent{

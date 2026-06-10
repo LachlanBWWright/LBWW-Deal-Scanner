@@ -260,7 +260,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				status = "rejected"
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, query.Id, listingId)
+			prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
 			if err != nil {
 				continue
 			}
@@ -273,7 +273,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			}
 
 			state := &models.QueryListingState{
-				QueryId:            query.Id,
+				QueryId:            query.QueryId,
 				ListingId:          listingId,
 				Source:             "cashConverters",
 				Status:             status,
@@ -367,7 +367,7 @@ func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl s
 
 		results = append(results, CcSummary{
 			CanonicalUrl: href,
-			Title:        item.Title,
+			Title:        strings.Join(strings.Fields(item.Title), " "),
 			Price:        price,
 			Shipping:     shipping,
 			TotalPrice:   total,
@@ -443,9 +443,9 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 		return CcDetail{}, err
 	}
 
-	title := strings.TrimSpace(doc.Find("h1, .product-detail__title, .product-title").First().Text())
+	title := CleanSelectionText(doc.Find("h1, .product-detail__title, .product-title").First())
 	if title == "" {
-		title = sum.Title
+		title = strings.Join(strings.Fields(sum.Title), " ")
 	}
 
 	var description string

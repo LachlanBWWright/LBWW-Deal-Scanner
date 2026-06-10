@@ -664,3 +664,72 @@ func (q *Query) GetLastFoundItems(ctx context.Context, queryId string, limit int
 	return items, nil
 }
 
+func (q *Query) GetLastFoundItemsBatch(ctx context.Context, queryIds []string, limit int) (map[string][]FoundItem, error) {
+	if len(queryIds) == 0 {
+		return make(map[string][]FoundItem), nil
+	}
+
+	var results []struct {
+		QueryId                string
+		Title                  string
+		CanonicalUrl           string
+		LastNotifiedTotalPrice *float64
+		LowestObservedPrice    *float64
+		LastMatchedAt          *time.Time
+	}
+
+	subQuery := q.db.Table("QueryListingState").
+		Select(`
+			QueryListingState.queryId,
+			Listing.title,
+			Listing.canonicalUrl,
+			QueryListingState.lastNotifiedTotalPrice,
+			QueryListingState.lowestObservedPrice,
+			QueryListingState.lastMatchedAt,
+			ROW_NUMBER() OVER (
+				PARTITION BY QueryListingState.queryId 
+				ORDER BY QueryListingState.lastMatchedAt DESC
+			) as rn
+		`).
+		Joins("JOIN Listing ON QueryListingState.listingId = Listing.id").
+		Where("QueryListingState.queryId IN ? AND QueryListingState.status IN ?", queryIds, []string{"notified", "matched"})
+
+	err := q.db.WithContext(ctx).
+		Table("(?) as Ranked", subQuery).
+		Select("queryId, title, canonicalUrl, lastNotifiedTotalPrice, lowestObservedPrice, lastMatchedAt").
+		Where("rn <= ?", limit).
+		Scan(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	itemsMap := make(map[string][]FoundItem)
+	for _, qId := range queryIds {
+		itemsMap[qId] = []FoundItem{}
+	}
+
+	for _, r := range results {
+		price := 0.0
+		if r.LastNotifiedTotalPrice != nil {
+			price = *r.LastNotifiedTotalPrice
+		} else if r.LowestObservedPrice != nil {
+			price = *r.LowestObservedPrice
+		}
+
+		matchedAt := time.Time{}
+		if r.LastMatchedAt != nil {
+			matchedAt = *r.LastMatchedAt
+		}
+
+		item := FoundItem{
+			Title:       r.Title,
+			Url:         r.CanonicalUrl,
+			Price:       price,
+			LastMatched: matchedAt,
+		}
+		itemsMap[r.QueryId] = append(itemsMap[r.QueryId], item)
+	}
+
+	return itemsMap, nil
+}
+
