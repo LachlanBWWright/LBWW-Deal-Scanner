@@ -12,9 +12,9 @@ import (
 
 	"dealscanner/internal/api"
 	"dealscanner/internal/config"
-	"dealscanner/internal/models"
 	"dealscanner/internal/db/query"
 	"dealscanner/internal/discord"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"dealscanner/internal/runtime"
 	"dealscanner/internal/scanners"
@@ -32,7 +32,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// 2. Open DB
-	gormDB, err := models.Open(cfg.DatabaseUrl)
+	gormDB, err := models.Open(cfg.DatabaseUrl, cfg.TursoAuthToken)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

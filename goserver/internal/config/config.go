@@ -108,21 +108,14 @@ func getEnvInt(key string, defaultValue int) int {
 }
 
 func LoadConfig() *Config {
-	// Try loading from root .env or server/.env
+	// Load the single project-level environment file.
 	LoadEnv(".env")
-	LoadEnv("../.env")
-	LoadEnv("server/.env")
-	LoadEnv("../server/.env")
-
-	dbUrl := getEnv("DATABASE_URL", "file:./prisma/dev.db")
-	// If DATABASE_URL starts with file:, clean it up if needed, or translate to a standard path.
-	// We'll handle SQLite connection details in the db package.
 
 	return &Config{
 		ApiHost:             getEnv("API_HOST", "0.0.0.0"),
-		ApiPort:             getEnvInt("API_PORT", 3000),
+		ApiPort:             getEnvInt("API_PORT", getEnvInt("PORT", 3000)),
 		ApiSecret:           os.Getenv("API_SECRET"),
-		DatabaseUrl:         dbUrl,
+		DatabaseUrl:         os.Getenv("TURSO_DATABASE_URL"),
 		TursoDatabaseUrl:    os.Getenv("TURSO_DATABASE_URL"),
 		TursoAuthToken:      os.Getenv("TURSO_AUTH_TOKEN"),
 		ScheduledMode:       getEnvBool("SCHEDULED_SCANNER_MODE", false),

@@ -5,13 +5,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    volumes:
-      - db-data:/app/db
     env_file:
       - .env
     environment:
-      - DATABASE_URL=file:/app/db/dealscanner.db
+      - PORT=3000
+      - API_HOST=0.0.0.0
     restart: unless-stopped
-
-volumes:
-  db-data:

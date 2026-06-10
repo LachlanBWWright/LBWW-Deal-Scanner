@@ -39,6 +39,13 @@ cleanup() {
 
 trap cleanup INT TERM EXIT
 
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
+fi
+
 run_with_prefix() {
   local name="$1"
   local dir="$2"

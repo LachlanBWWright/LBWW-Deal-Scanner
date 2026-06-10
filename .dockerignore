@@ -1,6 +1,8 @@
 node_modules
 frontend/node_modules
-server/node_modules
+archived-ts/node_modules
+archived-ts/build
+archived-ts/prisma/dev.db
 build
 dist
 frontend/dist
@@ -9,3 +11,6 @@ web
 .codex
 .env
 .env.template
+goserver/dealscanner
+goserver/cmd/dealscanner/prisma/dev.db
+goserver/libsql:/
