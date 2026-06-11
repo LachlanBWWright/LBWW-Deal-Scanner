@@ -33,7 +33,6 @@ func CleanSelectionText(s *goquery.Selection) string {
 	return strings.Join(strings.Fields(raw), " ")
 }
 
-
 // GetPageHTMLWithBrowser launches the best suited browser engine (headless or headed)
 // depending on the target URL to bypass blocks, navigates to the URL, and returns the outer HTML.
 func GetPageHTMLWithBrowser(ctx context.Context, targetUrl string, timeout time.Duration) (string, error) {
@@ -129,8 +128,8 @@ func scrapeUrlWithBrowser(ctx context.Context, url string) (*goquery.Document, e
 // CheckBrowser checks if Playwright driver can be initialized and Chromium launched.
 // It automatically installs/verifies browser binaries when run.
 func CheckBrowser(ctx context.Context) error {
-	if err := playwright.Install(); err != nil {
-		return fmt.Errorf("failed to install playwright driver/browsers: %w", err)
+	if err := playwright.Install(&playwright.RunOptions{SkipInstallBrowsers: true}); err != nil {
+		return fmt.Errorf("failed to install playwright driver: %w", err)
 	}
 
 	pw, err := playwright.Run()

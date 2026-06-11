@@ -31,34 +31,39 @@ type QueryItem struct {
 }
 
 func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]QueryItem, error) {
+	if cached, ok := defaultSavedQueryCache.get(queryType); ok {
+		return cached, nil
+	}
+
 	var list []QueryItem
 
 	// CashConverters
 	if queryType == "" || queryType == "cashConverters" {
 		cc := q.CashConverters
 		results, err := cc.WithContext(ctx).Preload(cc.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				urlVal := r.Url
-				reqPhrases := r.RequiredPhrases
-				exclPhrases := r.ExcludePhrases
-				reqInDesc := r.RequiredInDescription
-				exclInDesc := r.ExcludeInDescription
-				scanMode := r.ScanMode
-				list = append(list, QueryItem{
-					QueryId:               r.QueryId,
-					Type:                  "cashConverters",
-					Id:                    r.Url,
-					DmOnly:                r.Query.DmOnly,
-					Url:                   &urlVal,
-					RequiredPhrases:       &reqPhrases,
-					ExcludePhrases:        &exclPhrases,
-					RequiredInDescription: &reqInDesc,
-					ExcludeInDescription:  &exclInDesc,
-					ScanMode:              &scanMode,
-					MaxPrice:              r.MaxPrice,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list cash converters queries: %w", err)
+		}
+		for _, r := range results {
+			urlVal := r.Url
+			reqPhrases := r.RequiredPhrases
+			exclPhrases := r.ExcludePhrases
+			reqInDesc := r.RequiredInDescription
+			exclInDesc := r.ExcludeInDescription
+			scanMode := r.ScanMode
+			list = append(list, QueryItem{
+				QueryId:               r.QueryId,
+				Type:                  "cashConverters",
+				Id:                    r.Url,
+				DmOnly:                r.Query.DmOnly,
+				Url:                   &urlVal,
+				RequiredPhrases:       &reqPhrases,
+				ExcludePhrases:        &exclPhrases,
+				RequiredInDescription: &reqInDesc,
+				ExcludeInDescription:  &exclInDesc,
+				ScanMode:              &scanMode,
+				MaxPrice:              r.MaxPrice,
+			})
 		}
 	}
 
@@ -66,19 +71,20 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 	if queryType == "" || queryType == "ebay" {
 		eb := q.Ebay
 		results, err := eb.WithContext(ctx).Preload(eb.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				urlVal := r.Url
-				maxPrice := r.MaxPrice
-				list = append(list, QueryItem{
-					QueryId:  r.QueryId,
-					Type:     "ebay",
-					Id:       r.Url,
-					DmOnly:   r.Query.DmOnly,
-					Url:      &urlVal,
-					MaxPrice: &maxPrice,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list ebay queries: %w", err)
+		}
+		for _, r := range results {
+			urlVal := r.Url
+			maxPrice := r.MaxPrice
+			list = append(list, QueryItem{
+				QueryId:  r.QueryId,
+				Type:     "ebay",
+				Id:       r.Url,
+				DmOnly:   r.Query.DmOnly,
+				Url:      &urlVal,
+				MaxPrice: &maxPrice,
+			})
 		}
 	}
 
@@ -86,19 +92,20 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 	if queryType == "" || queryType == "gumtree" {
 		gt := q.Gumtree
 		results, err := gt.WithContext(ctx).Preload(gt.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				urlVal := r.Url
-				maxPrice := r.MaxPrice
-				list = append(list, QueryItem{
-					QueryId:  r.QueryId,
-					Type:     "gumtree",
-					Id:       r.Url,
-					DmOnly:   r.Query.DmOnly,
-					Url:      &urlVal,
-					MaxPrice: &maxPrice,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list gumtree queries: %w", err)
+		}
+		for _, r := range results {
+			urlVal := r.Url
+			maxPrice := r.MaxPrice
+			list = append(list, QueryItem{
+				QueryId:  r.QueryId,
+				Type:     "gumtree",
+				Id:       r.Url,
+				DmOnly:   r.Query.DmOnly,
+				Url:      &urlVal,
+				MaxPrice: &maxPrice,
+			})
 		}
 	}
 
@@ -106,21 +113,22 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 	if queryType == "" || queryType == "salvos" {
 		sa := q.Salvos
 		results, err := sa.WithContext(ctx).Preload(sa.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				nameVal := r.Name
-				minPrice := r.MinPrice
-				maxPrice := r.MaxPrice
-				list = append(list, QueryItem{
-					QueryId:  r.QueryId,
-					Type:     "salvos",
-					Id:       r.Name,
-					DmOnly:   r.Query.DmOnly,
-					Name:     &nameVal,
-					MinPrice: &minPrice,
-					MaxPrice: &maxPrice,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list salvos queries: %w", err)
+		}
+		for _, r := range results {
+			nameVal := r.Name
+			minPrice := r.MinPrice
+			maxPrice := r.MaxPrice
+			list = append(list, QueryItem{
+				QueryId:  r.QueryId,
+				Type:     "salvos",
+				Id:       r.Name,
+				DmOnly:   r.Query.DmOnly,
+				Name:     &nameVal,
+				MinPrice: &minPrice,
+				MaxPrice: &maxPrice,
+			})
 		}
 	}
 
@@ -128,23 +136,24 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 	if queryType == "" || queryType == "csMarket" {
 		cm := q.CsMarket
 		results, err := cm.WithContext(ctx).Preload(cm.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				urlVal := r.Url
-				displayUrl := r.DisplayUrl
-				maxPrice := r.MaxPrice
-				maxFloat := r.MaxFloat
-				list = append(list, QueryItem{
-					QueryId:    r.QueryId,
-					Type:       "csMarket",
-					Id:         r.Url,
-					DmOnly:     r.Query.DmOnly,
-					Url:        &urlVal,
-					DisplayUrl: &displayUrl,
-					MaxPrice:   &maxPrice,
-					MaxFloat:   &maxFloat,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list cs market queries: %w", err)
+		}
+		for _, r := range results {
+			urlVal := r.Url
+			displayUrl := r.DisplayUrl
+			maxPrice := r.MaxPrice
+			maxFloat := r.MaxFloat
+			list = append(list, QueryItem{
+				QueryId:    r.QueryId,
+				Type:       "csMarket",
+				Id:         r.Url,
+				DmOnly:     r.Query.DmOnly,
+				Url:        &urlVal,
+				DisplayUrl: &displayUrl,
+				MaxPrice:   &maxPrice,
+				MaxFloat:   &maxFloat,
+			})
 		}
 	}
 
@@ -152,21 +161,22 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 	if queryType == "" || queryType == "steamMarket" {
 		sm := q.SteamMarket
 		results, err := sm.WithContext(ctx).Preload(sm.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				nameVal := r.Name
-				displayUrl := r.DisplayUrl
-				maxPrice := r.MaxPrice
-				list = append(list, QueryItem{
-					QueryId:    r.QueryId,
-					Type:       "steamMarket",
-					Id:         r.Name,
-					DmOnly:     r.Query.DmOnly,
-					Name:       &nameVal,
-					DisplayUrl: &displayUrl,
-					MaxPrice:   &maxPrice,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list steam market queries: %w", err)
+		}
+		for _, r := range results {
+			nameVal := r.Name
+			displayUrl := r.DisplayUrl
+			maxPrice := r.MaxPrice
+			list = append(list, QueryItem{
+				QueryId:    r.QueryId,
+				Type:       "steamMarket",
+				Id:         r.Name,
+				DmOnly:     r.Query.DmOnly,
+				Name:       &nameVal,
+				DisplayUrl: &displayUrl,
+				MaxPrice:   &maxPrice,
+			})
 		}
 	}
 
@@ -174,26 +184,28 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 	if queryType == "" || queryType == "csTradeBot" {
 		ct := q.CsTradeBot
 		results, err := ct.WithContext(ctx).Preload(ct.Query).Find()
-		if err == nil {
-			for _, r := range results {
-				nameVal := r.Name
-				maxPrice := r.MaxPrice
-				minFloat := r.MinFloat
-				maxFloat := r.MaxFloat
-				list = append(list, QueryItem{
-					QueryId:  r.QueryId,
-					Type:     "csTradeBot",
-					Id:       r.Name,
-					DmOnly:   r.Query.DmOnly,
-					Name:     &nameVal,
-					MaxPrice: &maxPrice,
-					MinFloat: &minFloat,
-					MaxFloat: &maxFloat,
-				})
-			}
+		if err != nil {
+			return nil, fmt.Errorf("list cs trade bot queries: %w", err)
+		}
+		for _, r := range results {
+			nameVal := r.Name
+			maxPrice := r.MaxPrice
+			minFloat := r.MinFloat
+			maxFloat := r.MaxFloat
+			list = append(list, QueryItem{
+				QueryId:  r.QueryId,
+				Type:     "csTradeBot",
+				Id:       r.Name,
+				DmOnly:   r.Query.DmOnly,
+				Name:     &nameVal,
+				MaxPrice: &maxPrice,
+				MinFloat: &minFloat,
+				MaxFloat: &maxFloat,
+			})
 		}
 	}
 
+	defaultSavedQueryCache.set(queryType, list)
 	return list, nil
 }
 
@@ -232,6 +244,7 @@ func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, cc *
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "cashConverters", cc.Url)
 }
 
@@ -252,6 +265,7 @@ func (q *Query) CreateEbayQuery(ctx context.Context, dmOnly bool, eb *models.Eba
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "ebay", eb.Url)
 }
 
@@ -272,6 +286,7 @@ func (q *Query) CreateGumtreeQuery(ctx context.Context, dmOnly bool, gt *models.
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "gumtree", gt.Url)
 }
 
@@ -292,6 +307,7 @@ func (q *Query) CreateSalvosQuery(ctx context.Context, dmOnly bool, sa *models.S
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "salvos", sa.Name)
 }
 
@@ -315,6 +331,7 @@ func (q *Query) CreateCsMarketQuery(ctx context.Context, dmOnly bool, cm *models
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "csMarket", cm.Url)
 }
 
@@ -338,6 +355,7 @@ func (q *Query) CreateSteamMarketQuery(ctx context.Context, dmOnly bool, sm *mod
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "steamMarket", sm.Name)
 }
 
@@ -358,6 +376,7 @@ func (q *Query) CreateCsTradeBotQuery(ctx context.Context, dmOnly bool, ct *mode
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "csTradeBot", ct.Name)
 }
 
@@ -390,6 +409,7 @@ func (q *Query) UpdateCashConvertersQuery(ctx context.Context, id string, dmOnly
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "cashConverters", cc.Url)
 }
 
@@ -414,6 +434,7 @@ func (q *Query) UpdateEbayQuery(ctx context.Context, id string, dmOnly bool, eb 
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "ebay", eb.Url)
 }
 
@@ -438,6 +459,7 @@ func (q *Query) UpdateGumtreeQuery(ctx context.Context, id string, dmOnly bool, 
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "gumtree", gt.Url)
 }
 
@@ -463,6 +485,7 @@ func (q *Query) UpdateSalvosQuery(ctx context.Context, id string, dmOnly bool, s
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "salvos", sa.Name)
 }
 
@@ -492,6 +515,7 @@ func (q *Query) UpdateCsMarketQuery(ctx context.Context, id string, dmOnly bool,
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "csMarket", cm.Url)
 }
 
@@ -520,6 +544,7 @@ func (q *Query) UpdateSteamMarketQuery(ctx context.Context, id string, dmOnly bo
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "steamMarket", sm.Name)
 }
 
@@ -546,11 +571,12 @@ func (q *Query) UpdateCsTradeBotQuery(ctx context.Context, id string, dmOnly boo
 	if err != nil {
 		return QueryItem{}, err
 	}
+	defaultSavedQueryCache.invalidate()
 	return q.fetchQueryItem(ctx, "csTradeBot", ct.Name)
 }
 
 func (q *Query) DeleteSavedQuery(ctx context.Context, queryType string, id string) error {
-	return q.Transaction(func(tx *Query) error {
+	err := q.Transaction(func(tx *Query) error {
 		var queryId string
 		var err error
 
@@ -609,13 +635,18 @@ func (q *Query) DeleteSavedQuery(ctx context.Context, queryType string, id strin
 		_, err = tx.SearchQuery.WithContext(ctx).Where(tx.SearchQuery.ID.Eq(queryId)).Delete()
 		return err
 	})
+	if err != nil {
+		return err
+	}
+	defaultSavedQueryCache.invalidate()
+	return nil
 }
 
 type FoundItem struct {
-	Title        string
-	Url          string
-	Price        float64
-	LastMatched  time.Time
+	Title       string
+	Url         string
+	Price       float64
+	LastMatched time.Time
 }
 
 func (q *Query) GetLastFoundItems(ctx context.Context, queryId string, limit int) ([]FoundItem, error) {
@@ -732,4 +763,3 @@ func (q *Query) GetLastFoundItemsBatch(ctx context.Context, queryIds []string, l
 
 	return itemsMap, nil
 }
-
