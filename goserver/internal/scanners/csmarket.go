@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"dealscanner/internal/models"
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -39,7 +39,7 @@ type SteamListingAssetAction struct {
 }
 
 type SteamListingAsset struct {
-	ID            string                     `json:"id"`
+	ID            string                    `json:"id"`
 	MarketActions []SteamListingAssetAction `json:"market_actions"`
 }
 

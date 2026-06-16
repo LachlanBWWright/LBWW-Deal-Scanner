@@ -3,6 +3,7 @@ set -euo pipefail
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/dealscanner}"
 DEPLOY_ENV_FILE="${DEPLOY_ROOT}/deploy.env"
+APP_ENV_FILE="${DEPLOY_ROOT}/app.env"
 COMPOSE_FILE="${DEPLOY_ROOT}/docker-compose.prod.yml"
 
 if [[ -z "${DEPLOY_IMAGE:-}" ]]; then
@@ -20,11 +21,26 @@ if [[ ! -f "${DEPLOY_ENV_FILE}" ]]; then
   exit 1
 fi
 
+if [[ ! -f "${APP_ENV_FILE}" ]]; then
+  echo "Missing app env file: ${APP_ENV_FILE}" >&2
+  exit 1
+fi
+
 # shellcheck disable=SC1090
 source "${DEPLOY_ENV_FILE}"
 
 if [[ -z "${GHCR_USERNAME:-}" || -z "${GHCR_TOKEN:-}" ]]; then
   echo "GHCR_USERNAME and GHCR_TOKEN are required in ${DEPLOY_ENV_FILE}" >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "${APP_ENV_FILE}"
+set +a
+
+if [[ -z "${TURSO_DATABASE_URL:-}" || -z "${TURSO_AUTH_TOKEN:-}" ]]; then
+  echo "TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are required in ${APP_ENV_FILE}" >&2
   exit 1
 fi
 

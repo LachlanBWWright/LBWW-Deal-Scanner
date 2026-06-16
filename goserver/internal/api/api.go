@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"dealscanner/internal/config"
-	"dealscanner/internal/models"
 	"dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"dealscanner/internal/runtime"
 	"dealscanner/internal/scanners"
@@ -438,7 +438,7 @@ func (s *Server) handleSendTestNotification(w http.ResponseWriter, r *http.Reque
 			Type string `json:"type"`
 			Id   string `json:"id"`
 		} `json:"query"`
-		Tags     []string `json:"tags"`
+		Tags []string `json:"tags"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

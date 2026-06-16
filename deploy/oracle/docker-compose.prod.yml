@@ -4,5 +4,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./app.env
+    environment:
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:?TURSO_DATABASE_URL is required}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:?TURSO_AUTH_TOKEN is required}
     ports:
       - "127.0.0.1:3000:3000"

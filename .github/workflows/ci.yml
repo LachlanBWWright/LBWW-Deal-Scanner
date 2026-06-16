@@ -13,6 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -20,11 +25,6 @@ jobs:
           cache: pnpm
           cache-dependency-path: |
             frontend/pnpm-lock.yaml
-
-      - name: Enable pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.1
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -52,10 +52,13 @@ jobs:
         run: go mod download
         working-directory: goserver
 
-      - name: Verify Go format and vet
+      - name: Verify Go format
         run: |
-          go fmt ./...
-          go vet ./...
+          test -z "$(gofmt -l .)"
+        working-directory: goserver
+
+      - name: Vet Go
+        run: go vet ./...
         working-directory: goserver
 
       - name: Install NilAway
@@ -81,3 +84,16 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t dealscanner:ci .
+
+      - name: Verify Docker image requires Turso config
+        run: |
+          set +e
+          docker run --rm dealscanner:ci >container.log 2>&1
+          status=$?
+          set -e
+          cat container.log
+          if [ "$status" -eq 0 ]; then
+            echo "Container started without required Turso configuration" >&2
+            exit 1
+          fi
+          grep -q "TURSO_DATABASE_URL is required" container.log

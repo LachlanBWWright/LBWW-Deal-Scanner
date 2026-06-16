@@ -107,7 +107,7 @@ type CsTradeBot struct {
 	MinFloat float64     `gorm:"column:minFloat" json:"minFloat"`
 	MaxFloat float64     `gorm:"column:maxFloat" json:"maxFloat"`
 	QueryId  string      `gorm:"column:queryId" json:"queryId"`
-	Query      SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
 }
 
 func (CsTradeBot) TableName() string {

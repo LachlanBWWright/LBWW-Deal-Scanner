@@ -11,7 +11,7 @@ func TestParseGumtreePrice(t *testing.T) {
 		expectErr   bool
 	}{
 		{"$10.00", 10.00, false},
-		{"Free", 0.0, false,},
+		{"Free", 0.0, false},
 		{"FREE", 0.0, false},
 		{"$1,234.56", 1234.56, false},
 		{"invalid", 0.0, true},
