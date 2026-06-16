@@ -38,7 +38,7 @@ func (c *savedQueryCache) invalidate() {
 
 func cloneQueryItems(items []QueryItem) []QueryItem {
 	if items == nil {
-		return nil
+		return []QueryItem{}
 	}
 
 	cloned := make([]QueryItem, len(items))

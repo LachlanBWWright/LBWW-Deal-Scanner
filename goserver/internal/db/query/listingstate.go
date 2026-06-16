@@ -114,7 +114,7 @@ func (q *Query) EvaluateListingForQuery(
 	var lastNotifiedTotalPrice *float64
 	var lowestObsPrice *float64
 
-	if err == nil {
+	if err == nil && previous != nil {
 		previousStatus = &previous.Status
 		lastNotifiedTotalPrice = previous.LastNotifiedTotalPrice
 		lowestObsPrice = previous.LowestObservedPrice
@@ -173,7 +173,7 @@ func (q *Query) EvaluateListingForQuery(
 		LowestObservedPrice: lowest,
 	}
 
-	if previousStatus != nil {
+	if previous != nil {
 		state.FirstMatchedAt = previous.FirstMatchedAt
 		state.LastNotifiedAt = previous.LastNotifiedAt
 		state.LastNotifiedTotalPrice = previous.LastNotifiedTotalPrice

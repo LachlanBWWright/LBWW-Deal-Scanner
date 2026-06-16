@@ -28,6 +28,9 @@ func downloadFile(url string) (*discordgo.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("failed to fetch image: response was nil")
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -1190,6 +1193,9 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 		content := fmt.Sprintf("❌ Error: %v", err)
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content})
 		return
+	}
+	if queries == nil {
+		queries = []query.QueryItem{}
 	}
 
 	total := len(queries)

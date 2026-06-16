@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,9 @@ func TestCsMarketLiveIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping live integration test in short mode")
 	}
+	if os.Getenv("DEALSCANNER_LIVE_TESTS") != "true" {
+		t.Skip("Skipping live integration test; set DEALSCANNER_LIVE_TESTS=true to enable")
+	}
 
 	// Use a real public CS2 market item endpoint to verify connection and schema
 	// This item is usually present (e.g. Recoil Case)
@@ -100,6 +104,9 @@ func TestCsMarketLiveIntegration(t *testing.T) {
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Failed to execute live HTTP request: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Steam live HTTP request returned a nil response")
 	}
 	defer resp.Body.Close()
 

@@ -35,7 +35,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 		return cached, nil
 	}
 
-	var list []QueryItem
+	list := make([]QueryItem, 0)
 
 	// CashConverters
 	if queryType == "" || queryType == "cashConverters" {
