@@ -1,0 +1,209 @@
+import globals from "../../globals/Globals.js";
+import setStatus from "../../functions/setStatus.js";
+import { db } from "../../globals/PrismaClient.js";
+import { getAllTradeBotItems } from "../../functions/csTradeBot.js";
+import {
+  fetchCsTradeItems,
+  warmupCsTradeCache,
+} from "../../functions/csTraceFetcher.js";
+import type { DealNotification } from "../../deals/types.js";
+import type { CsTradeItem } from "../../functions/apiValidators.js";
+import {
+  evaluateListingForQuery,
+  matchPriceRange,
+  persistListingObservation,
+  type DiscoveredListing,
+} from "../listingState.js";
+
+async function checkCsTradeMatch(
+  searchItem: Awaited<ReturnType<typeof getAllTradeBotItems>>[0],
+  foundItem: CsTradeItem,
+  notifications: DealNotification[],
+  persistedListings: Map<string, string | null>,
+) {
+  const itemWear = foundItem.wear;
+  const listing = normalizeCsTradeListing(foundItem);
+  const persistedListingId = await persistCsTradeListingOnce(
+    listing,
+    persistedListings,
+  );
+
+  if (
+    foundItem.price > searchItem.maxPrice ||
+    itemWear < searchItem.minFloat ||
+    itemWear > searchItem.maxFloat ||
+    foundItem.market_hash_name !== searchItem.name
+  ) {
+    return;
+  }
+
+  if (persistedListingId === null) {
+    console.warn(`Failed to persist CS.Trade listing ${foundItem.id}`);
+    return;
+  }
+
+  const queryId = await ensureCsTradeBotQueryId(searchItem.name, searchItem.queryId);
+  const decisionResult = await evaluateListingForQuery({
+    queryId,
+    listingId: persistedListingId,
+    source: "csTrade",
+    totalPrice: listing.totalPrice,
+    match: matchPriceRange(listing.totalPrice, null, searchItem.maxPrice),
+    furtherPriceDropRatio: 0.04,
+  });
+  if (decisionResult.isErr()) {
+    console.warn(decisionResult.error.message);
+    return;
+  }
+  if (decisionResult.value.type === "DoNotNotify") return;
+
+  notifications.push({
+    kind: "deal",
+    source: "csTrade",
+    title: `a ${foundItem.market_hash_name} with a float of ${foundItem.wear} is available for $${foundItem.price} USD at: https://cs.trade/`,
+    url: "https://cs.trade/",
+    price: foundItem.price,
+    query: {
+      type: "csTradeBot",
+      id: searchItem.name,
+    },
+  });
+}
+
+export async function scanCSTrade(): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
+  setStatus("Scanning CS.Trade");
+
+  // Warmup cache
+  const warmupResult = await warmupCsTradeCache();
+  if (warmupResult.isErr()) {
+    console.warn("CS.Trade cache warmup failed:", warmupResult.error.message);
+  }
+
+  const itemsResult = await fetchCsTradeItems();
+  if (itemsResult.isErr()) {
+    console.error("Failed to fetch CS.Trade items:", itemsResult.error.message);
+    return [];
+  }
+
+  const foundItems = itemsResult.value;
+  const searchItems = await getAllTradeBotItems();
+  const notifications: DealNotification[] = [];
+  const persistedListings = new Map<string, string | null>();
+
+  for (const searchItem of searchItems) {
+    for (const foundItem of foundItems) {
+      await checkCsTradeMatch(
+        searchItem,
+        foundItem,
+        notifications,
+        persistedListings,
+      );
+    }
+  }
+
+  return notifications;
+}
+
+async function persistCsTradeListingOnce(
+  listing: DiscoveredListing,
+  persistedListings: Map<string, string | null>,
+): Promise<string | null> {
+  const key = listing.externalId ?? listing.canonicalUrl;
+  if (persistedListings.has(key)) {
+    return persistedListings.get(key) ?? null;
+  }
+
+  const persistedResult = await persistListingObservation({ listing });
+  if (persistedResult.isErr()) {
+    console.warn(persistedResult.error.message);
+    persistedListings.set(key, null);
+    return null;
+  }
+
+  persistedListings.set(key, persistedResult.value.listingId);
+  return persistedResult.value.listingId;
+}
+
+export async function getCsTradeItems() {
+  const itemsResult = await fetchCsTradeItems();
+  if (itemsResult.isErr()) {
+    console.error("Failed to fetch CS.Trade items:", itemsResult.error.message);
+    return [];
+  }
+
+  return itemsResult.value;
+}
+
+function normalizeCsTradeListing(foundItem: CsTradeItem): DiscoveredListing {
+  return {
+    source: "csTrade",
+    externalId: foundItem.id,
+    canonicalUrl: `https://cs.trade/item/${foundItem.id}`,
+    title: foundItem.market_hash_name,
+    price: foundItem.price,
+    shipping: null,
+    totalPrice: foundItem.price,
+    currency: "USD",
+    imageUrl: foundItem.icon ?? null,
+    description: `float ${foundItem.wear}`,
+    availability: foundItem.status ?? "available",
+  };
+}
+
+async function ensureCsTradeBotQueryId(
+  name: string,
+  queryId: string | null,
+): Promise<string> {
+  if (queryId) return queryId;
+  const query = await db.query.create({
+    data: {
+      csTradeBot: {
+        connect: { name },
+      },
+    },
+  });
+  return query.id;
+}
+
+/* {
+    id: '25477418560_730',
+    app_id: '730',
+    market_hash_name: '★ Bayonet | Slaughter (Minimal Wear)',
+    price: 506.04,     //PRICE
+    icon: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpotLu8JAllx8zJfAJY6d6klb-HnvD8J_WDxDgFuJMl2b-Tp9yhjQzjrhJpMDzwco-cdVJtZ1HRrlm6xbrmhJC0ot2XnobxE0h8/330x192',
+    status: 'tradable',
+    reservable: false,
+    status_description: 'Unavailable',
+    type: 'CSGO_Type_Knife',
+    inspect_link: 'steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20S76561198310607331A25477418560D5639753587697763588',
+    stattrak: false,
+    souvenir: null,
+    skin: true,
+    rare: true,
+    stattrakknife: false,
+    wear: '0.08060055',
+    wear_to_display: '0.08060055',
+    name_to_display: '★ Bayonet | Slaughter',
+    wear_name: 'MW',
+    stickers: null,
+    paint_index: null,
+    doppler: false,
+    float_bonus: 0,
+    tradable_bool: false,
+    marketable_bool: true,
+    name_color: '#8650AC',
+    dota2_rarity: null,
+    dota2_type: null,
+    dota2_hero: null,
+    h1z1_slot: null,
+    h1z1_rarity: null,
+    rust_type: null,
+    bot: '6',
+    bot_id: '76561198310607331',
+    tradable_from: {
+      date: '2022-04-26 09:00:00.000000',
+      timezone_type: 3,
+      timezone: 'Europe/Warsaw'
+    }
+  }, */

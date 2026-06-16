@@ -1,0 +1,116 @@
+import { HTTPResponse, Page } from "puppeteer";
+import globals from "../globals/Globals.js";
+import setStatus from "../functions/setStatus.js";
+import {
+  checkIfNewCsItem,
+  CsSite,
+  getAllTradeBotItems,
+} from "../functions/csTradeBot.js";
+import type { DealNotification } from "../deals/types.js";
+
+export async function scanCSDeals(page: Page): Promise<DealNotification[]> {
+  if (!globals.CS_ITEMS) return [];
+  setStatus("Scanning CS Deals");
+
+  const foundItems = await getCSDealsItems(page);
+  const searchItems = await getAllTradeBotItems();
+
+  const notifications: DealNotification[] = [];
+
+  for (const searchItem of searchItems) {
+    for (const foundItem of foundItems) {
+      //Iterates through every item on the website
+      //Checks if a match is found, and sends a message if it is | .c = Name, .d1 = Float, .price = Price
+      if (
+        foundItem.c === searchItem.name &&
+        foundItem.d1 < searchItem.maxFloat &&
+        foundItem.d1 > searchItem.minFloat &&
+        foundItem.i <= searchItem.maxPrice
+      ) {
+        if (
+          await checkIfNewCsItem(foundItem.c, foundItem.d1, CsSite.CS_DEALS)
+        ) {
+          notifications.push({
+            kind: "deal",
+            source: "csTrade",
+            title: `a ${foundItem.c} with a float of ${foundItem.d1} is available for $${foundItem.i} USD at: https://cs.deals/trade-skins`,
+            url: "https://cs.deals/trade-skins",
+            price: foundItem.i,
+          });
+        }
+      }
+    }
+  }
+
+  return notifications;
+}
+
+interface CsDealsPage {
+  setDefaultNavigationTimeout(timeout: number): void;
+  goto(url: string): Promise<unknown>;
+  waitForResponse(
+    predicate: (response: { url(): string }) => boolean,
+  ): Promise<unknown>;
+}
+
+export async function getCSDealsItems(page: CsDealsPage) {
+  await page.setDefaultNavigationTimeout(0); //TODO: Consider removing this
+  await page.goto("https://cs.deals/trade-skins");
+
+  //New eventlistener replacement
+  let foundResponse: unknown = null;
+  await page.waitForResponse((response) => {
+    if (response.url().endsWith("botsinventory?appid=0")) {
+      foundResponse = response;
+      return true;
+    } else return false;
+  });
+
+  if (!foundResponse) return;
+  if (isHTTPResponse(foundResponse)) {
+    return (await foundResponse.json()).response;
+  }
+}
+
+function isHTTPResponse(response: unknown): response is HTTPResponse {
+  return (
+    typeof response === "object" && response !== null && "json" in response
+  );
+}
+
+/* 
+JSON Example
+{
+  a: '68',
+  c: 'Souvenir AUG | Radiation Hazard (Factory New)',
+  e: 4,
+  g: '3023755629',
+  h: '188530139',
+  i: 5.82,                                                                                  The actual price
+  k: '5e98d9',
+  q: 'OTg4ODg=',
+  x: 5.43,                                                                                  Some sort of 'base price', lower than actual
+  f: '22590511304',
+  t: 8499961,
+  f1: [
+    [
+      'Fnatic (Gold) | Cologne 2016',
+      'cologne2016/fntc_gold.e622cb6a1885e75f2a1d068efdabba19a6e87d5a.png',
+      '0.00000000000000000',
+      '0'
+    ],
+    [
+      'ESL (Gold) | Cologne 2016',
+      'cologne2016/esl_gold.f2b63efe44b0a777411448aaf9604014ee414e02.png',
+      '1.00000000000000000',
+      '2'
+    ]
+  ],
+  b1: '5621234145811519616',
+  o: 'Rifle',
+  h1: 'MTY4MzE4NQ==',
+  c1: 'FN',
+  d1: '0.05834920331836',                                                                Float Value
+  e1: 160
+}
+*/

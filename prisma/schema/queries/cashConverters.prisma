@@ -1,7 +1,0 @@
-model CashConverters {
-    url             String  @unique
-    requiredPhrases String  @default("")
-    excludePhrases  String  @default("")
-    queryId         String? @unique
-    query           Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
-}

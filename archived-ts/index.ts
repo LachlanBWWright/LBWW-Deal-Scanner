@@ -1,0 +1,65 @@
+import { startApiServer } from "./api.js";
+import { startDiscordBot } from "./integrations/discord/discordBot.js";
+import {
+  runScheduledScanLoop,
+  startBackgroundScanLoop,
+  setNotificationService,
+} from "./scannerRuntime.js";
+import { DefaultNotificationService } from "./notifications/notificationService.js";
+import { DiscordNotificationProvider } from "./integrations/discord/discordNotifier.js";
+import { DesktopNotificationProvider } from "./integrations/desktop/desktopNotifier.js";
+import { initGlobals } from "./globals/Globals.js";
+import { readRuntimeConfig } from "./runtimeConfig.js";
+import { db } from "./globals/PrismaClient.js";
+import { resultAsync } from "./functions/neverthrowUtils.js";
+
+async function run() {
+  await initGlobals();
+  const runtimeConfig = readRuntimeConfig();
+  if (runtimeConfig.isErr()) {
+    console.error(runtimeConfig.error.message);
+    process.exitCode = 1;
+    return;
+  }
+
+  // Construct notification providers
+  const providers = [
+    new DiscordNotificationProvider(),
+    new DesktopNotificationProvider(),
+  ];
+
+  const notificationService = new DefaultNotificationService(providers);
+  setNotificationService(notificationService);
+
+  if (runtimeConfig.value.scheduledMode) {
+    console.log(
+      `Running scheduled scanner for ${runtimeConfig.value.scheduledDurationMs}ms`,
+    );
+    await runScheduledScanLoop(runtimeConfig.value.scheduledDurationMs);
+    const disconnectResult = await resultAsync(
+      () => db.$disconnect(),
+      "Failed to disconnect database client",
+    );
+    if (disconnectResult.isErr()) {
+      console.error(disconnectResult.error.message);
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  // Start API server
+  const api = await startApiServer();
+  console.log(`Fastify API listening on http://${api.host}:${api.port}`);
+
+  // Start background scan loop (independent of Discord)
+  void startBackgroundScanLoop();
+
+  // Start Discord bot (independent of scan loop)
+  void startDiscordBot().catch((error: unknown) => {
+    console.error("Discord bot startup failed:", error);
+  });
+}
+
+run().catch((error: unknown) => {
+  console.error(error);
+});

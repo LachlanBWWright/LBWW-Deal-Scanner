@@ -1,0 +1,9 @@
+model CashConverters {
+    url             String  @unique
+    requiredPhrases String  @default("")
+    excludePhrases  String  @default("")
+    maxPrice        Float?
+    scanMode        String  @default("searchUrl")
+    queryId         String? @unique
+    query           Query?  @relation(fields: [queryId], references: [id], onDelete: Cascade)
+}

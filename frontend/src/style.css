@@ -1,0 +1,54 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 46% 8%;
+  --foreground: 215 28% 92%;
+  --card: 222 38% 12%;
+  --card-foreground: 215 28% 92%;
+  --popover: 222 38% 12%;
+  --popover-foreground: 215 28% 92%;
+  --primary: 210 91% 56%;
+  --primary-foreground: 220 30% 8%;
+  --secondary: 220 27% 19%;
+  --secondary-foreground: 214 26% 88%;
+  --muted: 220 26% 16%;
+  --muted-foreground: 216 16% 68%;
+  --accent: 215 73% 22%;
+  --accent-foreground: 209 100% 84%;
+  --destructive: 0 70% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 219 24% 24%;
+  --input: 219 24% 24%;
+  --ring: 210 91% 56%;
+  --radius: 0.7rem;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+  color-scheme: dark;
+  font-family: "Manrope", "IBM Plex Sans", sans-serif;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(circle at 8% 0%, rgba(42, 125, 255, 0.26), transparent 34%),
+    radial-gradient(circle at 92% 10%, rgba(20, 84, 172, 0.2), transparent 36%),
+    linear-gradient(180deg, #0b1222 0%, #0a152d 54%, #0a1220 100%);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+}
+
+#app {
+  min-height: 100vh;
+}

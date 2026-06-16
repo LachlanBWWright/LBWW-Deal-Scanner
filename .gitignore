@@ -1,6 +1,7 @@
 .env
 node_modules/
 build/
+frontend/dist/assets/
 prisma/dev.db
 prisma/test.db
 *.db-journal

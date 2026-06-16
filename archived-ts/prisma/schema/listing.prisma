@@ -1,0 +1,60 @@
+model Listing {
+    id            String   @id @default(cuid())
+    source        String
+    externalId    String?
+    canonicalUrl  String
+    title         String
+    imageUrl      String?
+    description   String?
+    availability  String?
+    firstSeenAt   DateTime @default(now())
+    lastSeenAt    DateTime
+    lastDetailAt  DateTime?
+    unavailableAt DateTime?
+
+    observations ListingObservation[]
+    queryStates  QueryListingState[]
+
+    @@unique([source, externalId])
+    @@unique([source, canonicalUrl])
+    @@index([source, lastSeenAt])
+}
+
+model ListingObservation {
+    id           String   @id @default(cuid())
+    listingId    String
+    listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+    source       String
+    observedAt   DateTime @default(now())
+    price        Float?
+    shipping     Float?
+    totalPrice   Float?
+    currency     String?
+    title        String
+    imageUrl     String?
+    description  String?
+    availability String?
+    rawSummary   Json?
+
+    @@index([listingId, observedAt])
+    @@index([source, observedAt])
+}
+
+model QueryListingState {
+    queryId                String
+    query                  Query    @relation(fields: [queryId], references: [id], onDelete: Cascade)
+    listingId              String
+    listing                Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+    source                 String
+    status                 String
+    lastEvaluatedAt        DateTime
+    firstMatchedAt         DateTime?
+    lastMatchedAt          DateTime?
+    lastRejectedReason     String?
+    lastNotifiedAt         DateTime?
+    lastNotifiedTotalPrice Float?
+    lowestObservedPrice    Float?
+
+    @@id([queryId, listingId])
+    @@index([source, status])
+}
