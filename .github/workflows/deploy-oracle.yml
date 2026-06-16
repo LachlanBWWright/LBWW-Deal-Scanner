@@ -1,0 +1,71 @@
+name: Deploy Oracle VM
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: oracle-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: dealscanner
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Install SSH key
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "${{ secrets.ORACLE_VM_SSH_PRIVATE_KEY }}" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "${{ secrets.ORACLE_VM_SSH_KNOWN_HOSTS }}" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy on Oracle VM
+        shell: bash
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
+          ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_HOST }}
+          ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
+        run: |
+          ssh "$ORACLE_VM_USER@$ORACLE_VM_HOST" \
+            "export DEPLOY_IMAGE='$DEPLOY_IMAGE' DEPLOY_IMAGE_TAG='$DEPLOY_IMAGE_TAG' && /opt/dealscanner/deploy.sh"

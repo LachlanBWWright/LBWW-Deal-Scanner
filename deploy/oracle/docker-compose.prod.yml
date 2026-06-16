@@ -1,0 +1,8 @@
+services:
+  app:
+    image: ${DEPLOY_IMAGE:?DEPLOY_IMAGE is required}:${DEPLOY_IMAGE_TAG:?DEPLOY_IMAGE_TAG is required}
+    restart: unless-stopped
+    env_file:
+      - ./app.env
+    ports:
+      - "127.0.0.1:3000:3000"

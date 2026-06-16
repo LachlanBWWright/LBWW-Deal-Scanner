@@ -10,36 +10,25 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: file:./prisma/dev.db
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: |
+            frontend/pnpm-lock.yaml
 
       - name: Enable pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.28.1
 
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: pnpm
-          cache-dependency-path: |
-            server/pnpm-lock.yaml
-            frontend/pnpm-lock.yaml
-
-      - name: Install server dependencies
-        run: pnpm install --frozen-lockfile
-        working-directory: server
-
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
         working-directory: frontend
-
-      - name: Verify server
-        run: pnpm run verify
-        working-directory: server
 
       - name: Typecheck frontend
         run: pnpm run typecheck
@@ -56,7 +45,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.0'
+          go-version-file: goserver/go.mod
           cache-dependency-path: goserver/go.sum
 
       - name: Install Go dependencies
@@ -86,6 +75,9 @@ jobs:
     needs: verify
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
         run: docker build -t dealscanner:ci .

@@ -103,6 +103,8 @@ EXPOSE 3000
 # Set default env values
 ENV API_HOST=0.0.0.0
 ENV PORT=3000
+ENV API_SECRET=dealscanner-dev-secret
+ENV ENABLE_TESTING_API=true
 
 # Run the app
 CMD ["/app/dealscanner"]
