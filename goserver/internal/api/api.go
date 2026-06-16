@@ -435,10 +435,13 @@ func (s *Server) handleSendTestNotification(w http.ResponseWriter, r *http.Reque
 		ImageUrl string   `json:"imageUrl"`
 		Message  string   `json:"message"`
 		Query    *struct {
-			Type string `json:"type"`
-			Id   string `json:"id"`
+			Type   string `json:"type"`
+			Id     string `json:"id"`
+			DmOnly bool   `json:"dmOnly"`
 		} `json:"query"`
-		Tags []string `json:"tags"`
+		Tags                []string `json:"tags"`
+		DeliveryMode        string   `json:"deliveryMode"`
+		TargetDiscordUserId string   `json:"targetDiscordUserId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -466,8 +469,9 @@ func (s *Server) handleSendTestNotification(w http.ResponseWriter, r *http.Reque
 	}
 	if body.Query != nil {
 		notif.Query = &notifications.NotificationQuery{
-			Type: body.Query.Type,
-			Id:   body.Query.Id,
+			Type:   body.Query.Type,
+			Id:     body.Query.Id,
+			DmOnly: body.Query.DmOnly,
 		}
 	}
 

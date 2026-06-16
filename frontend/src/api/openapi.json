@@ -871,6 +871,9 @@
                       },
                       "id": {
                         "type": "string"
+                      },
+                      "dmOnly": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -883,6 +886,18 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "deliveryMode": {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "guildChannelOnly",
+                      "subscribedDMs",
+                      "specificUserDM"
+                    ]
+                  },
+                  "targetDiscordUserId": {
+                    "type": "string"
                   }
                 },
                 "required": [

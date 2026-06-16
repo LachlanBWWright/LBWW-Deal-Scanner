@@ -880,6 +880,9 @@ const openApiJSON = `{
                       },
                       "id": {
                         "type": "string"
+                      },
+                      "dmOnly": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -892,6 +895,18 @@ const openApiJSON = `{
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "deliveryMode": {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "guildChannelOnly",
+                      "subscribedDMs",
+                      "specificUserDM"
+                    ]
+                  },
+                  "targetDiscordUserId": {
+                    "type": "string"
                   }
                 },
                 "required": [

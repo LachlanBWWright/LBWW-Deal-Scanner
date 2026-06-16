@@ -468,8 +468,12 @@ export interface paths {
                         query?: {
                             type: string;
                             id: string;
+                            dmOnly?: boolean;
                         };
                         tags?: string[];
+                        /** @enum {string} */
+                        deliveryMode?: "normal" | "guildChannelOnly" | "subscribedDMs" | "specificUserDM";
+                        targetDiscordUserId?: string;
                     };
                 };
             };
