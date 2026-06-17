@@ -48,14 +48,24 @@ HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:3000/}"
 
 cd "${DEPLOY_ROOT}"
 
-printf '%s\n' "${GHCR_TOKEN}" | docker login ghcr.io --username "${GHCR_USERNAME}" --password-stdin
+DOCKER=(docker)
+if ! docker info >/dev/null 2>&1; then
+  DOCKER=(sudo docker)
+fi
+
+if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
+  echo "Docker Compose plugin is required. Install docker-compose-plugin on the VM." >&2
+  exit 1
+fi
+
+printf '%s\n' "${GHCR_TOKEN}" | "${DOCKER[@]}" login ghcr.io --username "${GHCR_USERNAME}" --password-stdin
 
 export DEPLOY_IMAGE
 export DEPLOY_IMAGE_TAG
 
-docker compose -f "${COMPOSE_FILE}" pull app
-docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans app
+"${DOCKER[@]}" compose -f "${COMPOSE_FILE}" pull app
+"${DOCKER[@]}" compose -f "${COMPOSE_FILE}" up -d --remove-orphans app
 
 curl --fail --silent --show-error "${HEALTHCHECK_URL}" >/dev/null
 
-docker image prune -f >/dev/null 2>&1 || true
+"${DOCKER[@]}" image prune -f >/dev/null 2>&1 || true

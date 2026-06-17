@@ -49,8 +49,80 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy:
+  test-container:
     needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull deployment image
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
+        run: docker pull "${DEPLOY_IMAGE}:${DEPLOY_IMAGE_TAG}"
+
+      - name: Run container for 5 minutes
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          docker run --detach \
+            --name dealscanner-smoke \
+            --publish 127.0.0.1:3000:3000 \
+            --env API_HOST=0.0.0.0 \
+            --env PORT=3000 \
+            --env API_SECRET=ci-smoke-test-secret \
+            --env ENABLE_TESTING_API=false \
+            --env SCHEDULED_SCANNER_MODE=false \
+            --env CASH_CONVERTERS=false \
+            --env CS_ITEMS=false \
+            --env EBAY=false \
+            --env GUMTREE=false \
+            --env SALVOS=false \
+            --env STEAM_QUERY=false \
+            --env TURSO_DATABASE_URL="${TURSO_DATABASE_URL}" \
+            --env TURSO_AUTH_TOKEN="${TURSO_AUTH_TOKEN}" \
+            "${DEPLOY_IMAGE}:${DEPLOY_IMAGE_TAG}"
+
+          cleanup() {
+            docker logs dealscanner-smoke || true
+            docker rm --force dealscanner-smoke || true
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+              break
+            fi
+            if [ "$(docker inspect --format '{{.State.Running}}' dealscanner-smoke)" != "true" ]; then
+              echo "Container exited before becoming healthy" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
+          curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+          sleep 300
+
+          if [ "$(docker inspect --format '{{.State.Running}}' dealscanner-smoke)" != "true" ]; then
+            echo "Container exited during the 5 minute smoke test" >&2
+            exit 1
+          fi
+
+  deploy:
+    needs: test-container
     runs-on: [self-hosted, oracle]
     steps:
       - name: Deploy on Oracle VM
