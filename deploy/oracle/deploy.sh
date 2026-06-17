@@ -3,6 +3,7 @@ set -euo pipefail
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/dealscanner}"
 APP_ENV_FILE="${DEPLOY_ROOT}/app.env"
+COMPOSE_ENV_FILE="${DEPLOY_ROOT}/compose.env"
 COMPOSE_FILE="${DEPLOY_ROOT}/docker-compose.prod.yml"
 
 if [[ -z "${DEPLOY_IMAGE:-}" ]]; then
@@ -93,8 +94,13 @@ unset GHCR_TOKEN
 export DEPLOY_IMAGE
 export DEPLOY_IMAGE_TAG
 
-"${DOCKER[@]}" compose -f "${COMPOSE_FILE}" pull app
-"${DOCKER[@]}" compose -f "${COMPOSE_FILE}" up -d --remove-orphans app
+printf 'DEPLOY_IMAGE=%s\nDEPLOY_IMAGE_TAG=%s\n' \
+  "${DEPLOY_IMAGE}" \
+  "${DEPLOY_IMAGE_TAG}" > "${COMPOSE_ENV_FILE}"
+chmod 600 "${COMPOSE_ENV_FILE}"
+
+"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app
+"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up -d --remove-orphans app
 
 curl --fail --silent --show-error "${HEALTHCHECK_URL}" >/dev/null
 
