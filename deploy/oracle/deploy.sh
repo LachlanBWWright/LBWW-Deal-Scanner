@@ -2,7 +2,6 @@
 set -euo pipefail
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/dealscanner}"
-DEPLOY_ENV_FILE="${DEPLOY_ROOT}/deploy.env"
 APP_ENV_FILE="${DEPLOY_ROOT}/app.env"
 COMPOSE_FILE="${DEPLOY_ROOT}/docker-compose.prod.yml"
 
@@ -16,21 +15,13 @@ if [[ -z "${DEPLOY_IMAGE_TAG:-}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${DEPLOY_ENV_FILE}" ]]; then
-  echo "Missing deploy env file: ${DEPLOY_ENV_FILE}" >&2
-  exit 1
-fi
-
 if [[ ! -f "${APP_ENV_FILE}" ]]; then
   echo "Missing app env file: ${APP_ENV_FILE}" >&2
   exit 1
 fi
 
-# shellcheck disable=SC1090
-source "${DEPLOY_ENV_FILE}"
-
-if [[ -z "${GHCR_USERNAME:-}" || -z "${GHCR_TOKEN:-}" ]]; then
-  echo "GHCR_USERNAME and GHCR_TOKEN are required in ${DEPLOY_ENV_FILE}" >&2
+if [[ -z "${GHCR_USERNAME:-}" ]]; then
+  echo "GHCR_USERNAME is required" >&2
   exit 1
 fi
 
@@ -91,7 +82,13 @@ if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! IFS= read -r GHCR_TOKEN || [[ -z "${GHCR_TOKEN}" ]]; then
+  echo "GHCR token is required on standard input" >&2
+  exit 1
+fi
+
 printf '%s\n' "${GHCR_TOKEN}" | "${DOCKER[@]}" login ghcr.io --username "${GHCR_USERNAME}" --password-stdin
+unset GHCR_TOKEN
 
 export DEPLOY_IMAGE
 export DEPLOY_IMAGE_TAG

@@ -284,6 +284,9 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     needs: test-container
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - uses: actions/checkout@v4
@@ -293,6 +296,10 @@ jobs:
           ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          API_SECRET: ${{ secrets.API_SECRET }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -311,6 +318,13 @@ jobs:
             exit 1
           fi
 
+          for secret_name in API_SECRET TURSO_DATABASE_URL TURSO_AUTH_TOKEN DISCORD_TOKEN; do
+            if [ -z "${!secret_name}" ]; then
+              echo "Missing required repository secret: ${secret_name}" >&2
+              exit 1
+            fi
+          done
+
       - name: Deploy on Oracle VM
         env:
           DEPLOY_IMAGE: ${{ env.IMAGE_REPOSITORY }}
@@ -319,6 +333,38 @@ jobs:
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
           ORACLE_PORT: ${{ secrets.ORACLE_PORT }}
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          API_SECRET: ${{ secrets.API_SECRET }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          BOT_CLIENT_ID: ${{ vars.BOT_CLIENT_ID || secrets.BOT_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ vars.DISCORD_GUILD_ID || secrets.DISCORD_GUILD_ID }}
+          SCHEDULED_SCANNER_MODE: ${{ vars.SCHEDULED_SCANNER_MODE }}
+          SCHEDULED_SCANNER_DURATION_MS: ${{ vars.SCHEDULED_SCANNER_DURATION_MS }}
+          CASH_CONVERTERS: ${{ vars.CASH_CONVERTERS }}
+          CASH_CONVERTERS_CHANNEL_ID: ${{ vars.CASH_CONVERTERS_CHANNEL_ID }}
+          CASH_CONVERTERS_ROLE_ID: ${{ vars.CASH_CONVERTERS_ROLE_ID }}
+          COMMAND_PERMISSION_ROLE_ID: ${{ vars.COMMAND_PERMISSION_ROLE_ID }}
+          CS_CHANNEL_ID: ${{ vars.CS_CHANNEL_ID }}
+          CS_ITEMS: ${{ vars.CS_ITEMS }}
+          CS_MARKET_CHANNEL_ID: ${{ vars.CS_MARKET_CHANNEL_ID }}
+          CS_MARKET_ROLE_ID: ${{ vars.CS_MARKET_ROLE_ID }}
+          CS_ROLE_ID: ${{ vars.CS_ROLE_ID }}
+          EBAY: ${{ vars.EBAY }}
+          EBAY_CHANNEL_ID: ${{ vars.EBAY_CHANNEL_ID }}
+          EBAY_ROLE_ID: ${{ vars.EBAY_ROLE_ID }}
+          ERROR_CHANNEL_ID: ${{ vars.ERROR_CHANNEL_ID }}
+          GUMTREE: ${{ vars.GUMTREE }}
+          GUMTREE_CHANNEL_ID: ${{ vars.GUMTREE_CHANNEL_ID }}
+          GUMTREE_ROLE_ID: ${{ vars.GUMTREE_ROLE_ID }}
+          SALVOS: ${{ vars.SALVOS }}
+          SALVOS_CHANNEL_ID: ${{ vars.SALVOS_CHANNEL_ID }}
+          SALVOS_ROLE_ID: ${{ vars.SALVOS_ROLE_ID }}
+          STEAM_QUERY: ${{ vars.STEAM_QUERY }}
+          STEAM_QUERY_CHANNEL_ID: ${{ vars.STEAM_QUERY_CHANNEL_ID }}
+          STEAM_QUERY_ROLE_ID: ${{ vars.STEAM_QUERY_ROLE_ID }}
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}
         run: |
           set -euo pipefail
 
@@ -327,6 +373,45 @@ jobs:
           printf '%s\n' "${ORACLE_SSH_KEY}" > "${HOME}/.ssh/oracle_deploy_key"
           chmod 600 "${HOME}/.ssh/oracle_deploy_key"
           ssh-keyscan -p "${port}" "${ORACLE_HOST}" >> "${HOME}/.ssh/known_hosts"
+
+          env_dir="$(mktemp -d)"
+          trap 'rm -rf "${env_dir}"' EXIT
+          {
+            printf 'API_HOST=0.0.0.0\n'
+            printf 'API_PORT=3000\n'
+            printf 'API_SECRET=%s\n' "${API_SECRET}"
+            printf 'ENABLE_TESTING_API=false\n'
+            printf 'TURSO_DATABASE_URL=%s\n' "${TURSO_DATABASE_URL}"
+            printf 'TURSO_AUTH_TOKEN=%s\n' "${TURSO_AUTH_TOKEN}"
+            printf 'SCHEDULED_SCANNER_MODE=%s\n' "${SCHEDULED_SCANNER_MODE:-false}"
+            printf 'SCHEDULED_SCANNER_DURATION_MS=%s\n' "${SCHEDULED_SCANNER_DURATION_MS:-300000}"
+            printf 'BOT_CLIENT_ID=%s\n' "${BOT_CLIENT_ID}"
+            printf 'DISCORD_GUILD_ID=%s\n' "${DISCORD_GUILD_ID}"
+            printf 'DISCORD_TOKEN=%s\n' "${DISCORD_TOKEN}"
+            printf 'CASH_CONVERTERS=%s\n' "${CASH_CONVERTERS:-false}"
+            printf 'CASH_CONVERTERS_CHANNEL_ID=%s\n' "${CASH_CONVERTERS_CHANNEL_ID}"
+            printf 'CASH_CONVERTERS_ROLE_ID=%s\n' "${CASH_CONVERTERS_ROLE_ID}"
+            printf 'COMMAND_PERMISSION_ROLE_ID=%s\n' "${COMMAND_PERMISSION_ROLE_ID}"
+            printf 'CS_CHANNEL_ID=%s\n' "${CS_CHANNEL_ID}"
+            printf 'CS_ITEMS=%s\n' "${CS_ITEMS:-false}"
+            printf 'CS_MARKET_CHANNEL_ID=%s\n' "${CS_MARKET_CHANNEL_ID}"
+            printf 'CS_MARKET_ROLE_ID=%s\n' "${CS_MARKET_ROLE_ID}"
+            printf 'CS_ROLE_ID=%s\n' "${CS_ROLE_ID}"
+            printf 'EBAY=%s\n' "${EBAY:-false}"
+            printf 'EBAY_CHANNEL_ID=%s\n' "${EBAY_CHANNEL_ID}"
+            printf 'EBAY_ROLE_ID=%s\n' "${EBAY_ROLE_ID}"
+            printf 'ERROR_CHANNEL_ID=%s\n' "${ERROR_CHANNEL_ID}"
+            printf 'GUMTREE=%s\n' "${GUMTREE:-false}"
+            printf 'GUMTREE_CHANNEL_ID=%s\n' "${GUMTREE_CHANNEL_ID}"
+            printf 'GUMTREE_ROLE_ID=%s\n' "${GUMTREE_ROLE_ID}"
+            printf 'SALVOS=%s\n' "${SALVOS:-false}"
+            printf 'SALVOS_CHANNEL_ID=%s\n' "${SALVOS_CHANNEL_ID}"
+            printf 'SALVOS_ROLE_ID=%s\n' "${SALVOS_ROLE_ID}"
+            printf 'STEAM_QUERY=%s\n' "${STEAM_QUERY:-false}"
+            printf 'STEAM_QUERY_CHANNEL_ID=%s\n' "${STEAM_QUERY_CHANNEL_ID}"
+            printf 'STEAM_QUERY_ROLE_ID=%s\n' "${STEAM_QUERY_ROLE_ID}"
+          } > "${env_dir}/app.env"
+          chmod 600 "${env_dir}/app.env"
 
           ssh_opts=(
             -i "${HOME}/.ssh/oracle_deploy_key"
@@ -341,5 +426,5 @@ jobs:
           )
 
           ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" 'sudo mkdir -p /opt/dealscanner && sudo chown "$(id -u):$(id -g)" /opt/dealscanner'
-          scp "${scp_opts[@]}" deploy/oracle/deploy.sh deploy/oracle/docker-compose.prod.yml "${ORACLE_USER}@${ORACLE_HOST}:/opt/dealscanner/"
-          ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "chmod +x /opt/dealscanner/deploy.sh && DEPLOY_IMAGE='${DEPLOY_IMAGE}' DEPLOY_IMAGE_TAG='${DEPLOY_IMAGE_TAG}' /opt/dealscanner/deploy.sh"
+          scp "${scp_opts[@]}" deploy/oracle/deploy.sh deploy/oracle/docker-compose.prod.yml "${env_dir}/app.env" "${ORACLE_USER}@${ORACLE_HOST}:/opt/dealscanner/"
+          printf '%s\n' "${GHCR_TOKEN}" | ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "chmod 600 /opt/dealscanner/app.env && chmod +x /opt/dealscanner/deploy.sh && GHCR_USERNAME='${GHCR_USERNAME}' DEPLOY_IMAGE='${DEPLOY_IMAGE}' DEPLOY_IMAGE_TAG='${DEPLOY_IMAGE_TAG}' /opt/dealscanner/deploy.sh"
