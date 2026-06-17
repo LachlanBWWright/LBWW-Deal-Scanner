@@ -48,6 +48,39 @@ HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:3000/}"
 
 cd "${DEPLOY_ROOT}"
 
+if ! command -v docker >/dev/null 2>&1; then
+  if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    source /etc/os-release
+  fi
+
+  if [[ "${ID:-}" != "ubuntu" && "${ID_LIKE:-}" != *"debian"* ]]; then
+    echo "Docker is not installed, and automatic install is only supported on Ubuntu/Debian." >&2
+    exit 1
+  fi
+
+  sudo apt-get update
+  sudo apt-get install -y ca-certificates curl gnupg
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo rm -f /etc/apt/keyrings/docker.gpg
+  curl -fsSL "https://download.docker.com/linux/${ID}/gpg" | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+  codename="${VERSION_CODENAME:-}"
+  if [[ -z "${codename}" ]]; then
+    echo "VERSION_CODENAME is required to install Docker automatically." >&2
+    exit 1
+  fi
+
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${ID} ${codename} stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+
+  sudo apt-get update
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo systemctl enable --now docker
+fi
+
 DOCKER=(docker)
 if ! docker info >/dev/null 2>&1; then
   DOCKER=(sudo docker)

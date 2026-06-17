@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  IMAGE_NAME: dealscanner
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -97,3 +100,195 @@ jobs:
             exit 1
           fi
           grep -q "TURSO_DATABASE_URL is required" container.log
+
+  publish-image:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    needs: docker
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  test-container:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: publish-image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+
+    steps:
+      - name: Verify smoke test secrets
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TURSO_DATABASE_URL}" ]; then
+            echo "Missing required repository secret: TURSO_DATABASE_URL" >&2
+            exit 1
+          fi
+
+          if [ -z "${TURSO_AUTH_TOKEN}" ]; then
+            echo "Missing required repository secret: TURSO_AUTH_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull deployment image
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
+        run: docker pull "${DEPLOY_IMAGE}:${DEPLOY_IMAGE_TAG}"
+
+      - name: Run container for 5 minutes
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          docker run --detach \
+            --name dealscanner-smoke \
+            --publish 127.0.0.1:3000:3000 \
+            --env API_HOST=0.0.0.0 \
+            --env PORT=3000 \
+            --env API_SECRET=ci-smoke-test-secret \
+            --env ENABLE_TESTING_API=false \
+            --env SCHEDULED_SCANNER_MODE=false \
+            --env CASH_CONVERTERS=false \
+            --env CS_ITEMS=false \
+            --env EBAY=false \
+            --env GUMTREE=false \
+            --env SALVOS=false \
+            --env STEAM_QUERY=false \
+            --env TURSO_DATABASE_URL="${TURSO_DATABASE_URL}" \
+            --env TURSO_AUTH_TOKEN="${TURSO_AUTH_TOKEN}" \
+            "${DEPLOY_IMAGE}:${DEPLOY_IMAGE_TAG}"
+
+          cleanup() {
+            docker logs dealscanner-smoke || true
+            docker rm --force dealscanner-smoke || true
+          }
+          trap cleanup EXIT
+
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+              break
+            fi
+            if [ "$(docker inspect --format '{{.State.Running}}' dealscanner-smoke)" != "true" ]; then
+              echo "Container exited before becoming healthy" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+
+          curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+          sleep 300
+
+          if [ "$(docker inspect --format '{{.State.Running}}' dealscanner-smoke)" != "true" ]; then
+            echo "Container exited during the 5 minute smoke test" >&2
+            exit 1
+          fi
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: test-container
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify deploy secrets
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ORACLE_HOST}" ]; then
+            echo "Missing required repository secret: ORACLE_HOST" >&2
+            exit 1
+          fi
+
+          if [ -z "${ORACLE_USER}" ]; then
+            echo "Missing required repository secret: ORACLE_USER" >&2
+            exit 1
+          fi
+
+          if [ -z "${ORACLE_SSH_KEY}" ]; then
+            echo "Missing required repository secret: ORACLE_SSH_KEY" >&2
+            exit 1
+          fi
+
+      - name: Deploy on Oracle VM
+        env:
+          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ secrets.ORACLE_USER }}
+          ORACLE_PORT: ${{ secrets.ORACLE_PORT }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          port="${ORACLE_PORT:-22}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${ORACLE_SSH_KEY}" > "${HOME}/.ssh/oracle_deploy_key"
+          chmod 600 "${HOME}/.ssh/oracle_deploy_key"
+          ssh-keyscan -p "${port}" "${ORACLE_HOST}" >> "${HOME}/.ssh/known_hosts"
+
+          ssh_opts=(
+            -i "${HOME}/.ssh/oracle_deploy_key"
+            -p "${port}"
+            -o IdentitiesOnly=yes
+          )
+
+          scp_opts=(
+            -i "${HOME}/.ssh/oracle_deploy_key"
+            -P "${port}"
+            -o IdentitiesOnly=yes
+          )
+
+          ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "mkdir -p /opt/dealscanner"
+          scp "${scp_opts[@]}" deploy/oracle/deploy.sh deploy/oracle/docker-compose.prod.yml "${ORACLE_USER}@${ORACLE_HOST}:/opt/dealscanner/"
+          ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "chmod +x /opt/dealscanner/deploy.sh && DEPLOY_IMAGE='${DEPLOY_IMAGE}' DEPLOY_IMAGE_TAG='${DEPLOY_IMAGE_TAG}' /opt/dealscanner/deploy.sh"
