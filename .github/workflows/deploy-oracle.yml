@@ -56,6 +56,23 @@ jobs:
       packages: read
 
     steps:
+      - name: Verify smoke test secrets
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TURSO_DATABASE_URL}" ]; then
+            echo "Missing required repository secret: TURSO_DATABASE_URL" >&2
+            exit 1
+          fi
+
+          if [ -z "${TURSO_AUTH_TOKEN}" ]; then
+            echo "Missing required repository secret: TURSO_AUTH_TOKEN" >&2
+            exit 1
+          fi
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
