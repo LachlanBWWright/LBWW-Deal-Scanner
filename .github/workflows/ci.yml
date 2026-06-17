@@ -152,8 +152,30 @@ jobs:
         env:
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          BOT_CLIENT_ID: ${{ secrets.BOT_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           set -euo pipefail
+
+          echo "Container smoke test requires repository secrets:"
+          echo "- TURSO_DATABASE_URL"
+          echo "- TURSO_AUTH_TOKEN"
+          echo "- BOT_CLIENT_ID"
+          echo "- DISCORD_GUILD_ID"
+          echo "- DISCORD_TOKEN"
+          echo "Container smoke test sets these non-secret runtime env vars:"
+          echo "- API_HOST=0.0.0.0"
+          echo "- PORT=3000"
+          echo "- API_SECRET=ci-smoke-test-secret"
+          echo "- ENABLE_TESTING_API=false"
+          echo "- SCHEDULED_SCANNER_MODE=false"
+          echo "- CASH_CONVERTERS=false"
+          echo "- CS_ITEMS=false"
+          echo "- EBAY=false"
+          echo "- GUMTREE=false"
+          echo "- SALVOS=false"
+          echo "- STEAM_QUERY=false"
 
           if [ -z "${TURSO_DATABASE_URL}" ]; then
             echo "Missing required repository secret: TURSO_DATABASE_URL" >&2
@@ -162,6 +184,21 @@ jobs:
 
           if [ -z "${TURSO_AUTH_TOKEN}" ]; then
             echo "Missing required repository secret: TURSO_AUTH_TOKEN" >&2
+            exit 1
+          fi
+
+          if [ -z "${BOT_CLIENT_ID}" ]; then
+            echo "Missing required repository secret: BOT_CLIENT_ID" >&2
+            exit 1
+          fi
+
+          if [ -z "${DISCORD_GUILD_ID}" ]; then
+            echo "Missing required repository secret: DISCORD_GUILD_ID" >&2
+            exit 1
+          fi
+
+          if [ -z "${DISCORD_TOKEN}" ]; then
+            echo "Missing required repository secret: DISCORD_TOKEN" >&2
             exit 1
           fi
 
@@ -184,6 +221,9 @@ jobs:
           DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          BOT_CLIENT_ID: ${{ secrets.BOT_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -203,6 +243,9 @@ jobs:
             --env STEAM_QUERY=false \
             --env TURSO_DATABASE_URL="${TURSO_DATABASE_URL}" \
             --env TURSO_AUTH_TOKEN="${TURSO_AUTH_TOKEN}" \
+            --env BOT_CLIENT_ID="${BOT_CLIENT_ID}" \
+            --env DISCORD_GUILD_ID="${DISCORD_GUILD_ID}" \
+            --env DISCORD_TOKEN="${DISCORD_TOKEN}" \
             "${DEPLOY_IMAGE}:${DEPLOY_IMAGE_TAG}"
 
           cleanup() {
@@ -211,8 +254,10 @@ jobs:
           }
           trap cleanup EXIT
 
+          ready=false
           for _ in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+              ready=true
               break
             fi
             if [ "$(docker inspect --format '{{.State.Running}}' dealscanner-smoke)" != "true" ]; then
@@ -221,6 +266,11 @@ jobs:
             fi
             sleep 2
           done
+
+          if [ "${ready}" != "true" ]; then
+            echo "Container stayed running but did not serve HTTP within 60 seconds" >&2
+            exit 1
+          fi
 
           curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
           sleep 300
