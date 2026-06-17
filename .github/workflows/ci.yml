@@ -9,6 +9,7 @@ on:
 
 env:
   IMAGE_NAME: dealscanner
+  IMAGE_REPOSITORY: ghcr.io/lachlanbwwright/dealscanner
 
 jobs:
   verify:
@@ -126,7 +127,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_REPOSITORY }}
           tags: |
             type=sha,format=long
             type=raw,value=latest
@@ -173,13 +174,13 @@ jobs:
 
       - name: Pull deployment image
         env:
-          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE: ${{ env.IMAGE_REPOSITORY }}
           DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
         run: docker pull "${DEPLOY_IMAGE}:${DEPLOY_IMAGE_TAG}"
 
       - name: Run container for 5 minutes
         env:
-          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE: ${{ env.IMAGE_REPOSITORY }}
           DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
@@ -262,7 +263,7 @@ jobs:
 
       - name: Deploy on Oracle VM
         env:
-          DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          DEPLOY_IMAGE: ${{ env.IMAGE_REPOSITORY }}
           DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
           ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
