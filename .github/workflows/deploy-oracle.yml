@@ -2,7 +2,7 @@ name: Deploy Oracle VM
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
 
 concurrency:
@@ -13,7 +13,7 @@ env:
   IMAGE_NAME: dealscanner
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -49,23 +49,15 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Install SSH key
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-          printf '%s\n' "${{ secrets.ORACLE_VM_SSH_PRIVATE_KEY }}" > "$HOME/.ssh/id_ed25519"
-          chmod 600 "$HOME/.ssh/id_ed25519"
-          printf '%s\n' "${{ secrets.ORACLE_VM_SSH_KNOWN_HOSTS }}" > "$HOME/.ssh/known_hosts"
-          chmod 644 "$HOME/.ssh/known_hosts"
-
+  deploy:
+    needs: build
+    runs-on: [self-hosted, oracle]
+    steps:
       - name: Deploy on Oracle VM
         shell: bash
         env:
           DEPLOY_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
-          ORACLE_VM_HOST: ${{ secrets.ORACLE_VM_HOST }}
-          ORACLE_VM_USER: ${{ secrets.ORACLE_VM_USER }}
         run: |
-          ssh "$ORACLE_VM_USER@$ORACLE_VM_HOST" \
-            "export DEPLOY_IMAGE='$DEPLOY_IMAGE' DEPLOY_IMAGE_TAG='$DEPLOY_IMAGE_TAG' && /opt/dealscanner/deploy.sh"
+          export DEPLOY_IMAGE DEPLOY_IMAGE_TAG
+          /opt/dealscanner/deploy.sh
