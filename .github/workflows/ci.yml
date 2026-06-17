@@ -340,6 +340,6 @@ jobs:
             -o IdentitiesOnly=yes
           )
 
-          ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "mkdir -p /opt/dealscanner"
+          ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" 'sudo mkdir -p /opt/dealscanner && sudo chown "$(id -u):$(id -g)" /opt/dealscanner'
           scp "${scp_opts[@]}" deploy/oracle/deploy.sh deploy/oracle/docker-compose.prod.yml "${ORACLE_USER}@${ORACLE_HOST}:/opt/dealscanner/"
           ssh "${ssh_opts[@]}" "${ORACLE_USER}@${ORACLE_HOST}" "chmod +x /opt/dealscanner/deploy.sh && DEPLOY_IMAGE='${DEPLOY_IMAGE}' DEPLOY_IMAGE_TAG='${DEPLOY_IMAGE_TAG}' /opt/dealscanner/deploy.sh"
