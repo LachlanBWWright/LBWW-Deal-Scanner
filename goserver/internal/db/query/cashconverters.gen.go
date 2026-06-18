@@ -32,6 +32,7 @@ func newCashConverters(db *gorm.DB, opts ...gen.DOOption) cashConverters {
 	_cashConverters.ExcludePhrases = field.NewString(tableName, "excludePhrases")
 	_cashConverters.RequiredInDescription = field.NewString(tableName, "requiredInDescription")
 	_cashConverters.ExcludeInDescription = field.NewString(tableName, "excludeInDescription")
+	_cashConverters.MinPrice = field.NewFloat64(tableName, "minPrice")
 	_cashConverters.MaxPrice = field.NewFloat64(tableName, "maxPrice")
 	_cashConverters.ScanMode = field.NewString(tableName, "scanMode")
 	_cashConverters.QueryId = field.NewString(tableName, "queryId")
@@ -55,6 +56,7 @@ type cashConverters struct {
 	ExcludePhrases        field.String
 	RequiredInDescription field.String
 	ExcludeInDescription  field.String
+	MinPrice              field.Float64
 	MaxPrice              field.Float64
 	ScanMode              field.String
 	QueryId               field.String
@@ -80,6 +82,7 @@ func (c *cashConverters) updateTableName(table string) *cashConverters {
 	c.ExcludePhrases = field.NewString(table, "excludePhrases")
 	c.RequiredInDescription = field.NewString(table, "requiredInDescription")
 	c.ExcludeInDescription = field.NewString(table, "excludeInDescription")
+	c.MinPrice = field.NewFloat64(table, "minPrice")
 	c.MaxPrice = field.NewFloat64(table, "maxPrice")
 	c.ScanMode = field.NewString(table, "scanMode")
 	c.QueryId = field.NewString(table, "queryId")
@@ -111,12 +114,13 @@ func (c *cashConverters) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (c *cashConverters) fillFieldMap() {
-	c.fieldMap = make(map[string]field.Expr, 9)
+	c.fieldMap = make(map[string]field.Expr, 10)
 	c.fieldMap["url"] = c.Url
 	c.fieldMap["requiredPhrases"] = c.RequiredPhrases
 	c.fieldMap["excludePhrases"] = c.ExcludePhrases
 	c.fieldMap["requiredInDescription"] = c.RequiredInDescription
 	c.fieldMap["excludeInDescription"] = c.ExcludeInDescription
+	c.fieldMap["minPrice"] = c.MinPrice
 	c.fieldMap["maxPrice"] = c.MaxPrice
 	c.fieldMap["scanMode"] = c.ScanMode
 	c.fieldMap["queryId"] = c.QueryId

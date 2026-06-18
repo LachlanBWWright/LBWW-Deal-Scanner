@@ -93,6 +93,7 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
           { label: "Query URL", key: "url", type: "url" },
           { label: "Required phrases", key: "requiredPhrases", type: "text" },
           { label: "Exclude phrases", key: "excludePhrases", type: "text" },
+          { label: "Min price", key: "minPrice", type: "number" },
           { label: "Max price", key: "maxPrice", type: "number" },
           { label: "Scan mode", key: "scanMode", type: "text" },
         ];
@@ -155,8 +156,8 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       url: item.url || "",
       name: item.name || "",
       displayUrl: item.displayUrl || "",
-      maxPrice: item.maxPrice ?? 0,
-      minPrice: item.minPrice ?? 0,
+      maxPrice: item.maxPrice ?? "",
+      minPrice: item.minPrice ?? "",
       minFloat: item.minFloat ?? 0,
       maxFloat: item.maxFloat ?? 0,
       requiredPhrases: item.requiredPhrases || "",
@@ -192,6 +193,9 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
         payload.requiredPhrases = form.value.requiredPhrases;
         payload.excludePhrases = form.value.excludePhrases;
         payload.scanMode = form.value.scanMode || "searchUrl";
+        if (form.value.minPrice !== "") {
+          payload.minPrice = form.value.minPrice;
+        }
         if (form.value.maxPrice !== "") {
           payload.maxPrice = form.value.maxPrice;
         }

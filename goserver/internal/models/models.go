@@ -30,6 +30,7 @@ type CashConverters struct {
 	ExcludePhrases        string      `gorm:"column:excludePhrases" json:"excludePhrases"`
 	RequiredInDescription string      `gorm:"column:requiredInDescription" json:"requiredInDescription"`
 	ExcludeInDescription  string      `gorm:"column:excludeInDescription" json:"excludeInDescription"`
+	MinPrice              *float64    `gorm:"column:minPrice" json:"minPrice"`
 	MaxPrice              *float64    `gorm:"column:maxPrice" json:"maxPrice"`
 	ScanMode              string      `gorm:"column:scanMode" json:"scanMode"`
 	QueryId               string      `gorm:"column:queryId" json:"queryId"`

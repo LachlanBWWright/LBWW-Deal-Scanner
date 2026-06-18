@@ -62,6 +62,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				RequiredInDescription: &reqInDesc,
 				ExcludeInDescription:  &exclInDesc,
 				ScanMode:              &scanMode,
+				MinPrice:              r.MinPrice,
 				MaxPrice:              r.MaxPrice,
 			})
 		}
@@ -401,6 +402,7 @@ func (q *Query) UpdateCashConvertersQuery(ctx context.Context, id string, dmOnly
 			"excludePhrases":        cc.ExcludePhrases,
 			"requiredInDescription": cc.RequiredInDescription,
 			"excludeInDescription":  cc.ExcludeInDescription,
+			"minPrice":              cc.MinPrice,
 			"maxPrice":              cc.MaxPrice,
 			"scanMode":              cc.ScanMode,
 		})

@@ -63,24 +63,18 @@ type CcApiResponse struct {
 	} `json:"Value"`
 }
 
-func buildCcApiUrl(searchUrl string) string {
+func buildCcApiUrl(searchUrl string, minPrice, maxPrice *float64) string {
 	if !strings.HasPrefix(searchUrl, "http") {
 		apiUrl := url.URL{
 			Scheme: "https",
 			Host:   "www.cashconverters.com.au",
 			Path:   "/c3api/search/results",
 		}
-		newQ := url.Values{}
-		newQ.Set("query", searchUrl)
-		newQ.Set("Sort", "Default")
-		newQ.Set("SalePrice", "20|99999999|C")
-		newQ.Set("page", "1")
-		apiUrl.RawQuery = newQ.Encode()
+		q := url.Values{}
+		q.Set("query", searchUrl)
+		setCcPriceRange(q, minPrice, maxPrice)
+		apiUrl.RawQuery = q.Encode()
 		return apiUrl.String()
-	}
-
-	if strings.Contains(searchUrl, "/c3api/search/results") {
-		return searchUrl
 	}
 
 	parsed, err := url.Parse(searchUrl)
@@ -88,46 +82,38 @@ func buildCcApiUrl(searchUrl string) string {
 		return searchUrl
 	}
 
-	q := parsed.Query()
-	queryVal := q.Get("query")
-	if queryVal == "" {
-		queryVal = q.Get("q")
+	parsed.Scheme = "https"
+	parsed.Host = "www.cashconverters.com.au"
+	parsed.Path = "/c3api/search/results"
+	parsed.Fragment = ""
+	if minPrice != nil || maxPrice != nil {
+		q := parsed.Query()
+		setCcPriceRange(q, minPrice, maxPrice)
+		parsed.RawQuery = q.Encode()
+	}
+	return parsed.String()
+}
+
+func setCcPriceRange(q url.Values, minPrice, maxPrice *float64) {
+	if minPrice == nil && maxPrice == nil {
+		return
 	}
 
-	sortVal := q.Get("Sort")
-	if sortVal == "" {
-		sortVal = q.Get("sort")
-	}
-	if sortVal == "" {
-		sortVal = "Default"
+	for key := range q {
+		if strings.HasPrefix(strings.ToLower(key), "saleprice") {
+			q.Del(key)
+		}
 	}
 
-	salePriceVal := q.Get("SalePrice")
-	if salePriceVal == "" {
-		salePriceVal = q.Get("saleprice")
+	min := 0.0
+	if minPrice != nil {
+		min = *minPrice
 	}
-	if salePriceVal == "" {
-		salePriceVal = "20|99999999|C"
+	max := 999999.0
+	if maxPrice != nil {
+		max = *maxPrice
 	}
-
-	pageVal := q.Get("page")
-	if pageVal == "" {
-		pageVal = "1"
-	}
-
-	apiUrl := url.URL{
-		Scheme: "https",
-		Host:   "www.cashconverters.com.au",
-		Path:   "/c3api/search/results",
-	}
-	newQ := url.Values{}
-	newQ.Set("query", queryVal)
-	newQ.Set("Sort", sortVal)
-	newQ.Set("SalePrice", salePriceVal)
-	newQ.Set("page", pageVal)
-	apiUrl.RawQuery = newQ.Encode()
-
-	return apiUrl.String()
+	q.Set("SalePrice[0]", fmt.Sprintf("%g|%g|", min, max))
 }
 
 func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNotification, error) {
@@ -154,7 +140,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 		time.Sleep(3 * time.Second) // protect against rate limits
 
-		summaries, err := s.discoverCcItems(ctx, *query.Url)
+		summaries, err := s.discoverCcItems(ctx, *query.Url, query.MinPrice, query.MaxPrice)
 		if err != nil {
 			log.Printf("Cash Converters API fetch failed for URL %s: %v", *query.Url, err)
 			continue
@@ -322,8 +308,8 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 	return notifs, nil
 }
 
-func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl string) ([]CcSummary, error) {
-	apiUrl := buildCcApiUrl(searchUrl)
+func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl string, minPrice, maxPrice *float64) ([]CcSummary, error) {
+	apiUrl := buildCcApiUrl(searchUrl, minPrice, maxPrice)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", apiUrl, nil)
 	if err != nil {

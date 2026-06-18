@@ -136,6 +136,7 @@ func (b *Bot) registerCommands() {
 
 		{Name: "createcashquery", Description: "Creates a saved query for Cash Converters", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "The URL of the query.", Required: true},
+			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Enter the minimum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Enter the maximum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredphrases", Description: "Comma-separated required phrases.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excludephrases", Description: "Comma-separated excluded phrases.", Required: false},
@@ -150,6 +151,7 @@ func (b *Bot) registerCommands() {
 		{Name: "editcashquery", Description: "Edit an existing Cash Converters saved query", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "id", Description: "ID of the saved query to edit", Required: true},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "New URL or query string to replace the old one", Required: true},
+			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Optional minimum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Optional maximum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredphrases", Description: "Optional required phrases", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excludephrases", Description: "Optional excluded phrases", Required: false},
@@ -362,6 +364,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	// Cash Converters
 	case "createcashquery":
 		query := getStringOption(options, "query")
+		var minPrice *float64
+		if opt, ok := options["minprice"]; ok && opt != nil {
+			val := opt.FloatValue()
+			minPrice = &val
+		}
 		var maxPrice *float64
 		if opt, ok := options["maxprice"]; ok && opt != nil {
 			val := opt.FloatValue()
@@ -390,6 +397,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		dmOnly := getBoolOption(options, "dmonly")
 		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, &models.CashConverters{
 			Url:                   query,
+			MinPrice:              minPrice,
 			MaxPrice:              maxPrice,
 			RequiredPhrases:       requiredPhrases,
 			ExcludePhrases:        excludePhrases,
@@ -417,6 +425,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 				val := opt.FloatValue()
 				maxPrice = &val
 			}
+			minPrice := cc.MinPrice
+			if opt, ok := options["minprice"]; ok && opt != nil {
+				val := opt.FloatValue()
+				minPrice = &val
+			}
 			scanMode := cc.ScanMode
 			if opt, ok := options["scanmode"]; ok && opt != nil {
 				scanMode = opt.StringValue()
@@ -440,6 +453,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 
 			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, false, &models.CashConverters{
 				Url:                   urlVal,
+				MinPrice:              minPrice,
 				MaxPrice:              maxPrice,
 				ScanMode:              scanMode,
 				RequiredPhrases:       requiredPhrases,
@@ -1145,12 +1159,22 @@ func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.Q
 	for _, q := range queries {
 		var info string
 		switch q.Type {
-		case "ebay", "gumtree", "cashConverters":
+		case "ebay", "gumtree":
 			priceStr := "Any"
 			if q.MaxPrice != nil {
 				priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
 			}
 			info = fmt.Sprintf("- URL: <%s> | Max Price: %s", q.Id, priceStr)
+		case "cashConverters":
+			minPrice := "URL"
+			if q.MinPrice != nil {
+				minPrice = fmt.Sprintf("$%.2f", *q.MinPrice)
+			}
+			maxPrice := "URL"
+			if q.MaxPrice != nil {
+				maxPrice = fmt.Sprintf("$%.2f", *q.MaxPrice)
+			}
+			info = fmt.Sprintf("- URL: <%s> | Price Range: %s - %s", q.Id, minPrice, maxPrice)
 		case "salvos":
 			info = fmt.Sprintf("- Name: `%s` | Price Range: $%.2f - $%.2f", q.Id, *q.MinPrice, *q.MaxPrice)
 		case "csMarket":

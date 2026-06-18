@@ -100,8 +100,29 @@ printf 'DEPLOY_IMAGE=%s\nDEPLOY_IMAGE_TAG=%s\n' \
 chmod 600 "${COMPOSE_ENV_FILE}"
 
 "${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app
-"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up -d --remove-orphans app
+"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up \
+  -d \
+  --force-recreate \
+  --remove-orphans \
+  app
 
-curl --fail --silent --show-error "${HEALTHCHECK_URL}" >/dev/null
+healthcheck_attempts="${HEALTHCHECK_ATTEMPTS:-30}"
+healthcheck_interval_seconds="${HEALTHCHECK_INTERVAL_SECONDS:-2}"
 
-"${DOCKER[@]}" image prune -f >/dev/null 2>&1 || true
+for ((attempt = 1; attempt <= healthcheck_attempts; attempt += 1)); do
+  if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 "${HEALTHCHECK_URL}" >/dev/null; then
+    echo "Application is ready."
+    "${DOCKER[@]}" image prune -f >/dev/null 2>&1 || true
+    exit 0
+  fi
+
+  if ((attempt < healthcheck_attempts)); then
+    echo "Waiting for application readiness (${attempt}/${healthcheck_attempts})..."
+    sleep "${healthcheck_interval_seconds}"
+  fi
+done
+
+echo "Application failed to become ready at ${HEALTHCHECK_URL}" >&2
+"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" ps >&2
+"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" logs --tail 100 app >&2
+exit 1
