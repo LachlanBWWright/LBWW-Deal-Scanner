@@ -11,6 +11,9 @@ web
 .codex
 .env
 .env.template
+*.key
+*.key.pub
+*.pem
 goserver/dealscanner
 goserver/cmd/dealscanner/prisma/dev.db
 goserver/libsql:/

@@ -5,3 +5,6 @@ frontend/dist/assets/
 prisma/dev.db
 prisma/test.db
 *.db-journal
+*.key
+*.key.pub
+*.pem

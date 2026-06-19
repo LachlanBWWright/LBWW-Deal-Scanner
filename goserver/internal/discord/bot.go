@@ -1118,9 +1118,6 @@ func getBoolOption(opts map[string]*discordgo.ApplicationCommandInteractionDataO
 }
 
 func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.QueryItem, title string) string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("**%s**\n", title))
-
 	queryIds := make([]string, 0, len(queries))
 	for _, q := range queries {
 		queryIds = append(queryIds, q.QueryId)
@@ -1132,7 +1129,9 @@ func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.Q
 		foundMap = make(map[string][]query.FoundItem)
 	}
 
+	entries := make([]string, 0, len(queries))
 	for _, q := range queries {
+		var sb strings.Builder
 		var info string
 		switch q.Type {
 		case "ebay", "gumtree":
@@ -1183,8 +1182,10 @@ func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.Q
 			sb.WriteString("  *Last Found:* None\n")
 		}
 		sb.WriteString("\n")
+		entries = append(entries, sb.String())
 	}
-	return sb.String()
+
+	return fmt.Sprintf("**%s**\n%s", title, strings.Join(entries, ""))
 }
 
 func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, queryType string, title string, page int) {
@@ -1220,8 +1221,12 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 		return
 	}
 
-	pageSize := 10
-	totalPages := (total + pageSize - 1) / pageSize
+	formattedQueries := make([]string, 0, total)
+	for _, savedQuery := range queries {
+		formattedQueries = append(formattedQueries, b.formatQueriesWithFoundItems(ctx, []query.QueryItem{savedQuery}, ""))
+	}
+	pages := paginateQueryEntries(title, formattedQueries)
+	totalPages := len(pages)
 	if page < 1 {
 		page = 1
 	}
@@ -1229,16 +1234,7 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 		page = totalPages
 	}
 
-	offset := (page - 1) * pageSize
-	end := offset + pageSize
-	if end > total {
-		end = total
-	}
-
-	slicedQueries := queries[offset:end]
-
-	formattedTitle := fmt.Sprintf("%s (Page %d/%d)", title, page, totalPages)
-	content := b.formatQueriesWithFoundItems(ctx, slicedQueries, formattedTitle)
+	content := pages[page-1]
 
 	var components []discordgo.MessageComponent
 	if totalPages > 1 {
@@ -1321,14 +1317,67 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 		}
 	}
 
-	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content:    &content,
 		Components: &components,
-	})
+	}); err != nil {
+		log.Printf("Failed to send paginated %s queries: %v", queryType, err)
+	}
 }
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+const discordMessageLimit = 2000
+
+func paginateQueryEntries(title string, entries []string) []string {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	maxHeader := fmt.Sprintf("**%s (Page %d/%d)**\n", title, len(entries), len(entries))
+	contentLimit := discordMessageLimit - len([]rune(maxHeader))
+	rawPages := make([]string, 0)
+	var page strings.Builder
+
+	for _, entry := range entries {
+		cleanEntry := strings.TrimPrefix(entry, "** **\n")
+		entryRunes := []rune(cleanEntry)
+		if page.Len() > 0 && len([]rune(page.String()))+len(entryRunes) > contentLimit {
+			rawPages = append(rawPages, page.String())
+			page.Reset()
+		}
+		if len(entryRunes) > contentLimit {
+			cleanEntry = truncateToRuneLimit(cleanEntry, contentLimit)
+		}
+		page.WriteString(cleanEntry)
+	}
+	if page.Len() > 0 {
+		rawPages = append(rawPages, page.String())
+	}
+
+	pages := make([]string, 0, len(rawPages))
+	for index, rawPage := range rawPages {
+		header := fmt.Sprintf("**%s (Page %d/%d)**\n", title, index+1, len(rawPages))
+		pages = append(pages, header+rawPage)
+	}
+	return pages
+}
+
+func truncateDiscordMessage(content string) string {
+	return truncateToRuneLimit(content, discordMessageLimit)
+}
+
+func truncateToRuneLimit(content string, limit int) string {
+	runes := []rune(content)
+	if len(runes) <= limit {
+		return content
+	}
+
+	suffix := "\n\n… More query details were omitted from this page."
+	suffixRunes := []rune(suffix)
+	return string(runes[:limit-len(suffixRunes)]) + suffix
 }
 
 func combinePhraseFilters(first, second string) string {
