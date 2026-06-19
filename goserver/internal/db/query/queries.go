@@ -12,22 +12,24 @@ import (
 )
 
 type QueryItem struct {
-	QueryId               string   `json:"queryId"`
-	Type                  string   `json:"type"`
-	Id                    string   `json:"id"`
-	DmOnly                bool     `json:"dmOnly"`
-	Url                   *string  `json:"url,omitempty"`
-	Name                  *string  `json:"name,omitempty"`
-	DisplayUrl            *string  `json:"displayUrl,omitempty"`
-	MaxPrice              *float64 `json:"maxPrice,omitempty"`
-	MinPrice              *float64 `json:"minPrice,omitempty"`
-	MinFloat              *float64 `json:"minFloat,omitempty"`
-	MaxFloat              *float64 `json:"maxFloat,omitempty"`
-	RequiredPhrases       *string  `json:"requiredPhrases,omitempty"`
-	ExcludePhrases        *string  `json:"excludePhrases,omitempty"`
-	RequiredInDescription *string  `json:"requiredInDescription,omitempty"`
-	ExcludeInDescription  *string  `json:"excludeInDescription,omitempty"`
-	ScanMode              *string  `json:"scanMode,omitempty"`
+	QueryId         string   `json:"queryId"`
+	Type            string   `json:"type"`
+	Id              string   `json:"id"`
+	DmOnly          bool     `json:"dmOnly"`
+	Url             *string  `json:"url,omitempty"`
+	Name            *string  `json:"name,omitempty"`
+	DisplayUrl      *string  `json:"displayUrl,omitempty"`
+	MaxPrice        *float64 `json:"maxPrice,omitempty"`
+	MinPrice        *float64 `json:"minPrice,omitempty"`
+	MinFloat        *float64 `json:"minFloat,omitempty"`
+	MaxFloat        *float64 `json:"maxFloat,omitempty"`
+	RequiredPhrases *string  `json:"requiredPhrases,omitempty"`
+	ExcludePhrases  *string  `json:"excludePhrases,omitempty"`
+	// Deprecated: compatibility fields for columns that should be merged into
+	// RequiredPhrases/ExcludePhrases and removed in a future schema migration.
+	RequiredInDescription *string `json:"requiredInDescription,omitempty"`
+	ExcludeInDescription  *string `json:"excludeInDescription,omitempty"`
+	ScanMode              *string `json:"scanMode,omitempty"`
 }
 
 func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]QueryItem, error) {

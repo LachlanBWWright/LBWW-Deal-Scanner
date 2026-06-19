@@ -10,7 +10,7 @@ import (
 )
 
 type BotSender interface {
-	SendDeal(ctx context.Context, channelId, message string, imageUrl *string, queryType, queryId string) error
+	SendDeal(ctx context.Context, channelId, channelMessage, dmMessage string, imageUrl *string, queryType, queryId string) error
 	SendError(channelId, message string) error
 }
 
@@ -77,7 +77,8 @@ func (d *DiscordProvider) Send(ctx context.Context, notification AppNotification
 		roleMention = fmt.Sprintf("<@&%s> ", roleId)
 	}
 
-	message := fmt.Sprintf("%s%s %s", roleMention, prelude, notification.Title)
+	dmMessage := fmt.Sprintf("%s %s", prelude, notification.Title)
+	channelMessage := roleMention + dmMessage
 
 	qType := ""
 	qId := ""
@@ -86,7 +87,7 @@ func (d *DiscordProvider) Send(ctx context.Context, notification AppNotification
 		qId = notification.Query.Id
 	}
 
-	return d.sender.SendDeal(ctx, channelId, message, notification.ImageUrl, qType, qId)
+	return d.sender.SendDeal(ctx, channelId, channelMessage, dmMessage, notification.ImageUrl, qType, qId)
 }
 
 func (d *DiscordProvider) getChannelId(source string) string {

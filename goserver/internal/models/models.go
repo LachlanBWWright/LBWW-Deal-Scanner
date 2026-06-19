@@ -13,11 +13,12 @@ func (SearchQuery) TableName() string {
 }
 
 type UserQuery struct {
-	ID        string    `gorm:"primaryKey;column:id"`
-	UserId    string    `gorm:"column:userId"`
-	QueryId   string    `gorm:"column:queryId"`
-	QueryType string    `gorm:"column:queryType"`
-	CreatedAt time.Time `gorm:"column:createdAt"`
+	ID        string      `gorm:"primaryKey;column:id"`
+	UserId    string      `gorm:"column:userId"`
+	QueryId   string      `gorm:"column:queryId"`
+	Query     SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	QueryType string      `gorm:"column:queryType"`
+	CreatedAt time.Time   `gorm:"column:createdAt"`
 }
 
 func (UserQuery) TableName() string {
@@ -25,16 +26,18 @@ func (UserQuery) TableName() string {
 }
 
 type CashConverters struct {
-	Url                   string      `gorm:"primaryKey;column:url" json:"url"`
-	RequiredPhrases       string      `gorm:"column:requiredPhrases" json:"requiredPhrases"`
-	ExcludePhrases        string      `gorm:"column:excludePhrases" json:"excludePhrases"`
+	Url             string `gorm:"primaryKey;column:url" json:"url"`
+	RequiredPhrases string `gorm:"column:requiredPhrases" json:"requiredPhrases"`
+	ExcludePhrases  string `gorm:"column:excludePhrases" json:"excludePhrases"`
+	// Deprecated: retained for compatibility with existing rows. Merge into
+	// RequiredPhrases/ExcludePhrases and remove these columns in a future migration.
 	RequiredInDescription string      `gorm:"column:requiredInDescription" json:"requiredInDescription"`
 	ExcludeInDescription  string      `gorm:"column:excludeInDescription" json:"excludeInDescription"`
 	MinPrice              *float64    `gorm:"column:minPrice" json:"minPrice"`
 	MaxPrice              *float64    `gorm:"column:maxPrice" json:"maxPrice"`
 	ScanMode              string      `gorm:"column:scanMode" json:"scanMode"`
 	QueryId               string      `gorm:"column:queryId" json:"queryId"`
-	Query                 SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query                 SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (CashConverters) TableName() string {
@@ -45,7 +48,7 @@ type Ebay struct {
 	Url      string      `gorm:"primaryKey;column:url" json:"url"`
 	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
 	QueryId  string      `gorm:"column:queryId" json:"queryId"`
-	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (Ebay) TableName() string {
@@ -56,7 +59,7 @@ type Gumtree struct {
 	Url      string      `gorm:"primaryKey;column:url" json:"url"`
 	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
 	QueryId  string      `gorm:"column:queryId" json:"queryId"`
-	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (Gumtree) TableName() string {
@@ -68,7 +71,7 @@ type Salvos struct {
 	MinPrice float64     `gorm:"column:minPrice" json:"minPrice"`
 	MaxPrice float64     `gorm:"column:maxPrice" json:"maxPrice"`
 	QueryId  string      `gorm:"column:queryId" json:"queryId"`
-	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (Salvos) TableName() string {
@@ -82,7 +85,7 @@ type CsMarket struct {
 	MaxFloat   float64     `gorm:"column:maxFloat" json:"maxFloat"`
 	LastPrice  float64     `gorm:"column:lastPrice" json:"lastPrice"`
 	QueryId    string      `gorm:"column:queryId" json:"queryId"`
-	Query      SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query      SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (CsMarket) TableName() string {
@@ -95,7 +98,7 @@ type SteamMarket struct {
 	MaxPrice   float64     `gorm:"column:maxPrice" json:"maxPrice"`
 	LastPrice  float64     `gorm:"column:lastPrice" json:"lastPrice"`
 	QueryId    string      `gorm:"column:queryId" json:"queryId"`
-	Query      SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query      SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (SteamMarket) TableName() string {
@@ -108,7 +111,7 @@ type CsTradeBot struct {
 	MinFloat float64     `gorm:"column:minFloat" json:"minFloat"`
 	MaxFloat float64     `gorm:"column:maxFloat" json:"maxFloat"`
 	QueryId  string      `gorm:"column:queryId" json:"queryId"`
-	Query    SearchQuery `gorm:"foreignKey:QueryId" json:"query,omitempty"`
+	Query    SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
 }
 
 func (CsTradeBot) TableName() string {
@@ -191,17 +194,19 @@ func (ListingObservation) TableName() string {
 }
 
 type QueryListingState struct {
-	QueryId                string     `gorm:"primaryKey;column:queryId"`
-	ListingId              string     `gorm:"primaryKey;column:listingId"`
-	Source                 string     `gorm:"column:source"`
-	Status                 string     `gorm:"column:status"`
-	LastEvaluatedAt        time.Time  `gorm:"column:lastEvaluatedAt"`
-	FirstMatchedAt         *time.Time `gorm:"column:firstMatchedAt"`
-	LastMatchedAt          *time.Time `gorm:"column:lastMatchedAt"`
-	LastRejectedReason     *string    `gorm:"column:lastRejectedReason"`
-	LastNotifiedAt         *time.Time `gorm:"column:lastNotifiedAt"`
-	LastNotifiedTotalPrice *float64   `gorm:"column:lastNotifiedTotalPrice"`
-	LowestObservedPrice    *float64   `gorm:"column:lowestObservedPrice"`
+	QueryId                string      `gorm:"primaryKey;column:queryId"`
+	Query                  SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	ListingId              string      `gorm:"primaryKey;column:listingId"`
+	Listing                Listing     `gorm:"foreignKey:ListingId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Source                 string      `gorm:"column:source"`
+	Status                 string      `gorm:"column:status"`
+	LastEvaluatedAt        time.Time   `gorm:"column:lastEvaluatedAt"`
+	FirstMatchedAt         *time.Time  `gorm:"column:firstMatchedAt"`
+	LastMatchedAt          *time.Time  `gorm:"column:lastMatchedAt"`
+	LastRejectedReason     *string     `gorm:"column:lastRejectedReason"`
+	LastNotifiedAt         *time.Time  `gorm:"column:lastNotifiedAt"`
+	LastNotifiedTotalPrice *float64    `gorm:"column:lastNotifiedTotalPrice"`
+	LowestObservedPrice    *float64    `gorm:"column:lowestObservedPrice"`
 }
 
 func (QueryListingState) TableName() string {

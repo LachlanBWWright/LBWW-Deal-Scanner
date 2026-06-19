@@ -147,8 +147,9 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 		}
 
 		for _, sum := range summaries {
-			needDescription := (query.RequiredInDescription != nil && *query.RequiredInDescription != "") ||
-				(query.ExcludeInDescription != nil && *query.ExcludeInDescription != "")
+			requiredPhrases := combinePhraseFilters(query.RequiredPhrases, query.RequiredInDescription)
+			excludedPhrases := combinePhraseFilters(query.ExcludePhrases, query.ExcludeInDescription)
+			needDescription := requiredPhrases != "" || excludedPhrases != ""
 
 			var detail CcDetail
 			if needDescription {
@@ -188,8 +189,8 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			var rejectReason *string
 
 			searchable := strings.ToLower(detail.Title + " " + detail.Description)
-			if query.RequiredPhrases != nil && *query.RequiredPhrases != "" {
-				for _, phrase := range parsePhrases(*query.RequiredPhrases) {
+			if requiredPhrases != "" {
+				for _, phrase := range parsePhrases(requiredPhrases) {
 					if !strings.Contains(searchable, phrase) {
 						matched = false
 						reason := "MissingRequiredPhrase"
@@ -199,34 +200,11 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				}
 			}
 
-			if matched && query.ExcludePhrases != nil && *query.ExcludePhrases != "" {
-				for _, phrase := range parsePhrases(*query.ExcludePhrases) {
+			if matched && excludedPhrases != "" {
+				for _, phrase := range parsePhrases(excludedPhrases) {
 					if strings.Contains(searchable, phrase) {
 						matched = false
 						reason := "ExcludedPhrase"
-						rejectReason = &reason
-						break
-					}
-				}
-			}
-
-			descSearchable := strings.ToLower(detail.Description)
-			if matched && query.RequiredInDescription != nil && *query.RequiredInDescription != "" {
-				for _, phrase := range parsePhrases(*query.RequiredInDescription) {
-					if !strings.Contains(descSearchable, phrase) {
-						matched = false
-						reason := "MissingRequiredInDescription"
-						rejectReason = &reason
-						break
-					}
-				}
-			}
-
-			if matched && query.ExcludeInDescription != nil && *query.ExcludeInDescription != "" {
-				for _, phrase := range parsePhrases(*query.ExcludeInDescription) {
-					if strings.Contains(descSearchable, phrase) {
-						matched = false
-						reason := "ExcludedFromDescription"
 						rejectReason = &reason
 						break
 					}
@@ -507,4 +485,18 @@ func parsePhrases(input string) []string {
 		}
 	}
 	return results
+}
+
+func combinePhraseFilters(first, second *string) string {
+	switch {
+	case first == nil || *first == "":
+		if second == nil {
+			return ""
+		}
+		return *second
+	case second == nil || *second == "":
+		return *first
+	default:
+		return *first + "," + *second
+	}
 }

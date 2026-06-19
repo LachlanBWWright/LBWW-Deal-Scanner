@@ -29,8 +29,12 @@ func Open(connStr string, tursoAuthToken string) (*gorm.DB, error) {
 	}
 
 	sqlDB := sql.OpenDB(connector)
-	sqlDB.SetMaxOpenConns(5)
-	sqlDB.SetMaxIdleConns(5)
+	// SQLite permits only one writer at a time. Keeping multiple pooled
+	// connections allows scanner writes and command writes to contend and
+	// surface SQLITE_BUSY ("database is locked") instead of being queued by
+	// database/sql.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	db, err := gorm.Open(sqlite.Dialector{Conn: sqlDB}, &gorm.Config{

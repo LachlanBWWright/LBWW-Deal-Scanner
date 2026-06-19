@@ -138,10 +138,8 @@ func (b *Bot) registerCommands() {
 			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "The URL of the query.", Required: true},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Enter the minimum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Enter the maximum price (in AUD).", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredphrases", Description: "Comma-separated required phrases.", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "excludephrases", Description: "Comma-separated excluded phrases.", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredindescription", Description: "Required phrases in description.", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "excludeindescription", Description: "Excluded phrases in description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
 				{Name: "Search URL", Value: "searchUrl"},
 				{Name: "Site wide", Value: "siteWide"},
@@ -153,10 +151,8 @@ func (b *Bot) registerCommands() {
 			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "New URL or query string to replace the old one", Required: true},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Optional minimum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Optional maximum total price for notifications", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredphrases", Description: "Optional required phrases", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "excludephrases", Description: "Optional excluded phrases", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredindescription", Description: "Optional required phrases in description", Required: false},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "excludeindescription", Description: "Optional excluded phrases in description", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
 				{Name: "Search URL", Value: "searchUrl"},
 				{Name: "Site wide", Value: "siteWide"},
@@ -327,7 +323,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Created eBay query for `%s` (Max Price: $%.2f)", query, maxPrice)
+			responseContent = fmt.Sprintf("✅ Created eBay query for %s (Max Price: $%.2f)", formatQueryReference(query), maxPrice)
 		}
 	case "editedbayquery":
 		id := getStringOption(options, "id")
@@ -347,7 +343,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Updated eBay query `%s` (New Max Price: $%.2f)", id, maxPrice)
+				responseContent = fmt.Sprintf("✅ Updated eBay query %s (New Max Price: $%.2f)", formatQueryReference(id), maxPrice)
 			}
 		}
 	case "deleteebayquery":
@@ -356,7 +352,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted eBay query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted eBay query: %s", formatQueryReference(id))
 		}
 	case "viewebayqueries":
 		b.sendPaginatedQueries(ctx, s, i, "ebay", "Saved eBay Queries", 1)
@@ -374,21 +370,13 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			val := opt.FloatValue()
 			maxPrice = &val
 		}
-		var requiredPhrases string
-		if opt, ok := options["requiredphrases"]; ok && opt != nil {
-			requiredPhrases = opt.StringValue()
+		var required string
+		if opt, ok := options["required"]; ok && opt != nil {
+			required = opt.StringValue()
 		}
-		var excludePhrases string
-		if opt, ok := options["excludephrases"]; ok && opt != nil {
-			excludePhrases = opt.StringValue()
-		}
-		var requiredInDesc string
-		if opt, ok := options["requiredindescription"]; ok && opt != nil {
-			requiredInDesc = opt.StringValue()
-		}
-		var excludeInDesc string
-		if opt, ok := options["excludeindescription"]; ok && opt != nil {
-			excludeInDesc = opt.StringValue()
+		var excluded string
+		if opt, ok := options["excluded"]; ok && opt != nil {
+			excluded = opt.StringValue()
 		}
 		var scanMode string
 		if opt, ok := options["scanmode"]; ok && opt != nil {
@@ -396,19 +384,17 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 		dmOnly := getBoolOption(options, "dmonly")
 		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, &models.CashConverters{
-			Url:                   query,
-			MinPrice:              minPrice,
-			MaxPrice:              maxPrice,
-			RequiredPhrases:       requiredPhrases,
-			ExcludePhrases:        excludePhrases,
-			RequiredInDescription: requiredInDesc,
-			ExcludeInDescription:  excludeInDesc,
-			ScanMode:              scanMode,
+			Url:             query,
+			MinPrice:        minPrice,
+			MaxPrice:        maxPrice,
+			RequiredPhrases: required,
+			ExcludePhrases:  excluded,
+			ScanMode:        scanMode,
 		})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Created Cash Converters query for `%s`", query)
+			responseContent = fmt.Sprintf("✅ Created Cash Converters query for %s", formatQueryReference(query))
 		}
 	case "editcashquery":
 		id := getStringOption(options, "id")
@@ -434,37 +420,27 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if opt, ok := options["scanmode"]; ok && opt != nil {
 				scanMode = opt.StringValue()
 			}
-			requiredPhrases := cc.RequiredPhrases
-			if opt, ok := options["requiredphrases"]; ok && opt != nil {
-				requiredPhrases = opt.StringValue()
+			required := combinePhraseFilters(cc.RequiredPhrases, cc.RequiredInDescription)
+			if opt, ok := options["required"]; ok && opt != nil {
+				required = opt.StringValue()
 			}
-			excludePhrases := cc.ExcludePhrases
-			if opt, ok := options["excludephrases"]; ok && opt != nil {
-				excludePhrases = opt.StringValue()
-			}
-			requiredInDesc := cc.RequiredInDescription
-			if opt, ok := options["requiredindescription"]; ok && opt != nil {
-				requiredInDesc = opt.StringValue()
-			}
-			excludeInDesc := cc.ExcludeInDescription
-			if opt, ok := options["excludeindescription"]; ok && opt != nil {
-				excludeInDesc = opt.StringValue()
+			excluded := combinePhraseFilters(cc.ExcludePhrases, cc.ExcludeInDescription)
+			if opt, ok := options["excluded"]; ok && opt != nil {
+				excluded = opt.StringValue()
 			}
 
 			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, false, &models.CashConverters{
-				Url:                   urlVal,
-				MinPrice:              minPrice,
-				MaxPrice:              maxPrice,
-				ScanMode:              scanMode,
-				RequiredPhrases:       requiredPhrases,
-				ExcludePhrases:        excludePhrases,
-				RequiredInDescription: requiredInDesc,
-				ExcludeInDescription:  excludeInDesc,
+				Url:             urlVal,
+				MinPrice:        minPrice,
+				MaxPrice:        maxPrice,
+				ScanMode:        scanMode,
+				RequiredPhrases: required,
+				ExcludePhrases:  excluded,
 			})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Updated Cash Converters query `%s`", id)
+				responseContent = fmt.Sprintf("✅ Updated Cash Converters query %s", formatQueryReference(id))
 			}
 		}
 	case "deletecashquery":
@@ -473,7 +449,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted Cash Converters query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted Cash Converters query: %s", formatQueryReference(id))
 		}
 	case "viewcashqueries":
 		b.sendPaginatedQueries(ctx, s, i, "cashConverters", "Saved Cash Converters Queries", 1)
@@ -487,7 +463,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Created Gumtree query for `%s` (Max Price: $%.2f)", query, maxPrice)
+			responseContent = fmt.Sprintf("✅ Created Gumtree query for %s (Max Price: $%.2f)", formatQueryReference(query), maxPrice)
 		}
 	case "editgumtreequery":
 		id := getStringOption(options, "id")
@@ -507,7 +483,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Updated Gumtree query `%s` (New Max Price: $%.2f)", id, maxPrice)
+				responseContent = fmt.Sprintf("✅ Updated Gumtree query %s (New Max Price: $%.2f)", formatQueryReference(id), maxPrice)
 			}
 		}
 	case "deletegumtreequery":
@@ -516,7 +492,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted Gumtree query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted Gumtree query: %s", formatQueryReference(id))
 		}
 	case "viewgumtreequeries":
 		b.sendPaginatedQueries(ctx, s, i, "gumtree", "Saved Gumtree Queries", 1)
@@ -578,7 +554,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Created CS Market query for `%s` (Max Price: $%.2f, Max Float: %.5f)", query, maxPrice, maxFloat)
+			responseContent = fmt.Sprintf("✅ Created CS Market query for %s (Max Price: $%.2f, Max Float: %.5f)", formatQueryReference(query), maxPrice, maxFloat)
 		}
 	case "editcsmarket":
 		id := getStringOption(options, "id")
@@ -602,7 +578,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Updated CS Market query `%s` (Max Price: $%.2f, Max Float: %.5f)", id, maxPrice, maxFloat)
+				responseContent = fmt.Sprintf("✅ Updated CS Market query %s (Max Price: $%.2f, Max Float: %.5f)", formatQueryReference(id), maxPrice, maxFloat)
 			}
 		}
 	case "deletecsmarket":
@@ -611,7 +587,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted CS Market query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted CS Market query: %s", formatQueryReference(id))
 		}
 	case "viewcsmarketqueries":
 		b.sendPaginatedQueries(ctx, s, i, "csMarket", "Saved CS Market Queries", 1)
@@ -796,7 +772,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			RelatedKey: &customId,
 		})
 
-		responseContent = fmt.Sprintf("Are you sure you want to delete this %s query?\n`%s`\n\n**This action cannot be undone.**", *action.QueryType, *action.QueryId)
+		responseContent = fmt.Sprintf("Are you sure you want to delete this %s query?\n%s\n\n**This action cannot be undone.**", *action.QueryType, formatQueryReference(*action.QueryId))
 		responseComponents = []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
@@ -820,7 +796,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error deleting query: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Successfully deleted query of type `%s` (`%s`)", *action.QueryType, *action.QueryId)
+				responseContent = fmt.Sprintf("✅ Successfully deleted query of type `%s` (%s)", *action.QueryType, formatQueryReference(*action.QueryId))
 				b.dbClient.DeleteAction(ctx, customId)
 				if action.RelatedKey != nil {
 					b.dbClient.DeleteAction(ctx, *action.RelatedKey)
@@ -925,7 +901,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 // SendDeal publishes a deal notification to the configured channel and subscribed users
-func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl *string, queryType, queryId string) error {
+func (b *Bot) SendDeal(ctx context.Context, channelId, channelMessage, dmMessage string, imageUrl *string, queryType, queryId string) error {
 	if b.session == nil {
 		return fmt.Errorf("bot session is not initialized")
 	}
@@ -948,7 +924,7 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 					})
 
 					dmMsg := &discordgo.MessageSend{
-						Content: message,
+						Content: dmMessage,
 						Components: []discordgo.MessageComponent{
 							discordgo.ActionsRow{
 								Components: []discordgo.MessageComponent{
@@ -1019,7 +995,7 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, message string, imageUrl 
 	}
 
 	msgData := &discordgo.MessageSend{
-		Content:    message,
+		Content:    channelMessage,
 		Components: buttons,
 	}
 
@@ -1353,4 +1329,15 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+func combinePhraseFilters(first, second string) string {
+	switch {
+	case first == "":
+		return second
+	case second == "":
+		return first
+	default:
+		return first + "," + second
+	}
 }
