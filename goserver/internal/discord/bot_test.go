@@ -55,6 +55,14 @@ func TestPaginateQueryEntriesFitsAsManyCompleteEntriesAsPossible(t *testing.T) {
 	}
 }
 
+func TestPaginateQueryEntriesAlwaysReturnsAPage(t *testing.T) {
+	pages := paginateQueryEntries("Saved Queries", nil)
+
+	if len(pages) != 1 {
+		t.Fatalf("paginateQueryEntries() returned %d pages, want 1", len(pages))
+	}
+}
+
 func TestPaginateQueryEntriesTruncatesOnlyOversizedSingleEntry(t *testing.T) {
 	pages := paginateQueryEntries("Saved Queries", []string{strings.Repeat("🔎", discordMessageLimit)})
 

@@ -1333,7 +1333,7 @@ const discordMessageLimit = 2000
 
 func paginateQueryEntries(title string, entries []string) []string {
 	if len(entries) == 0 {
-		return nil
+		return []string{fmt.Sprintf("**%s (Page 1/1)**\n", title)}
 	}
 
 	maxHeader := fmt.Sprintf("**%s (Page %d/%d)**\n", title, len(entries), len(entries))
