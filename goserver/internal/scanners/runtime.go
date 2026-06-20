@@ -2,6 +2,7 @@ package scanners
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -157,10 +158,7 @@ func (r *Runner) runScanPass(ctx context.Context, steamScanCnt, csTradeScanCnt i
 		}
 
 		log.Printf("Executing scanner: %s", sc.Name())
-		if r.statusSetter != nil {
-			r.statusSetter.SetStatus(getStatusText(sc.Name()))
-		}
-		notifs, err := sc.Scan(ctx)
+		notifs, err := r.scanWithTimedStatus(ctx, sc)
 		if err != nil {
 			log.Printf("Scanner %q encountered an error: %v", sc.Name(), err)
 			continue
@@ -209,10 +207,7 @@ func (r *Runner) RunManualScanOnce(ctx context.Context) {
 
 	for _, sc := range r.scanners {
 		log.Printf("[Manual] Executing scanner: %s", sc.Name())
-		if r.statusSetter != nil {
-			r.statusSetter.SetStatus(getStatusText(sc.Name()))
-		}
-		notifs, err := sc.Scan(ctx)
+		notifs, err := r.scanWithTimedStatus(ctx, sc)
 		if err != nil {
 			log.Printf("[Manual] Scanner %q failed: %v", sc.Name(), err)
 			continue
@@ -224,6 +219,47 @@ func (r *Runner) RunManualScanOnce(ctx context.Context) {
 
 	r.stateManager.FinishScanRun(record, nil)
 	log.Println("Manual scan run completed.")
+}
+
+func (r *Runner) scanWithTimedStatus(
+	ctx context.Context,
+	sc Scanner,
+) ([]notifications.AppNotification, error) {
+	if r.statusSetter == nil {
+		return sc.Scan(ctx)
+	}
+
+	statusCtx, stopStatus := context.WithCancel(ctx)
+	statusStopped := make(chan struct{})
+	startedAt := time.Now()
+
+	r.statusSetter.SetStatus(formatTimedStatus(sc.Name(), 0))
+	go func() {
+		defer close(statusStopped)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-statusCtx.Done():
+				return
+			case <-ticker.C:
+				r.statusSetter.SetStatus(formatTimedStatus(sc.Name(), time.Since(startedAt)))
+			}
+		}
+	}()
+
+	notifs, err := sc.Scan(ctx)
+	stopStatus()
+	<-statusStopped
+	return notifs, err
+}
+
+func formatTimedStatus(name string, elapsed time.Duration) string {
+	totalSeconds := int(elapsed / time.Second)
+	minutes := totalSeconds / 60
+	seconds := totalSeconds % 60
+	return fmt.Sprintf("%s (%02d:%02d)", getStatusText(name), minutes, seconds)
 }
 
 func getStatusText(name string) string {
