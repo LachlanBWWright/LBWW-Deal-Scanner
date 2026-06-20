@@ -22,6 +22,7 @@ type DiscoveredListing struct {
 	ImageUrl     *string
 	Description  *string
 	Availability *string
+	LastDetailAt *time.Time
 }
 
 func StableListingId(source, canonicalUrl string) string {
@@ -45,6 +46,7 @@ func (q *Query) PersistListingObservation(ctx context.Context, listing Discovere
 				Availability: listing.Availability,
 				FirstSeenAt:  observedAt,
 				LastSeenAt:   observedAt,
+				LastDetailAt: listing.LastDetailAt,
 			}
 			if listing.Availability != nil && *listing.Availability == "unavailable" {
 				lst.UnavailableAt = &observedAt
@@ -63,6 +65,9 @@ func (q *Query) PersistListingObservation(ctx context.Context, listing Discovere
 			}
 			if listing.Availability != nil && *listing.Availability == "unavailable" {
 				updates["unavailableAt"] = &observedAt
+			}
+			if listing.LastDetailAt != nil {
+				updates["lastDetailAt"] = listing.LastDetailAt
 			}
 			if _, err := tx.Listing.WithContext(ctx).Where(tx.Listing.ID.Eq(listingId)).Updates(updates); err != nil {
 				return err

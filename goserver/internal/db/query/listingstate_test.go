@@ -46,6 +46,37 @@ func TestParsePhraseList(t *testing.T) {
 	}
 }
 
+func TestPersistListingObservationStoresDetailTimestampOnFirstObservation(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	observedAt := time.Now().UTC()
+	detailAt := observedAt.Add(-time.Minute)
+	description := "Fetched once"
+	availability := "available"
+	listing := DiscoveredListing{
+		Source:       "cashConverters",
+		CanonicalUrl: "https://example.test/item/1",
+		Title:        "Item",
+		Description:  &description,
+		Availability: &availability,
+		LastDetailAt: &detailAt,
+	}
+
+	listingID, err := dbClient.PersistListingObservation(context.Background(), listing, observedAt)
+	if err != nil {
+		t.Fatalf("persist listing observation: %v", err)
+	}
+
+	persisted, err := dbClient.Listing.WithContext(context.Background()).Where(dbClient.Listing.ID.Eq(listingID)).First()
+	if err != nil {
+		t.Fatalf("read persisted listing: %v", err)
+	}
+	if persisted.LastDetailAt == nil || !persisted.LastDetailAt.Equal(detailAt) {
+		t.Fatalf("last detail time = %v; expected %v", persisted.LastDetailAt, detailAt)
+	}
+}
+
 func TestMatchPhrases(t *testing.T) {
 	res := MatchPhrases("Xbox console\nIncludes an elite controller", "xbox, elite controller", "")
 	if res.Type != MatchTypeMatched {

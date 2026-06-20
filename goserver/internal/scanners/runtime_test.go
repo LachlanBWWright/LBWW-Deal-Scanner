@@ -13,10 +13,10 @@ func TestFormatTimedStatus(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "starts at zero",
+			name:     "formats first timed update",
 			scanner:  "Cash Converters",
-			elapsed:  0,
-			expected: "Scanning Cash Converters (00:00)",
+			elapsed:  20 * time.Second,
+			expected: "Scanning Cash Converters (00:20)",
 		},
 		{
 			name:     "formats minutes and seconds",

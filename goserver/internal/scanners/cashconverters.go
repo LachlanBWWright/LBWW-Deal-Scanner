@@ -152,11 +152,17 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			needDescription := requiredPhrases != "" || excludedPhrases != ""
 
 			var detail CcDetail
+			var detailFetchedAt *time.Time
 			if needDescription {
-				detail, err = s.getCcDetail(ctx, sum)
+				var fetched bool
+				detail, fetched, err = s.getCcDetail(ctx, sum)
 				if err != nil {
 					log.Printf("Failed to get product details for %s: %v", sum.CanonicalUrl, err)
 					continue
+				}
+				if fetched {
+					fetchedAt := time.Now().UTC()
+					detailFetchedAt = &fetchedAt
 				}
 			} else {
 				detail = CcDetail{
@@ -177,6 +183,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				ImageUrl:     &detail.ImageUrl,
 				Description:  &detail.Description,
 				Availability: &detail.Availability,
+				LastDetailAt: detailFetchedAt,
 			}
 			listingId := qry.StableListingId("cashConverters", detail.CanonicalUrl)
 			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
@@ -342,7 +349,7 @@ func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl s
 	return results, nil
 }
 
-func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) (CcDetail, error) {
+func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) (CcDetail, bool, error) {
 	// Look up listing in DB
 	id := qry.StableListingId("cashConverters", sum.CanonicalUrl)
 	var listing models.Listing
@@ -351,8 +358,9 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 		listing = *listingPtr
 	}
 
-	// If detail exists and is fresh (less than 24 hours), reuse it
-	if err == nil && listing.LastDetailAt != nil && time.Since(*listing.LastDetailAt) < 24*time.Hour {
+	// Item details are immutable for scanner purposes. Once fetched, always
+	// reuse the persisted description instead of revisiting the item page.
+	if err == nil && listing.LastDetailAt != nil {
 		desc := ""
 		if listing.Description != nil {
 			desc = *listing.Description
@@ -376,7 +384,7 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 			},
 			Description:  desc,
 			Availability: avail,
-		}, nil
+		}, false, nil
 	}
 
 	// Fetch fresh page detail
@@ -384,27 +392,27 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 
 	req, err := http.NewRequestWithContext(ctx, "GET", sum.CanonicalUrl, nil)
 	if err != nil {
-		return CcDetail{}, err
+		return CcDetail{}, false, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return CcDetail{}, err
+		return CcDetail{}, false, err
 	}
 	if resp == nil {
-		return CcDetail{}, fmt.Errorf("http response is nil")
+		return CcDetail{}, false, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return CcDetail{}, fmt.Errorf("bad status code: %d", resp.StatusCode)
+		return CcDetail{}, false, fmt.Errorf("bad status code: %d", resp.StatusCode)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return CcDetail{}, err
+		return CcDetail{}, false, err
 	}
 
 	title := CleanSelectionText(doc.Find("h1, .product-detail__title, .product-title").First())
@@ -441,10 +449,6 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 		avail = "unavailable"
 	}
 
-	// Update last detail time in DB Listing
-	now := time.Now().UTC()
-	s.dbClient.Listing.WithContext(ctx).Where(s.dbClient.Listing.ID.Eq(id)).Update(s.dbClient.Listing.LastDetailAt, &now)
-
 	return CcDetail{
 		CcSummary: CcSummary{
 			CanonicalUrl: sum.CanonicalUrl,
@@ -456,7 +460,7 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 		},
 		Description:  description,
 		Availability: avail,
-	}, nil
+	}, true, nil
 }
 
 func parseCcPrice(input string) float64 {

@@ -17,6 +17,8 @@ type StatusSetter interface {
 	SetStatus(statusText string)
 }
 
+const statusUpdateInterval = 20 * time.Second
+
 type Runner struct {
 	cfg          *config.Config
 	dbClient     *qry.Query
@@ -233,10 +235,10 @@ func (r *Runner) scanWithTimedStatus(
 	statusStopped := make(chan struct{})
 	startedAt := time.Now()
 
-	r.statusSetter.SetStatus(formatTimedStatus(sc.Name(), 0))
+	r.statusSetter.SetStatus(getStatusText(sc.Name()))
 	go func() {
 		defer close(statusStopped)
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(statusUpdateInterval)
 		defer ticker.Stop()
 
 		for {

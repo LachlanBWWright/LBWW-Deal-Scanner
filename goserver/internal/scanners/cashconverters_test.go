@@ -1,8 +1,15 @@
 package scanners
 
 import (
+	"context"
 	"reflect"
 	"testing"
+	"time"
+
+	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestParseCcPrice(t *testing.T) {
@@ -144,4 +151,58 @@ func TestBuildCcApiUrl(t *testing.T) {
 
 func float64Pointer(value float64) *float64 {
 	return &value
+}
+
+func TestGetCcDetailReusesPersistedDetailRegardlessOfAge(t *testing.T) {
+	gdb, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := gdb.AutoMigrate(&models.Listing{}); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	dbClient := qry.Use(gdb)
+	canonicalURL := "http://127.0.0.1:1/must-not-be-requested"
+	detailTime := time.Now().UTC().Add(-365 * 24 * time.Hour)
+	description := "Persisted description"
+	availability := "available"
+	imageURL := "https://example.test/persisted.jpg"
+	listing := &models.Listing{
+		ID:           qry.StableListingId("cashConverters", canonicalURL),
+		Source:       "cashConverters",
+		CanonicalUrl: canonicalURL,
+		Title:        "Persisted title",
+		ImageUrl:     &imageURL,
+		Description:  &description,
+		Availability: &availability,
+		FirstSeenAt:  detailTime,
+		LastSeenAt:   detailTime,
+		LastDetailAt: &detailTime,
+	}
+	if err := dbClient.Listing.WithContext(context.Background()).Create(listing); err != nil {
+		t.Fatalf("create cached listing: %v", err)
+	}
+
+	scanner := NewCashConvertersScanner(dbClient)
+	detail, fetched, err := scanner.getCcDetail(context.Background(), CcSummary{
+		CanonicalUrl: canonicalURL,
+		Title:        "Current API title",
+		Price:        100,
+		Shipping:     10,
+		TotalPrice:   110,
+		ImageUrl:     "https://example.test/current.jpg",
+	})
+	if err != nil {
+		t.Fatalf("get cached detail: %v", err)
+	}
+	if fetched {
+		t.Fatal("expected persisted detail to be reused without an item-page request")
+	}
+	if detail.Description != description {
+		t.Fatalf("description = %q; expected %q", detail.Description, description)
+	}
+	if detail.TotalPrice != 110 {
+		t.Fatalf("total price = %v; expected current API price 110", detail.TotalPrice)
+	}
 }
