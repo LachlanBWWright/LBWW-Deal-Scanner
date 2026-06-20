@@ -148,11 +148,7 @@ func (c *validatingConn) QueryContext(ctx context.Context, query string, args []
 }
 
 func (c *validatingConn) Ping(ctx context.Context) error {
-	conn, ok := c.conn.(driver.Pinger)
-	if !ok {
-		return driver.ErrSkip
-	}
-	return conn.Ping(ctx)
+	return c.validate(ctx)
 }
 
 func (c *validatingConn) ResetSession(ctx context.Context) error {
@@ -162,11 +158,15 @@ func (c *validatingConn) ResetSession(ctx context.Context) error {
 		}
 	}
 
-	conn, ok := c.conn.(driver.Pinger)
+	return c.validate(ctx)
+}
+
+func (c *validatingConn) validate(ctx context.Context) error {
+	conn, ok := c.conn.(driver.ExecerContext)
 	if !ok {
 		return driver.ErrBadConn
 	}
-	if err := conn.Ping(ctx); err != nil {
+	if _, err := conn.ExecContext(ctx, "SELECT 1", nil); err != nil {
 		return fmt.Errorf("validate pooled libsql connection: %w", err)
 	}
 	return nil

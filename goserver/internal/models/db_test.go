@@ -9,8 +9,8 @@ import (
 
 type testConn struct {
 	resetCalls int
-	pingCalls  int
-	pingErr    error
+	execCalls  int
+	execErr    error
 }
 
 func (c *testConn) Prepare(string) (driver.Stmt, error) {
@@ -30,12 +30,16 @@ func (c *testConn) ResetSession(context.Context) error {
 	return nil
 }
 
-func (c *testConn) Ping(context.Context) error {
-	c.pingCalls++
-	return c.pingErr
+func (c *testConn) ExecContext(
+	context.Context,
+	string,
+	[]driver.NamedValue,
+) (driver.Result, error) {
+	c.execCalls++
+	return driver.RowsAffected(0), c.execErr
 }
 
-func TestValidatingConnResetsAndPingsBeforeReuse(t *testing.T) {
+func TestValidatingConnResetsAndValidatesBeforeReuse(t *testing.T) {
 	underlying := &testConn{}
 	conn := &validatingConn{conn: underlying}
 
@@ -45,19 +49,31 @@ func TestValidatingConnResetsAndPingsBeforeReuse(t *testing.T) {
 	if underlying.resetCalls != 1 {
 		t.Fatalf("ResetSession() reset calls = %d, want 1", underlying.resetCalls)
 	}
-	if underlying.pingCalls != 1 {
-		t.Fatalf("ResetSession() ping calls = %d, want 1", underlying.pingCalls)
+	if underlying.execCalls != 1 {
+		t.Fatalf("ResetSession() validation calls = %d, want 1", underlying.execCalls)
 	}
 }
 
 func TestValidatingConnRejectsClosedStream(t *testing.T) {
 	underlying := &testConn{
-		pingErr: errors.Join(errors.New("stream is closed"), driver.ErrBadConn),
+		execErr: errors.Join(errors.New("stream is closed"), driver.ErrBadConn),
 	}
 	conn := &validatingConn{conn: underlying}
 
 	err := conn.ResetSession(context.Background())
 	if !errors.Is(err, driver.ErrBadConn) {
 		t.Fatalf("ResetSession() error = %v, want driver.ErrBadConn", err)
+	}
+}
+
+func TestValidatingConnPingUsesValidationQuery(t *testing.T) {
+	underlying := &testConn{}
+	conn := &validatingConn{conn: underlying}
+
+	if err := conn.Ping(context.Background()); err != nil {
+		t.Fatalf("Ping() error = %v", err)
+	}
+	if underlying.execCalls != 1 {
+		t.Fatalf("Ping() validation calls = %d, want 1", underlying.execCalls)
 	}
 }
