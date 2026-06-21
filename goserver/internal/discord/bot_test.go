@@ -14,6 +14,29 @@ func TestTruncateDiscordMessageLeavesValidContentUnchanged(t *testing.T) {
 	}
 }
 
+func TestTruncateStatusLeavesValidContentUnchanged(t *testing.T) {
+	status := "Scanning Ebay | Cash Converters (00:20): NOT FOUND"
+	if actual := truncateStatus(status); actual != status {
+		t.Fatalf("truncateStatus() = %q, want %q", actual, status)
+	}
+}
+
+func TestTruncateStatusRespectsDiscordCharacterLimit(t *testing.T) {
+	status := strings.Repeat("🔎", discordStatusCharacterLimit+10)
+	actual := truncateStatus(status)
+
+	if count := utf8.RuneCountInString(actual); count != discordStatusCharacterLimit {
+		t.Fatalf(
+			"truncateStatus() returned %d characters, want %d",
+			count,
+			discordStatusCharacterLimit,
+		)
+	}
+	if !strings.HasSuffix(actual, "…") {
+		t.Fatalf("truncateStatus() = %q, want ellipsis suffix", actual)
+	}
+}
+
 func TestTruncateDiscordMessageFitsDiscordLimit(t *testing.T) {
 	content := strings.Repeat("query 🔎 ", 400)
 

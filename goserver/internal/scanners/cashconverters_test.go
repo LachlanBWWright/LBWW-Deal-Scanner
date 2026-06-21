@@ -185,24 +185,57 @@ func TestGetCcDetailReusesPersistedDetailRegardlessOfAge(t *testing.T) {
 	}
 
 	scanner := NewCashConvertersScanner(dbClient)
-	detail, fetched, err := scanner.getCcDetail(context.Background(), CcSummary{
+	detail, fetched, available, attempted, err := scanner.getCcDetail(context.Background(), CcSummary{
 		CanonicalUrl: canonicalURL,
 		Title:        "Current API title",
 		Price:        100,
 		Shipping:     10,
 		TotalPrice:   110,
 		ImageUrl:     "https://example.test/current.jpg",
-	})
+	}, true)
 	if err != nil {
 		t.Fatalf("get cached detail: %v", err)
 	}
 	if fetched {
 		t.Fatal("expected persisted detail to be reused without an item-page request")
 	}
+	if attempted {
+		t.Fatal("expected persisted detail not to attempt an item-page request")
+	}
+	if !available {
+		t.Fatal("expected persisted detail to be available")
+	}
 	if detail.Description != description {
 		t.Fatalf("description = %q; expected %q", detail.Description, description)
 	}
 	if detail.TotalPrice != 110 {
 		t.Fatalf("total price = %v; expected current API price 110", detail.TotalPrice)
+	}
+}
+
+func TestGetCcDetailDefersUncachedDetailWhenFetchNotAllowed(t *testing.T) {
+	gdb, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := gdb.AutoMigrate(&models.Listing{}); err != nil {
+		t.Fatalf("migrate test database: %v", err)
+	}
+
+	scanner := NewCashConvertersScanner(qry.Use(gdb))
+	_, fetched, available, attempted, err := scanner.getCcDetail(context.Background(), CcSummary{
+		CanonicalUrl: "http://127.0.0.1:1/must-not-be-requested",
+	}, false)
+	if err != nil {
+		t.Fatalf("get deferred detail: %v", err)
+	}
+	if fetched {
+		t.Fatal("expected deferred detail not to be fetched")
+	}
+	if attempted {
+		t.Fatal("expected deferred detail not to attempt an item-page request")
+	}
+	if available {
+		t.Fatal("expected uncached detail to be unavailable until a later scan")
 	}
 }

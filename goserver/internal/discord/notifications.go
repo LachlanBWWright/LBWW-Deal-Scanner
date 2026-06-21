@@ -236,6 +236,7 @@ func (b *Bot) SetStatus(statusText string) {
 	if b.session == nil {
 		return
 	}
+	statusText = truncateStatus(statusText)
 	usd := discordgo.UpdateStatusData{
 		Status: "online",
 		Activities: []*discordgo.Activity{
@@ -247,4 +248,14 @@ func (b *Bot) SetStatus(statusText string) {
 		},
 	}
 	b.session.UpdateStatusComplex(usd)
+}
+
+const discordStatusCharacterLimit = 128
+
+func truncateStatus(statusText string) string {
+	runes := []rune(statusText)
+	if len(runes) <= discordStatusCharacterLimit {
+		return statusText
+	}
+	return string(runes[:discordStatusCharacterLimit-1]) + "…"
 }

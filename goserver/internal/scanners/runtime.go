@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	"dealscanner/internal/config"
@@ -18,6 +19,7 @@ type StatusSetter interface {
 }
 
 const statusUpdateInterval = 20 * time.Second
+const minimumScanCycleDuration = 30 * time.Second
 
 type Runner struct {
 	cfg          *config.Config
@@ -26,6 +28,14 @@ type Runner struct {
 	notifService *notifications.NotificationService
 	statusSetter StatusSetter
 	scanners     []Scanner
+	statusMu     sync.Mutex
+	previousScan *scanStatusResult
+}
+
+type scanStatusResult struct {
+	name    string
+	elapsed time.Duration
+	outcome string
 }
 
 type Scanner interface {
@@ -122,6 +132,7 @@ func (r *Runner) runLoop(ctx context.Context, maxDuration *time.Duration) {
 		}
 
 		log.Println("Starting scan pass cycle...")
+		cycleStartedAt := time.Now()
 		record := r.stateManager.BeginScanRun("loop")
 
 		r.runScanPass(ctx, steamScanCnt, csTradeScanCnt)
@@ -144,8 +155,25 @@ func (r *Runner) runLoop(ctx context.Context, maxDuration *time.Duration) {
 		dbState.CsTradeScanCount = csTradeScanCnt
 		r.dbClient.UpdateScannerRuntimeState(ctx, dbState)
 
-		// Throttler (2000ms minimum cycle time)
-		time.Sleep(2 * time.Second)
+		if !waitForMinimumCycleDuration(ctx, cycleStartedAt, minimumScanCycleDuration) {
+			return
+		}
+	}
+}
+
+func waitForMinimumCycleDuration(ctx context.Context, startedAt time.Time, minimum time.Duration) bool {
+	remaining := minimum - time.Since(startedAt)
+	if remaining <= 0 {
+		return true
+	}
+
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 
@@ -234,8 +262,9 @@ func (r *Runner) scanWithTimedStatus(
 	statusCtx, stopStatus := context.WithCancel(ctx)
 	statusStopped := make(chan struct{})
 	startedAt := time.Now()
+	previous := r.getPreviousScanResult()
 
-	r.statusSetter.SetStatus(getStatusText(sc.Name()))
+	r.statusSetter.SetStatus(formatScanningStatus(sc.Name(), 0, false, previous))
 	go func() {
 		defer close(statusStopped)
 		ticker := time.NewTicker(statusUpdateInterval)
@@ -246,7 +275,9 @@ func (r *Runner) scanWithTimedStatus(
 			case <-statusCtx.Done():
 				return
 			case <-ticker.C:
-				r.statusSetter.SetStatus(formatTimedStatus(sc.Name(), time.Since(startedAt)))
+				r.statusSetter.SetStatus(
+					formatScanningStatus(sc.Name(), time.Since(startedAt), true, previous),
+				)
 			}
 		}
 	}()
@@ -254,14 +285,71 @@ func (r *Runner) scanWithTimedStatus(
 	notifs, err := sc.Scan(ctx)
 	stopStatus()
 	<-statusStopped
+	r.setPreviousScanResult(scanStatusResult{
+		name:    sc.Name(),
+		elapsed: time.Since(startedAt),
+		outcome: getScanOutcome(notifs, err),
+	})
 	return notifs, err
 }
 
+func (r *Runner) getPreviousScanResult() *scanStatusResult {
+	r.statusMu.Lock()
+	defer r.statusMu.Unlock()
+	if r.previousScan == nil {
+		return nil
+	}
+	result := *r.previousScan
+	return &result
+}
+
+func (r *Runner) setPreviousScanResult(result scanStatusResult) {
+	r.statusMu.Lock()
+	defer r.statusMu.Unlock()
+	r.previousScan = &result
+}
+
+func getScanOutcome(notifs []notifications.AppNotification, scanErr error) string {
+	if scanErr != nil {
+		return "FAILED"
+	}
+	if len(notifs) > 0 {
+		return "NEW ITEM FOUND"
+	}
+	return "NOT FOUND"
+}
+
+func formatScanningStatus(
+	name string,
+	elapsed time.Duration,
+	includeElapsed bool,
+	previous *scanStatusResult,
+) string {
+	current := getStatusText(name)
+	if includeElapsed {
+		current = formatTimedStatus(name, elapsed)
+	}
+	if previous == nil {
+		return current
+	}
+	return fmt.Sprintf(
+		"%s | %s (%s): %s",
+		current,
+		previous.name,
+		formatElapsed(previous.elapsed),
+		previous.outcome,
+	)
+}
+
 func formatTimedStatus(name string, elapsed time.Duration) string {
+	return fmt.Sprintf("%s (%s)", getStatusText(name), formatElapsed(elapsed))
+}
+
+func formatElapsed(elapsed time.Duration) string {
 	totalSeconds := int(elapsed / time.Second)
 	minutes := totalSeconds / 60
 	seconds := totalSeconds % 60
-	return fmt.Sprintf("%s (%02d:%02d)", getStatusText(name), minutes, seconds)
+	return fmt.Sprintf("%02d:%02d", minutes, seconds)
 }
 
 func getStatusText(name string) string {

@@ -21,10 +21,14 @@ import (
 
 type CashConvertersScanner struct {
 	dbClient *qry.Query
+	client   *http.Client
 }
 
 func NewCashConvertersScanner(dbClient *qry.Query) *CashConvertersScanner {
-	return &CashConvertersScanner{dbClient: dbClient}
+	return &CashConvertersScanner{
+		dbClient: dbClient,
+		client:   &http.Client{Timeout: 15 * time.Second},
+	}
 }
 
 func (s *CashConvertersScanner) Name() string {
@@ -132,13 +136,12 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 	var notifs []notifications.AppNotification
 	now := time.Now().UTC()
+	descriptionFetchAvailable := true
 
 	for _, query := range queries {
 		if query.Url == nil {
 			continue
 		}
-
-		time.Sleep(3 * time.Second) // protect against rate limits
 
 		summaries, err := s.discoverCcItems(ctx, *query.Url, query.MinPrice, query.MaxPrice)
 		if err != nil {
@@ -155,9 +158,17 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			var detailFetchedAt *time.Time
 			if needDescription {
 				var fetched bool
-				detail, fetched, err = s.getCcDetail(ctx, sum)
+				var available bool
+				var attempted bool
+				detail, fetched, available, attempted, err = s.getCcDetail(ctx, sum, descriptionFetchAvailable)
+				if attempted {
+					descriptionFetchAvailable = false
+				}
 				if err != nil {
 					log.Printf("Failed to get product details for %s: %v", sum.CanonicalUrl, err)
+					continue
+				}
+				if !available {
 					continue
 				}
 				if fetched {
@@ -302,8 +313,7 @@ func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl s
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +359,11 @@ func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl s
 	return results, nil
 }
 
-func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) (CcDetail, bool, error) {
+func (s *CashConvertersScanner) getCcDetail(
+	ctx context.Context,
+	sum CcSummary,
+	allowFetch bool,
+) (CcDetail, bool, bool, bool, error) {
 	// Look up listing in DB
 	id := qry.StableListingId("cashConverters", sum.CanonicalUrl)
 	var listing models.Listing
@@ -384,35 +398,35 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 			},
 			Description:  desc,
 			Availability: avail,
-		}, false, nil
+		}, false, true, false, nil
 	}
 
-	// Fetch fresh page detail
-	time.Sleep(2 * time.Second)
+	if !allowFetch {
+		return CcDetail{}, false, false, false, nil
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", sum.CanonicalUrl, nil)
 	if err != nil {
-		return CcDetail{}, false, err
+		return CcDetail{}, false, false, true, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
-		return CcDetail{}, false, err
+		return CcDetail{}, false, false, true, err
 	}
 	if resp == nil {
-		return CcDetail{}, false, fmt.Errorf("http response is nil")
+		return CcDetail{}, false, false, true, fmt.Errorf("http response is nil")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return CcDetail{}, false, fmt.Errorf("bad status code: %d", resp.StatusCode)
+		return CcDetail{}, false, false, true, fmt.Errorf("bad status code: %d", resp.StatusCode)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return CcDetail{}, false, err
+		return CcDetail{}, false, false, true, err
 	}
 
 	title := CleanSelectionText(doc.Find("h1, .product-detail__title, .product-title").First())
@@ -460,7 +474,7 @@ func (s *CashConvertersScanner) getCcDetail(ctx context.Context, sum CcSummary) 
 		},
 		Description:  description,
 		Availability: avail,
-	}, true, nil
+	}, true, true, true, nil
 }
 
 func parseCcPrice(input string) float64 {
