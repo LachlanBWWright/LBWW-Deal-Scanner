@@ -192,7 +192,7 @@ func TestGetCcDetailReusesPersistedDetailRegardlessOfAge(t *testing.T) {
 		Shipping:     10,
 		TotalPrice:   110,
 		ImageUrl:     "https://example.test/current.jpg",
-	}, true)
+	}, listing, true)
 	if err != nil {
 		t.Fatalf("get cached detail: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestGetCcDetailDefersUncachedDetailWhenFetchNotAllowed(t *testing.T) {
 	scanner := NewCashConvertersScanner(qry.Use(gdb))
 	_, fetched, available, attempted, err := scanner.getCcDetail(context.Background(), CcSummary{
 		CanonicalUrl: "http://127.0.0.1:1/must-not-be-requested",
-	}, false)
+	}, nil, false)
 	if err != nil {
 		t.Fatalf("get deferred detail: %v", err)
 	}

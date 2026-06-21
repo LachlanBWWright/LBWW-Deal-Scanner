@@ -8,6 +8,7 @@ import (
 	"dealscanner/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type DiscoveredListing struct {
@@ -114,4 +115,131 @@ func (q *Query) GetQueryListingState(ctx context.Context, queryId, listingId str
 
 func (q *Query) UpsertQueryListingState(ctx context.Context, state *models.QueryListingState) error {
 	return q.QueryListingState.WithContext(ctx).Save(state)
+}
+
+func (q *Query) LoadListings(ctx context.Context, listingIDs []string) (map[string]*models.Listing, error) {
+	listingsByID := make(map[string]*models.Listing, len(listingIDs))
+	if len(listingIDs) == 0 {
+		return listingsByID, nil
+	}
+
+	var listings []*models.Listing
+	if err := q.UnderlyingDB().WithContext(ctx).Where("id IN ?", listingIDs).Find(&listings).Error; err != nil {
+		return nil, err
+	}
+	for _, listing := range listings {
+		listingsByID[listing.ID] = listing
+	}
+	return listingsByID, nil
+}
+
+func (q *Query) LoadQueryListingStates(
+	ctx context.Context,
+	queryID string,
+	listingIDs []string,
+) (map[string]*models.QueryListingState, error) {
+	statesByListingID := make(map[string]*models.QueryListingState, len(listingIDs))
+	if len(listingIDs) == 0 {
+		return statesByListingID, nil
+	}
+
+	var states []*models.QueryListingState
+	if err := q.UnderlyingDB().WithContext(ctx).
+		Where("queryId = ? AND listingId IN ?", queryID, listingIDs).
+		Find(&states).Error; err != nil {
+		return nil, err
+	}
+	for _, state := range states {
+		statesByListingID[state.ListingId] = state
+	}
+	return statesByListingID, nil
+}
+
+func (q *Query) PersistListingBatch(
+	ctx context.Context,
+	discovered []DiscoveredListing,
+	existing map[string]*models.Listing,
+	states []*models.QueryListingState,
+	observedAt time.Time,
+) error {
+	if len(discovered) == 0 {
+		return nil
+	}
+
+	listings := make([]*models.Listing, 0, len(discovered))
+	observations := make([]*models.ListingObservation, 0, len(discovered))
+	for _, found := range discovered {
+		listingID := StableListingId(found.Source, found.CanonicalUrl)
+		firstSeenAt := observedAt
+		lastDetailAt := found.LastDetailAt
+		var unavailableAt *time.Time
+		if previous := existing[listingID]; previous != nil {
+			firstSeenAt = previous.FirstSeenAt
+			unavailableAt = previous.UnavailableAt
+			if lastDetailAt == nil {
+				lastDetailAt = previous.LastDetailAt
+			}
+		}
+		if found.Availability != nil && *found.Availability == "unavailable" {
+			unavailableAt = &observedAt
+		}
+
+		listings = append(listings, &models.Listing{
+			ID:            listingID,
+			Source:        found.Source,
+			ExternalId:    found.ExternalId,
+			CanonicalUrl:  found.CanonicalUrl,
+			Title:         found.Title,
+			ImageUrl:      found.ImageUrl,
+			Description:   found.Description,
+			Availability:  found.Availability,
+			FirstSeenAt:   firstSeenAt,
+			LastSeenAt:    observedAt,
+			LastDetailAt:  lastDetailAt,
+			UnavailableAt: unavailableAt,
+		})
+		observations = append(observations, &models.ListingObservation{
+			ID:           uuid.New().String(),
+			ListingId:    listingID,
+			Source:       found.Source,
+			ObservedAt:   observedAt,
+			Price:        found.Price,
+			Shipping:     found.Shipping,
+			TotalPrice:   found.TotalPrice,
+			Currency:     found.Currency,
+			Title:        found.Title,
+			ImageUrl:     found.ImageUrl,
+			Description:  found.Description,
+			Availability: found.Availability,
+		})
+	}
+
+	return q.UnderlyingDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			UpdateAll: true,
+		}).CreateInBatches(listings, 100).Error; err != nil {
+			return err
+		}
+		if err := tx.CreateInBatches(observations, 100).Error; err != nil {
+			return err
+		}
+		if len(states) == 0 {
+			return nil
+		}
+		return tx.Omit("Query", "Listing").Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "queryId"}, {Name: "listingId"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"source",
+				"status",
+				"lastEvaluatedAt",
+				"firstMatchedAt",
+				"lastMatchedAt",
+				"lastRejectedReason",
+				"lastNotifiedAt",
+				"lastNotifiedTotalPrice",
+				"lowestObservedPrice",
+			}),
+		}).CreateInBatches(states, 100).Error
+	})
 }

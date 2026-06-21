@@ -149,6 +149,23 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			continue
 		}
 
+		listingIDs := make([]string, 0, len(summaries))
+		for _, summary := range summaries {
+			listingIDs = append(listingIDs, qry.StableListingId("cashConverters", summary.CanonicalUrl))
+		}
+		existingListings, err := s.dbClient.LoadListings(ctx, listingIDs)
+		if err != nil {
+			log.Printf("Failed to load Cash Converters listings for URL %s: %v", *query.Url, err)
+			continue
+		}
+		existingStates, err := s.dbClient.LoadQueryListingStates(ctx, query.QueryId, listingIDs)
+		if err != nil {
+			log.Printf("Failed to load Cash Converters states for URL %s: %v", *query.Url, err)
+			continue
+		}
+
+		discovered := make([]qry.DiscoveredListing, 0, len(summaries))
+		states := make([]*models.QueryListingState, 0, len(summaries))
 		for _, sum := range summaries {
 			requiredPhrases := combinePhraseFilters(query.RequiredPhrases, query.RequiredInDescription)
 			excludedPhrases := combinePhraseFilters(query.ExcludePhrases, query.ExcludeInDescription)
@@ -160,7 +177,8 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				var fetched bool
 				var available bool
 				var attempted bool
-				detail, fetched, available, attempted, err = s.getCcDetail(ctx, sum, descriptionFetchAvailable)
+				listingID := qry.StableListingId("cashConverters", sum.CanonicalUrl)
+				detail, fetched, available, attempted, err = s.getCcDetail(ctx, sum, existingListings[listingID], descriptionFetchAvailable)
 				if attempted {
 					descriptionFetchAvailable = false
 				}
@@ -197,10 +215,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				LastDetailAt: detailFetchedAt,
 			}
 			listingId := qry.StableListingId("cashConverters", detail.CanonicalUrl)
-			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
-			if err != nil {
-				continue
-			}
+			discovered = append(discovered, found)
 
 			// Evaluate keyword and description filters
 			matched := true
@@ -242,10 +257,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				status = "rejected"
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
-			if err != nil {
-				continue
-			}
+			prev := existingStates[listingId]
 
 			shouldNotify := false
 			if matched {
@@ -297,7 +309,11 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				})
 			}
 
-			s.dbClient.UpsertQueryListingState(ctx, state)
+			states = append(states, state)
+		}
+
+		if err := s.dbClient.PersistListingBatch(ctx, discovered, existingListings, states, now); err != nil {
+			log.Printf("Failed to persist Cash Converters results for URL %s: %v", *query.Url, err)
 		}
 	}
 
@@ -362,19 +378,12 @@ func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl s
 func (s *CashConvertersScanner) getCcDetail(
 	ctx context.Context,
 	sum CcSummary,
+	listing *models.Listing,
 	allowFetch bool,
 ) (CcDetail, bool, bool, bool, error) {
-	// Look up listing in DB
-	id := qry.StableListingId("cashConverters", sum.CanonicalUrl)
-	var listing models.Listing
-	listingPtr, err := s.dbClient.Listing.WithContext(ctx).Where(s.dbClient.Listing.ID.Eq(id)).First()
-	if err == nil {
-		listing = *listingPtr
-	}
-
 	// Item details are immutable for scanner purposes. Once fetched, always
 	// reuse the persisted description instead of revisiting the item page.
-	if err == nil && listing.LastDetailAt != nil {
+	if listing != nil && listing.LastDetailAt != nil {
 		desc := ""
 		if listing.Description != nil {
 			desc = *listing.Description
