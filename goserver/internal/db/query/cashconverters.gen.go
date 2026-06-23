@@ -28,19 +28,7 @@ func newCashConverters(db *gorm.DB, opts ...gen.DOOption) cashConverters {
 	tableName := _cashConverters.cashConvertersDo.TableName()
 	_cashConverters.ALL = field.NewAsterisk(tableName)
 	_cashConverters.Url = field.NewString(tableName, "url")
-	_cashConverters.RequiredPhrases = field.NewString(tableName, "requiredPhrases")
-	_cashConverters.ExcludePhrases = field.NewString(tableName, "excludePhrases")
-	_cashConverters.RequiredInDescription = field.NewString(tableName, "requiredInDescription")
-	_cashConverters.ExcludeInDescription = field.NewString(tableName, "excludeInDescription")
-	_cashConverters.MinPrice = field.NewFloat64(tableName, "minPrice")
-	_cashConverters.MaxPrice = field.NewFloat64(tableName, "maxPrice")
 	_cashConverters.ScanMode = field.NewString(tableName, "scanMode")
-	_cashConverters.QueryId = field.NewString(tableName, "queryId")
-	_cashConverters.Query = cashConvertersBelongsToQuery{
-		db: db.Session(&gorm.Session{}),
-
-		RelationField: field.NewRelation("Query", "models.SearchQuery"),
-	}
 
 	_cashConverters.fillFieldMap()
 
@@ -50,17 +38,9 @@ func newCashConverters(db *gorm.DB, opts ...gen.DOOption) cashConverters {
 type cashConverters struct {
 	cashConvertersDo cashConvertersDo
 
-	ALL                   field.Asterisk
-	Url                   field.String
-	RequiredPhrases       field.String
-	ExcludePhrases        field.String
-	RequiredInDescription field.String
-	ExcludeInDescription  field.String
-	MinPrice              field.Float64
-	MaxPrice              field.Float64
-	ScanMode              field.String
-	QueryId               field.String
-	Query                 cashConvertersBelongsToQuery
+	ALL      field.Asterisk
+	Url      field.String
+	ScanMode field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -78,14 +58,7 @@ func (c cashConverters) As(alias string) *cashConverters {
 func (c *cashConverters) updateTableName(table string) *cashConverters {
 	c.ALL = field.NewAsterisk(table)
 	c.Url = field.NewString(table, "url")
-	c.RequiredPhrases = field.NewString(table, "requiredPhrases")
-	c.ExcludePhrases = field.NewString(table, "excludePhrases")
-	c.RequiredInDescription = field.NewString(table, "requiredInDescription")
-	c.ExcludeInDescription = field.NewString(table, "excludeInDescription")
-	c.MinPrice = field.NewFloat64(table, "minPrice")
-	c.MaxPrice = field.NewFloat64(table, "maxPrice")
 	c.ScanMode = field.NewString(table, "scanMode")
-	c.QueryId = field.NewString(table, "queryId")
 
 	c.fillFieldMap()
 
@@ -114,111 +87,19 @@ func (c *cashConverters) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (c *cashConverters) fillFieldMap() {
-	c.fieldMap = make(map[string]field.Expr, 10)
+	c.fieldMap = make(map[string]field.Expr, 2)
 	c.fieldMap["url"] = c.Url
-	c.fieldMap["requiredPhrases"] = c.RequiredPhrases
-	c.fieldMap["excludePhrases"] = c.ExcludePhrases
-	c.fieldMap["requiredInDescription"] = c.RequiredInDescription
-	c.fieldMap["excludeInDescription"] = c.ExcludeInDescription
-	c.fieldMap["minPrice"] = c.MinPrice
-	c.fieldMap["maxPrice"] = c.MaxPrice
 	c.fieldMap["scanMode"] = c.ScanMode
-	c.fieldMap["queryId"] = c.QueryId
-
 }
 
 func (c cashConverters) clone(db *gorm.DB) cashConverters {
 	c.cashConvertersDo.ReplaceConnPool(db.Statement.ConnPool)
-	c.Query.db = db.Session(&gorm.Session{Initialized: true})
-	c.Query.db.Statement.ConnPool = db.Statement.ConnPool
 	return c
 }
 
 func (c cashConverters) replaceDB(db *gorm.DB) cashConverters {
 	c.cashConvertersDo.ReplaceDB(db)
-	c.Query.db = db.Session(&gorm.Session{})
 	return c
-}
-
-type cashConvertersBelongsToQuery struct {
-	db *gorm.DB
-
-	field.RelationField
-}
-
-func (a cashConvertersBelongsToQuery) Where(conds ...field.Expr) *cashConvertersBelongsToQuery {
-	if len(conds) == 0 {
-		return &a
-	}
-
-	exprs := make([]clause.Expression, 0, len(conds))
-	for _, cond := range conds {
-		exprs = append(exprs, cond.BeCond().(clause.Expression))
-	}
-	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
-	return &a
-}
-
-func (a cashConvertersBelongsToQuery) WithContext(ctx context.Context) *cashConvertersBelongsToQuery {
-	a.db = a.db.WithContext(ctx)
-	return &a
-}
-
-func (a cashConvertersBelongsToQuery) Session(session *gorm.Session) *cashConvertersBelongsToQuery {
-	a.db = a.db.Session(session)
-	return &a
-}
-
-func (a cashConvertersBelongsToQuery) Model(m *models.CashConverters) *cashConvertersBelongsToQueryTx {
-	return &cashConvertersBelongsToQueryTx{a.db.Model(m).Association(a.Name())}
-}
-
-func (a cashConvertersBelongsToQuery) Unscoped() *cashConvertersBelongsToQuery {
-	a.db = a.db.Unscoped()
-	return &a
-}
-
-type cashConvertersBelongsToQueryTx struct{ tx *gorm.Association }
-
-func (a cashConvertersBelongsToQueryTx) Find() (result *models.SearchQuery, err error) {
-	return result, a.tx.Find(&result)
-}
-
-func (a cashConvertersBelongsToQueryTx) Append(values ...*models.SearchQuery) (err error) {
-	targetValues := make([]interface{}, len(values))
-	for i, v := range values {
-		targetValues[i] = v
-	}
-	return a.tx.Append(targetValues...)
-}
-
-func (a cashConvertersBelongsToQueryTx) Replace(values ...*models.SearchQuery) (err error) {
-	targetValues := make([]interface{}, len(values))
-	for i, v := range values {
-		targetValues[i] = v
-	}
-	return a.tx.Replace(targetValues...)
-}
-
-func (a cashConvertersBelongsToQueryTx) Delete(values ...*models.SearchQuery) (err error) {
-	targetValues := make([]interface{}, len(values))
-	for i, v := range values {
-		targetValues[i] = v
-	}
-	return a.tx.Delete(targetValues...)
-}
-
-func (a cashConvertersBelongsToQueryTx) Clear() error {
-	return a.tx.Clear()
-}
-
-func (a cashConvertersBelongsToQueryTx) Count() int64 {
-	return a.tx.Count()
-}
-
-func (a cashConvertersBelongsToQueryTx) Unscoped() *cashConvertersBelongsToQueryTx {
-	a.tx = a.tx.Unscoped()
-	return &a
 }
 
 type cashConvertersDo struct{ gen.DO }

@@ -15,6 +15,7 @@ func main() {
 		&models.SearchQuery{},
 		&models.UserQuery{},
 		&models.CashConverters{},
+		&models.CashConvertersFilter{},
 		&models.Ebay{},
 		&models.Gumtree{},
 		&models.Salvos{},

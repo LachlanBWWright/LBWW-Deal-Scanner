@@ -252,44 +252,44 @@ func (s *Server) handleCreateQuery(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(body.Payload, &dmStruct)
 	dmOnly := dmStruct.DmOnly
 
-	var query query.QueryItem
+	var savedQuery query.QueryItem
 	var err error
 
 	switch body.Type {
 	case "cashConverters":
-		var cc models.CashConverters
+		var cc query.CashConvertersQueryInput
 		if err = json.Unmarshal(body.Payload, &cc); err == nil {
-			query, err = s.dbClient.CreateCashConvertersQuery(r.Context(), dmOnly, &cc)
+			savedQuery, err = s.dbClient.CreateCashConvertersQuery(r.Context(), dmOnly, cc)
 		}
 	case "ebay":
 		var eb models.Ebay
 		if err = json.Unmarshal(body.Payload, &eb); err == nil {
-			query, err = s.dbClient.CreateEbayQuery(r.Context(), dmOnly, &eb)
+			savedQuery, err = s.dbClient.CreateEbayQuery(r.Context(), dmOnly, &eb)
 		}
 	case "gumtree":
 		var gt models.Gumtree
 		if err = json.Unmarshal(body.Payload, &gt); err == nil {
-			query, err = s.dbClient.CreateGumtreeQuery(r.Context(), dmOnly, &gt)
+			savedQuery, err = s.dbClient.CreateGumtreeQuery(r.Context(), dmOnly, &gt)
 		}
 	case "salvos":
 		var sa models.Salvos
 		if err = json.Unmarshal(body.Payload, &sa); err == nil {
-			query, err = s.dbClient.CreateSalvosQuery(r.Context(), dmOnly, &sa)
+			savedQuery, err = s.dbClient.CreateSalvosQuery(r.Context(), dmOnly, &sa)
 		}
 	case "csMarket":
 		var cm models.CsMarket
 		if err = json.Unmarshal(body.Payload, &cm); err == nil {
-			query, err = s.dbClient.CreateCsMarketQuery(r.Context(), dmOnly, &cm)
+			savedQuery, err = s.dbClient.CreateCsMarketQuery(r.Context(), dmOnly, &cm)
 		}
 	case "steamMarket":
 		var sm models.SteamMarket
 		if err = json.Unmarshal(body.Payload, &sm); err == nil {
-			query, err = s.dbClient.CreateSteamMarketQuery(r.Context(), dmOnly, &sm)
+			savedQuery, err = s.dbClient.CreateSteamMarketQuery(r.Context(), dmOnly, &sm)
 		}
 	case "csTradeBot":
 		var ct models.CsTradeBot
 		if err = json.Unmarshal(body.Payload, &ct); err == nil {
-			query, err = s.dbClient.CreateCsTradeBotQuery(r.Context(), dmOnly, &ct)
+			savedQuery, err = s.dbClient.CreateCsTradeBotQuery(r.Context(), dmOnly, &ct)
 		}
 	default:
 		err = fmt.Errorf("unknown query type: %s", body.Type)
@@ -305,7 +305,7 @@ func (s *Server) handleCreateQuery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"query":   query,
+		"query":   savedQuery,
 	})
 }
 
@@ -328,44 +328,44 @@ func (s *Server) handleUpdateQuery(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(body.Payload, &dmStruct)
 	dmOnly := dmStruct.DmOnly
 
-	var query query.QueryItem
+	var savedQuery query.QueryItem
 	var err error
 
 	switch body.Type {
 	case "cashConverters":
-		var cc models.CashConverters
+		var cc query.CashConvertersQueryInput
 		if err = json.Unmarshal(body.Payload, &cc); err == nil {
-			query, err = s.dbClient.UpdateCashConvertersQuery(r.Context(), body.Id, dmOnly, &cc)
+			savedQuery, err = s.dbClient.UpdateCashConvertersQuery(r.Context(), body.Id, dmOnly, cc)
 		}
 	case "ebay":
 		var eb models.Ebay
 		if err = json.Unmarshal(body.Payload, &eb); err == nil {
-			query, err = s.dbClient.UpdateEbayQuery(r.Context(), body.Id, dmOnly, &eb)
+			savedQuery, err = s.dbClient.UpdateEbayQuery(r.Context(), body.Id, dmOnly, &eb)
 		}
 	case "gumtree":
 		var gt models.Gumtree
 		if err = json.Unmarshal(body.Payload, &gt); err == nil {
-			query, err = s.dbClient.UpdateGumtreeQuery(r.Context(), body.Id, dmOnly, &gt)
+			savedQuery, err = s.dbClient.UpdateGumtreeQuery(r.Context(), body.Id, dmOnly, &gt)
 		}
 	case "salvos":
 		var sa models.Salvos
 		if err = json.Unmarshal(body.Payload, &sa); err == nil {
-			query, err = s.dbClient.UpdateSalvosQuery(r.Context(), body.Id, dmOnly, &sa)
+			savedQuery, err = s.dbClient.UpdateSalvosQuery(r.Context(), body.Id, dmOnly, &sa)
 		}
 	case "csMarket":
 		var cm models.CsMarket
 		if err = json.Unmarshal(body.Payload, &cm); err == nil {
-			query, err = s.dbClient.UpdateCsMarketQuery(r.Context(), body.Id, dmOnly, &cm)
+			savedQuery, err = s.dbClient.UpdateCsMarketQuery(r.Context(), body.Id, dmOnly, &cm)
 		}
 	case "steamMarket":
 		var sm models.SteamMarket
 		if err = json.Unmarshal(body.Payload, &sm); err == nil {
-			query, err = s.dbClient.UpdateSteamMarketQuery(r.Context(), body.Id, dmOnly, &sm)
+			savedQuery, err = s.dbClient.UpdateSteamMarketQuery(r.Context(), body.Id, dmOnly, &sm)
 		}
 	case "csTradeBot":
 		var ct models.CsTradeBot
 		if err = json.Unmarshal(body.Payload, &ct); err == nil {
-			query, err = s.dbClient.UpdateCsTradeBotQuery(r.Context(), body.Id, dmOnly, &ct)
+			savedQuery, err = s.dbClient.UpdateCsTradeBotQuery(r.Context(), body.Id, dmOnly, &ct)
 		}
 	default:
 		err = fmt.Errorf("unknown query type: %s", body.Type)
@@ -381,7 +381,7 @@ func (s *Server) handleUpdateQuery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"query":   query,
+		"query":   savedQuery,
 	})
 }
 

@@ -67,7 +67,34 @@ type CcApiResponse struct {
 	} `json:"Value"`
 }
 
-func buildCcApiUrl(searchUrl string, minPrice, maxPrice *float64) string {
+func valueOr(value *string, fallback string) string {
+	if value == nil || *value == "" {
+		return fallback
+	}
+	return *value
+}
+
+func phrasesMatch(searchable string, phrases []string, mode string) bool {
+	if len(phrases) == 0 {
+		return false
+	}
+	if mode == "any" {
+		for _, phrase := range phrases {
+			if strings.Contains(searchable, phrase) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, phrase := range phrases {
+		if !strings.Contains(searchable, phrase) {
+			return false
+		}
+	}
+	return true
+}
+
+func buildCcApiUrl(searchUrl string) string {
 	if !strings.HasPrefix(searchUrl, "http") {
 		apiUrl := url.URL{
 			Scheme: "https",
@@ -76,7 +103,6 @@ func buildCcApiUrl(searchUrl string, minPrice, maxPrice *float64) string {
 		}
 		q := url.Values{}
 		q.Set("query", searchUrl)
-		setCcPriceRange(q, minPrice, maxPrice)
 		apiUrl.RawQuery = q.Encode()
 		return apiUrl.String()
 	}
@@ -90,34 +116,7 @@ func buildCcApiUrl(searchUrl string, minPrice, maxPrice *float64) string {
 	parsed.Host = "www.cashconverters.com.au"
 	parsed.Path = "/c3api/search/results"
 	parsed.Fragment = ""
-	if minPrice != nil || maxPrice != nil {
-		q := parsed.Query()
-		setCcPriceRange(q, minPrice, maxPrice)
-		parsed.RawQuery = q.Encode()
-	}
 	return parsed.String()
-}
-
-func setCcPriceRange(q url.Values, minPrice, maxPrice *float64) {
-	if minPrice == nil && maxPrice == nil {
-		return
-	}
-
-	for key := range q {
-		if strings.HasPrefix(strings.ToLower(key), "saleprice") {
-			q.Del(key)
-		}
-	}
-
-	min := 0.0
-	if minPrice != nil {
-		min = *minPrice
-	}
-	max := 999999.0
-	if maxPrice != nil {
-		max = *maxPrice
-	}
-	q.Set("SalePrice[0]", fmt.Sprintf("%g|%g|", min, max))
 }
 
 func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNotification, error) {
@@ -137,16 +136,22 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 	var notifs []notifications.AppNotification
 	now := time.Now().UTC()
 	descriptionFetchAvailable := true
+	summaryCache := make(map[string][]CcSummary)
+	detailCache := make(map[string]CcDetail)
 
 	for _, query := range queries {
 		if query.Url == nil {
 			continue
 		}
 
-		summaries, err := s.discoverCcItems(ctx, *query.Url, query.MinPrice, query.MaxPrice)
-		if err != nil {
-			log.Printf("Cash Converters API fetch failed for URL %s: %v", *query.Url, err)
-			continue
+		summaries, cached := summaryCache[*query.Url]
+		if !cached {
+			summaries, err = s.discoverCcItems(ctx, *query.Url)
+			if err != nil {
+				log.Printf("Cash Converters API fetch failed for URL %s: %v", *query.Url, err)
+				continue
+			}
+			summaryCache[*query.Url] = summaries
 		}
 
 		listingIDs := make([]string, 0, len(summaries))
@@ -174,24 +179,30 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			var detail CcDetail
 			var detailFetchedAt *time.Time
 			if needDescription {
-				var fetched bool
-				var available bool
-				var attempted bool
-				listingID := qry.StableListingId("cashConverters", sum.CanonicalUrl)
-				detail, fetched, available, attempted, err = s.getCcDetail(ctx, sum, existingListings[listingID], descriptionFetchAvailable)
-				if attempted {
-					descriptionFetchAvailable = false
-				}
-				if err != nil {
-					log.Printf("Failed to get product details for %s: %v", sum.CanonicalUrl, err)
-					continue
-				}
-				if !available {
-					continue
-				}
-				if fetched {
-					fetchedAt := time.Now().UTC()
-					detailFetchedAt = &fetchedAt
+				cachedDetail, detailCached := detailCache[sum.CanonicalUrl]
+				if detailCached {
+					detail = cachedDetail
+				} else {
+					var fetched bool
+					var available bool
+					var attempted bool
+					listingID := qry.StableListingId("cashConverters", sum.CanonicalUrl)
+					detail, fetched, available, attempted, err = s.getCcDetail(ctx, sum, existingListings[listingID], descriptionFetchAvailable)
+					if attempted {
+						descriptionFetchAvailable = false
+					}
+					if err != nil {
+						log.Printf("Failed to get product details for %s: %v", sum.CanonicalUrl, err)
+						continue
+					}
+					if !available {
+						continue
+					}
+					detailCache[sum.CanonicalUrl] = detail
+					if fetched {
+						fetchedAt := time.Now().UTC()
+						detailFetchedAt = &fetchedAt
+					}
 				}
 			} else {
 				detail = CcDetail{
@@ -222,28 +233,23 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			var rejectReason *string
 
 			searchable := strings.ToLower(detail.Title + " " + detail.Description)
-			if requiredPhrases != "" {
-				for _, phrase := range parsePhrases(requiredPhrases) {
-					if !strings.Contains(searchable, phrase) {
-						matched = false
-						reason := "MissingRequiredPhrase"
-						rejectReason = &reason
-						break
-					}
-				}
+			if requiredPhrases != "" && !phrasesMatch(searchable, parsePhrases(requiredPhrases), valueOr(query.RequiredMatchMode, "all")) {
+				matched = false
+				reason := "MissingRequiredPhrase"
+				rejectReason = &reason
 			}
 
-			if matched && excludedPhrases != "" {
-				for _, phrase := range parsePhrases(excludedPhrases) {
-					if strings.Contains(searchable, phrase) {
-						matched = false
-						reason := "ExcludedPhrase"
-						rejectReason = &reason
-						break
-					}
-				}
+			if matched && excludedPhrases != "" && phrasesMatch(searchable, parsePhrases(excludedPhrases), valueOr(query.ExcludeMatchMode, "any")) {
+				matched = false
+				reason := "ExcludedPhrase"
+				rejectReason = &reason
 			}
 
+			if matched && query.MinPrice != nil && detail.TotalPrice < *query.MinPrice {
+				matched = false
+				reason := "BelowMinPrice"
+				rejectReason = &reason
+			}
 			if matched && query.MaxPrice != nil && detail.TotalPrice > *query.MaxPrice {
 				matched = false
 				reason := "AboveMaxPrice"
@@ -320,8 +326,8 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 	return notifs, nil
 }
 
-func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl string, minPrice, maxPrice *float64) ([]CcSummary, error) {
-	apiUrl := buildCcApiUrl(searchUrl, minPrice, maxPrice)
+func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl string) ([]CcSummary, error) {
+	apiUrl := buildCcApiUrl(searchUrl)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", apiUrl, nil)
 	if err != nil {

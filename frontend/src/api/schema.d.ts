@@ -243,7 +243,11 @@ export interface paths {
                                 minFloat?: number;
                                 maxFloat?: number;
                                 requiredPhrases?: string;
+                                /** @enum {string} */
+                                requiredMatchMode?: "any" | "all";
                                 excludePhrases?: string;
+                                /** @enum {string} */
+                                excludeMatchMode?: "any" | "all";
                                 /** @enum {string} */
                                 scanMode?: "searchUrl" | "siteWide";
                             }[];

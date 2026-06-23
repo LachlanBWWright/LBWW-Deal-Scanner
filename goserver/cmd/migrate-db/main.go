@@ -81,9 +81,9 @@ func migrateCascadeConstraints(db *gorm.DB) error {
 			)
 		},
 		func() error {
-			return repairCascadeConstraint(db, "CashConverters", "queryId", "Query",
-				func() error { return migrator.DropConstraint(&models.CashConverters{}, "Query") },
-				func() error { return migrator.CreateConstraint(&models.CashConverters{}, "Query") },
+			return repairCascadeConstraint(db, "CashConvertersFilter", "queryId", "Query",
+				func() error { return migrator.DropConstraint(&models.CashConvertersFilter{}, "Query") },
+				func() error { return migrator.CreateConstraint(&models.CashConvertersFilter{}, "Query") },
 			)
 		},
 		func() error {
@@ -148,7 +148,7 @@ func migrateCascadeConstraints(db *gorm.DB) error {
 func verifyCascadeConstraints(db *gorm.DB) error {
 	expected := []expectedForeignKey{
 		{table: "UserQuery", column: "queryId", references: "Query"},
-		{table: "CashConverters", column: "queryId", references: "Query"},
+		{table: "CashConvertersFilter", column: "queryId", references: "Query"},
 		{table: "Ebay", column: "queryId", references: "Query"},
 		{table: "Gumtree", column: "queryId", references: "Query"},
 		{table: "Salvos", column: "queryId", references: "Query"},

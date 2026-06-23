@@ -38,6 +38,17 @@ func newQueryListingState(db *gorm.DB, opts ...gen.DOOption) queryListingState {
 	_queryListingState.LastNotifiedAt = field.NewTime(tableName, "lastNotifiedAt")
 	_queryListingState.LastNotifiedTotalPrice = field.NewFloat64(tableName, "lastNotifiedTotalPrice")
 	_queryListingState.LowestObservedPrice = field.NewFloat64(tableName, "lowestObservedPrice")
+	_queryListingState.Query = queryListingStateBelongsToQuery{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Query", "models.SearchQuery"),
+	}
+
+	_queryListingState.Listing = queryListingStateBelongsToListing{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Listing", "models.Listing"),
+	}
 
 	_queryListingState.fillFieldMap()
 
@@ -59,6 +70,9 @@ type queryListingState struct {
 	LastNotifiedAt         field.Time
 	LastNotifiedTotalPrice field.Float64
 	LowestObservedPrice    field.Float64
+	Query                  queryListingStateBelongsToQuery
+
+	Listing queryListingStateBelongsToListing
 
 	fieldMap map[string]field.Expr
 }
@@ -114,7 +128,7 @@ func (q *queryListingState) GetFieldByName(fieldName string) (field.OrderExpr, b
 }
 
 func (q *queryListingState) fillFieldMap() {
-	q.fieldMap = make(map[string]field.Expr, 11)
+	q.fieldMap = make(map[string]field.Expr, 13)
 	q.fieldMap["queryId"] = q.QueryId
 	q.fieldMap["listingId"] = q.ListingId
 	q.fieldMap["source"] = q.Source
@@ -126,16 +140,185 @@ func (q *queryListingState) fillFieldMap() {
 	q.fieldMap["lastNotifiedAt"] = q.LastNotifiedAt
 	q.fieldMap["lastNotifiedTotalPrice"] = q.LastNotifiedTotalPrice
 	q.fieldMap["lowestObservedPrice"] = q.LowestObservedPrice
+
 }
 
 func (q queryListingState) clone(db *gorm.DB) queryListingState {
 	q.queryListingStateDo.ReplaceConnPool(db.Statement.ConnPool)
+	q.Query.db = db.Session(&gorm.Session{Initialized: true})
+	q.Query.db.Statement.ConnPool = db.Statement.ConnPool
+	q.Listing.db = db.Session(&gorm.Session{Initialized: true})
+	q.Listing.db.Statement.ConnPool = db.Statement.ConnPool
 	return q
 }
 
 func (q queryListingState) replaceDB(db *gorm.DB) queryListingState {
 	q.queryListingStateDo.ReplaceDB(db)
+	q.Query.db = db.Session(&gorm.Session{})
+	q.Listing.db = db.Session(&gorm.Session{})
 	return q
+}
+
+type queryListingStateBelongsToQuery struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a queryListingStateBelongsToQuery) Where(conds ...field.Expr) *queryListingStateBelongsToQuery {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a queryListingStateBelongsToQuery) WithContext(ctx context.Context) *queryListingStateBelongsToQuery {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a queryListingStateBelongsToQuery) Session(session *gorm.Session) *queryListingStateBelongsToQuery {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a queryListingStateBelongsToQuery) Model(m *models.QueryListingState) *queryListingStateBelongsToQueryTx {
+	return &queryListingStateBelongsToQueryTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a queryListingStateBelongsToQuery) Unscoped() *queryListingStateBelongsToQuery {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type queryListingStateBelongsToQueryTx struct{ tx *gorm.Association }
+
+func (a queryListingStateBelongsToQueryTx) Find() (result *models.SearchQuery, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a queryListingStateBelongsToQueryTx) Append(values ...*models.SearchQuery) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a queryListingStateBelongsToQueryTx) Replace(values ...*models.SearchQuery) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a queryListingStateBelongsToQueryTx) Delete(values ...*models.SearchQuery) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a queryListingStateBelongsToQueryTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a queryListingStateBelongsToQueryTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a queryListingStateBelongsToQueryTx) Unscoped() *queryListingStateBelongsToQueryTx {
+	a.tx = a.tx.Unscoped()
+	return &a
+}
+
+type queryListingStateBelongsToListing struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a queryListingStateBelongsToListing) Where(conds ...field.Expr) *queryListingStateBelongsToListing {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a queryListingStateBelongsToListing) WithContext(ctx context.Context) *queryListingStateBelongsToListing {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a queryListingStateBelongsToListing) Session(session *gorm.Session) *queryListingStateBelongsToListing {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a queryListingStateBelongsToListing) Model(m *models.QueryListingState) *queryListingStateBelongsToListingTx {
+	return &queryListingStateBelongsToListingTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a queryListingStateBelongsToListing) Unscoped() *queryListingStateBelongsToListing {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type queryListingStateBelongsToListingTx struct{ tx *gorm.Association }
+
+func (a queryListingStateBelongsToListingTx) Find() (result *models.Listing, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a queryListingStateBelongsToListingTx) Append(values ...*models.Listing) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a queryListingStateBelongsToListingTx) Replace(values ...*models.Listing) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a queryListingStateBelongsToListingTx) Delete(values ...*models.Listing) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a queryListingStateBelongsToListingTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a queryListingStateBelongsToListingTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a queryListingStateBelongsToListingTx) Unscoped() *queryListingStateBelongsToListingTx {
+	a.tx = a.tx.Unscoped()
+	return &a
 }
 
 type queryListingStateDo struct{ gen.DO }

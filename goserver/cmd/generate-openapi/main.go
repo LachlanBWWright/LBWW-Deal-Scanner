@@ -468,8 +468,16 @@ const openApiJSON = `{
                           "requiredPhrases": {
                             "type": "string"
                           },
+                          "requiredMatchMode": {
+                            "type": "string",
+                            "enum": ["any", "all"]
+                          },
                           "excludePhrases": {
                             "type": "string"
+                          },
+                          "excludeMatchMode": {
+                            "type": "string",
+                            "enum": ["any", "all"]
                           },
                           "scanMode": {
                             "type": "string",

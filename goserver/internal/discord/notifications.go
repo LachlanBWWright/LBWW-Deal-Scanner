@@ -199,8 +199,8 @@ func (b *Bot) getQueryIdByTypeAndKey(ctx context.Context, qType, key string) (st
 			qId = gt.QueryId
 		}
 	case "cashConverters":
-		var cc *models.CashConverters
-		cc, err = b.dbClient.CashConverters.WithContext(ctx).Where(b.dbClient.CashConverters.Url.Eq(key)).First()
+		var cc *models.CashConvertersFilter
+		cc, err = b.dbClient.CashConvertersFilter.WithContext(ctx).Where(b.dbClient.CashConvertersFilter.ID.Eq(key)).First()
 		if err == nil {
 			qId = cc.QueryId
 		}

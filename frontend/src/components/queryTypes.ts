@@ -16,7 +16,9 @@ export interface QueryFormState {
   minFloat: number | "";
   maxFloat: number | "";
   requiredPhrases: string;
+  requiredMatchMode: "any" | "all";
   excludePhrases: string;
+  excludeMatchMode: "any" | "all";
   scanMode: string;
   dmOnly: boolean;
 }
@@ -36,6 +38,7 @@ export type FormField = {
   label: string;
   key: keyof QueryFormState;
   type: string;
+  options?: readonly { label: string; value: string }[];
 };
 
 export const supportedQueryTypes: QueryType[] = [

@@ -32,6 +32,11 @@ func newUserQuery(db *gorm.DB, opts ...gen.DOOption) userQuery {
 	_userQuery.QueryId = field.NewString(tableName, "queryId")
 	_userQuery.QueryType = field.NewString(tableName, "queryType")
 	_userQuery.CreatedAt = field.NewTime(tableName, "createdAt")
+	_userQuery.Query = userQueryBelongsToQuery{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Query", "models.SearchQuery"),
+	}
 
 	_userQuery.fillFieldMap()
 
@@ -47,6 +52,7 @@ type userQuery struct {
 	QueryId   field.String
 	QueryType field.String
 	CreatedAt field.Time
+	Query     userQueryBelongsToQuery
 
 	fieldMap map[string]field.Expr
 }
@@ -94,22 +100,107 @@ func (u *userQuery) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *userQuery) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 5)
+	u.fieldMap = make(map[string]field.Expr, 6)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["userId"] = u.UserId
 	u.fieldMap["queryId"] = u.QueryId
 	u.fieldMap["queryType"] = u.QueryType
 	u.fieldMap["createdAt"] = u.CreatedAt
+
 }
 
 func (u userQuery) clone(db *gorm.DB) userQuery {
 	u.userQueryDo.ReplaceConnPool(db.Statement.ConnPool)
+	u.Query.db = db.Session(&gorm.Session{Initialized: true})
+	u.Query.db.Statement.ConnPool = db.Statement.ConnPool
 	return u
 }
 
 func (u userQuery) replaceDB(db *gorm.DB) userQuery {
 	u.userQueryDo.ReplaceDB(db)
+	u.Query.db = db.Session(&gorm.Session{})
 	return u
+}
+
+type userQueryBelongsToQuery struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a userQueryBelongsToQuery) Where(conds ...field.Expr) *userQueryBelongsToQuery {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a userQueryBelongsToQuery) WithContext(ctx context.Context) *userQueryBelongsToQuery {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a userQueryBelongsToQuery) Session(session *gorm.Session) *userQueryBelongsToQuery {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a userQueryBelongsToQuery) Model(m *models.UserQuery) *userQueryBelongsToQueryTx {
+	return &userQueryBelongsToQueryTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a userQueryBelongsToQuery) Unscoped() *userQueryBelongsToQuery {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type userQueryBelongsToQueryTx struct{ tx *gorm.Association }
+
+func (a userQueryBelongsToQueryTx) Find() (result *models.SearchQuery, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a userQueryBelongsToQueryTx) Append(values ...*models.SearchQuery) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a userQueryBelongsToQueryTx) Replace(values ...*models.SearchQuery) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a userQueryBelongsToQueryTx) Delete(values ...*models.SearchQuery) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a userQueryBelongsToQueryTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a userQueryBelongsToQueryTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a userQueryBelongsToQueryTx) Unscoped() *userQueryBelongsToQueryTx {
+	a.tx = a.tx.Unscoped()
+	return &a
 }
 
 type userQueryDo struct{ gen.DO }

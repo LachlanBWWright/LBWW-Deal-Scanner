@@ -53,10 +53,16 @@ func Open(connStr string, tursoAuthToken string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open libsql database: %w", err)
 	}
 
+	if err := migrateCashConvertersFilters(db); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to migrate Cash Converters filters: %w", err)
+	}
+
 	err = db.AutoMigrate(
 		&SearchQuery{},
 		&UserQuery{},
 		&CashConverters{},
+		&CashConvertersFilter{},
 		&Ebay{},
 		&Gumtree{},
 		&Salvos{},
@@ -77,6 +83,88 @@ func Open(connStr string, tursoAuthToken string) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+func migrateCashConvertersFilters(db *gorm.DB) error {
+	if !db.Migrator().HasTable("CashConverters") {
+		return nil
+	}
+	if db.Migrator().HasTable("CashConvertersFilter") {
+		return nil
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		type legacyCashConverters struct {
+			Url                   string
+			RequiredPhrases       string
+			ExcludePhrases        string
+			RequiredInDescription string
+			ExcludeInDescription  string
+			MinPrice              *float64
+			MaxPrice              *float64
+			ScanMode              string
+			QueryId               string
+		}
+
+		var rows []legacyCashConverters
+		if err := tx.Table("CashConverters").Find(&rows).Error; err != nil {
+			return fmt.Errorf("read legacy rows: %w", err)
+		}
+		if err := tx.Migrator().RenameTable("CashConverters", "CashConvertersLegacy"); err != nil {
+			return fmt.Errorf("rename legacy table: %w", err)
+		}
+		if err := tx.AutoMigrate(&CashConverters{}, &CashConvertersFilter{}); err != nil {
+			return fmt.Errorf("create filter tables: %w", err)
+		}
+
+		for _, row := range rows {
+			scanMode := row.ScanMode
+			if scanMode == "" {
+				scanMode = "searchUrl"
+			}
+			if err := tx.Create(&CashConverters{Url: row.Url, ScanMode: scanMode}).Error; err != nil {
+				return fmt.Errorf("copy search %q: %w", row.Url, err)
+			}
+			required := combineLegacyPhrases(row.RequiredPhrases, row.RequiredInDescription)
+			excluded := combineLegacyPhrases(row.ExcludePhrases, row.ExcludeInDescription)
+			filter := CashConvertersFilter{
+				ID:                row.QueryId,
+				CashConvertersUrl: row.Url,
+				QueryId:           row.QueryId,
+				RequiredPhrases:   required,
+				RequiredMatchMode: "all",
+				ExcludePhrases:    excluded,
+				ExcludeMatchMode:  "any",
+				MinPrice:          row.MinPrice,
+				MaxPrice:          row.MaxPrice,
+				CreatedAt:         time.Now().UTC(),
+			}
+			if err := tx.Create(&filter).Error; err != nil {
+				return fmt.Errorf("copy filter for %q: %w", row.Url, err)
+			}
+		}
+
+		var copied int64
+		if err := tx.Model(&CashConvertersFilter{}).Count(&copied).Error; err != nil {
+			return fmt.Errorf("count copied filters: %w", err)
+		}
+		if copied != int64(len(rows)) {
+			return fmt.Errorf("copied %d of %d Cash Converters filters", copied, len(rows))
+		}
+		return nil
+	})
+}
+
+func combineLegacyPhrases(primary string, legacy string) string {
+	primary = strings.TrimSpace(primary)
+	legacy = strings.TrimSpace(legacy)
+	if primary == "" {
+		return legacy
+	}
+	if legacy == "" || legacy == primary {
+		return primary
+	}
+	return primary + "," + legacy
 }
 
 // validatingConnector works around remote Hrana streams becoming closed while

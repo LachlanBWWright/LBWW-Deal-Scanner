@@ -55,7 +55,7 @@ function updateDmOnly(value: boolean) {
 
 function onFieldInput(field: FormField, event: Event) {
   const target = event.target;
-  if (!(target instanceof HTMLInputElement)) return;
+  if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
   updateField(field, target.value);
 }
 
@@ -90,7 +90,19 @@ export default {};
         class="space-y-2"
       >
         <Label :for="field.key">{{ field.label }}</Label>
+        <select
+          v-if="field.type === 'select'"
+          :id="field.key"
+          class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          :value="fieldValue(field.key)"
+          @change="onFieldInput(field, $event)"
+        >
+          <option v-for="option in field.options" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
         <Input
+          v-else
           :id="field.key"
           :type="field.type"
           :value="fieldValue(field.key)"

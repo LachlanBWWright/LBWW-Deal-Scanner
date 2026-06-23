@@ -16,29 +16,31 @@ import (
 )
 
 var (
-	Q                   = new(Query)
-	ActionRegistry      *actionRegistry
-	CashConverters      *cashConverters
-	CsMarket            *csMarket
-	CsTradeBot          *csTradeBot
-	Ebay                *ebay
-	Globals             *globals
-	Gumtree             *gumtree
-	Listing             *listing
-	ListingObservation  *listingObservation
-	QueryListingState   *queryListingState
-	Salvos              *salvos
-	ScannerRuntimeState *scannerRuntimeState
-	SearchQuery         *searchQuery
-	SteamMarket         *steamMarket
-	TtlItem             *ttlItem
-	UserQuery           *userQuery
+	Q                    = new(Query)
+	ActionRegistry       *actionRegistry
+	CashConverters       *cashConverters
+	CashConvertersFilter *cashConvertersFilter
+	CsMarket             *csMarket
+	CsTradeBot           *csTradeBot
+	Ebay                 *ebay
+	Globals              *globals
+	Gumtree              *gumtree
+	Listing              *listing
+	ListingObservation   *listingObservation
+	QueryListingState    *queryListingState
+	Salvos               *salvos
+	ScannerRuntimeState  *scannerRuntimeState
+	SearchQuery          *searchQuery
+	SteamMarket          *steamMarket
+	TtlItem              *ttlItem
+	UserQuery            *userQuery
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
 	ActionRegistry = &Q.ActionRegistry
 	CashConverters = &Q.CashConverters
+	CashConvertersFilter = &Q.CashConvertersFilter
 	CsMarket = &Q.CsMarket
 	CsTradeBot = &Q.CsTradeBot
 	Ebay = &Q.Ebay
@@ -57,45 +59,47 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:                  db,
-		ActionRegistry:      newActionRegistry(db, opts...),
-		CashConverters:      newCashConverters(db, opts...),
-		CsMarket:            newCsMarket(db, opts...),
-		CsTradeBot:          newCsTradeBot(db, opts...),
-		Ebay:                newEbay(db, opts...),
-		Globals:             newGlobals(db, opts...),
-		Gumtree:             newGumtree(db, opts...),
-		Listing:             newListing(db, opts...),
-		ListingObservation:  newListingObservation(db, opts...),
-		QueryListingState:   newQueryListingState(db, opts...),
-		Salvos:              newSalvos(db, opts...),
-		ScannerRuntimeState: newScannerRuntimeState(db, opts...),
-		SearchQuery:         newSearchQuery(db, opts...),
-		SteamMarket:         newSteamMarket(db, opts...),
-		TtlItem:             newTtlItem(db, opts...),
-		UserQuery:           newUserQuery(db, opts...),
+		db:                   db,
+		ActionRegistry:       newActionRegistry(db, opts...),
+		CashConverters:       newCashConverters(db, opts...),
+		CashConvertersFilter: newCashConvertersFilter(db, opts...),
+		CsMarket:             newCsMarket(db, opts...),
+		CsTradeBot:           newCsTradeBot(db, opts...),
+		Ebay:                 newEbay(db, opts...),
+		Globals:              newGlobals(db, opts...),
+		Gumtree:              newGumtree(db, opts...),
+		Listing:              newListing(db, opts...),
+		ListingObservation:   newListingObservation(db, opts...),
+		QueryListingState:    newQueryListingState(db, opts...),
+		Salvos:               newSalvos(db, opts...),
+		ScannerRuntimeState:  newScannerRuntimeState(db, opts...),
+		SearchQuery:          newSearchQuery(db, opts...),
+		SteamMarket:          newSteamMarket(db, opts...),
+		TtlItem:              newTtlItem(db, opts...),
+		UserQuery:            newUserQuery(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	ActionRegistry      actionRegistry
-	CashConverters      cashConverters
-	CsMarket            csMarket
-	CsTradeBot          csTradeBot
-	Ebay                ebay
-	Globals             globals
-	Gumtree             gumtree
-	Listing             listing
-	ListingObservation  listingObservation
-	QueryListingState   queryListingState
-	Salvos              salvos
-	ScannerRuntimeState scannerRuntimeState
-	SearchQuery         searchQuery
-	SteamMarket         steamMarket
-	TtlItem             ttlItem
-	UserQuery           userQuery
+	ActionRegistry       actionRegistry
+	CashConverters       cashConverters
+	CashConvertersFilter cashConvertersFilter
+	CsMarket             csMarket
+	CsTradeBot           csTradeBot
+	Ebay                 ebay
+	Globals              globals
+	Gumtree              gumtree
+	Listing              listing
+	ListingObservation   listingObservation
+	QueryListingState    queryListingState
+	Salvos               salvos
+	ScannerRuntimeState  scannerRuntimeState
+	SearchQuery          searchQuery
+	SteamMarket          steamMarket
+	TtlItem              ttlItem
+	UserQuery            userQuery
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -104,23 +108,24 @@ func (q *Query) UnderlyingDB() *gorm.DB { return q.db }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:                  db,
-		ActionRegistry:      q.ActionRegistry.clone(db),
-		CashConverters:      q.CashConverters.clone(db),
-		CsMarket:            q.CsMarket.clone(db),
-		CsTradeBot:          q.CsTradeBot.clone(db),
-		Ebay:                q.Ebay.clone(db),
-		Globals:             q.Globals.clone(db),
-		Gumtree:             q.Gumtree.clone(db),
-		Listing:             q.Listing.clone(db),
-		ListingObservation:  q.ListingObservation.clone(db),
-		QueryListingState:   q.QueryListingState.clone(db),
-		Salvos:              q.Salvos.clone(db),
-		ScannerRuntimeState: q.ScannerRuntimeState.clone(db),
-		SearchQuery:         q.SearchQuery.clone(db),
-		SteamMarket:         q.SteamMarket.clone(db),
-		TtlItem:             q.TtlItem.clone(db),
-		UserQuery:           q.UserQuery.clone(db),
+		db:                   db,
+		ActionRegistry:       q.ActionRegistry.clone(db),
+		CashConverters:       q.CashConverters.clone(db),
+		CashConvertersFilter: q.CashConvertersFilter.clone(db),
+		CsMarket:             q.CsMarket.clone(db),
+		CsTradeBot:           q.CsTradeBot.clone(db),
+		Ebay:                 q.Ebay.clone(db),
+		Globals:              q.Globals.clone(db),
+		Gumtree:              q.Gumtree.clone(db),
+		Listing:              q.Listing.clone(db),
+		ListingObservation:   q.ListingObservation.clone(db),
+		QueryListingState:    q.QueryListingState.clone(db),
+		Salvos:               q.Salvos.clone(db),
+		ScannerRuntimeState:  q.ScannerRuntimeState.clone(db),
+		SearchQuery:          q.SearchQuery.clone(db),
+		SteamMarket:          q.SteamMarket.clone(db),
+		TtlItem:              q.TtlItem.clone(db),
+		UserQuery:            q.UserQuery.clone(db),
 	}
 }
 
@@ -134,63 +139,66 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:                  db,
-		ActionRegistry:      q.ActionRegistry.replaceDB(db),
-		CashConverters:      q.CashConverters.replaceDB(db),
-		CsMarket:            q.CsMarket.replaceDB(db),
-		CsTradeBot:          q.CsTradeBot.replaceDB(db),
-		Ebay:                q.Ebay.replaceDB(db),
-		Globals:             q.Globals.replaceDB(db),
-		Gumtree:             q.Gumtree.replaceDB(db),
-		Listing:             q.Listing.replaceDB(db),
-		ListingObservation:  q.ListingObservation.replaceDB(db),
-		QueryListingState:   q.QueryListingState.replaceDB(db),
-		Salvos:              q.Salvos.replaceDB(db),
-		ScannerRuntimeState: q.ScannerRuntimeState.replaceDB(db),
-		SearchQuery:         q.SearchQuery.replaceDB(db),
-		SteamMarket:         q.SteamMarket.replaceDB(db),
-		TtlItem:             q.TtlItem.replaceDB(db),
-		UserQuery:           q.UserQuery.replaceDB(db),
+		db:                   db,
+		ActionRegistry:       q.ActionRegistry.replaceDB(db),
+		CashConverters:       q.CashConverters.replaceDB(db),
+		CashConvertersFilter: q.CashConvertersFilter.replaceDB(db),
+		CsMarket:             q.CsMarket.replaceDB(db),
+		CsTradeBot:           q.CsTradeBot.replaceDB(db),
+		Ebay:                 q.Ebay.replaceDB(db),
+		Globals:              q.Globals.replaceDB(db),
+		Gumtree:              q.Gumtree.replaceDB(db),
+		Listing:              q.Listing.replaceDB(db),
+		ListingObservation:   q.ListingObservation.replaceDB(db),
+		QueryListingState:    q.QueryListingState.replaceDB(db),
+		Salvos:               q.Salvos.replaceDB(db),
+		ScannerRuntimeState:  q.ScannerRuntimeState.replaceDB(db),
+		SearchQuery:          q.SearchQuery.replaceDB(db),
+		SteamMarket:          q.SteamMarket.replaceDB(db),
+		TtlItem:              q.TtlItem.replaceDB(db),
+		UserQuery:            q.UserQuery.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	ActionRegistry      IActionRegistryDo
-	CashConverters      ICashConvertersDo
-	CsMarket            ICsMarketDo
-	CsTradeBot          ICsTradeBotDo
-	Ebay                IEbayDo
-	Globals             IGlobalsDo
-	Gumtree             IGumtreeDo
-	Listing             IListingDo
-	ListingObservation  IListingObservationDo
-	QueryListingState   IQueryListingStateDo
-	Salvos              ISalvosDo
-	ScannerRuntimeState IScannerRuntimeStateDo
-	SearchQuery         ISearchQueryDo
-	SteamMarket         ISteamMarketDo
-	TtlItem             ITtlItemDo
-	UserQuery           IUserQueryDo
+	ActionRegistry       IActionRegistryDo
+	CashConverters       ICashConvertersDo
+	CashConvertersFilter ICashConvertersFilterDo
+	CsMarket             ICsMarketDo
+	CsTradeBot           ICsTradeBotDo
+	Ebay                 IEbayDo
+	Globals              IGlobalsDo
+	Gumtree              IGumtreeDo
+	Listing              IListingDo
+	ListingObservation   IListingObservationDo
+	QueryListingState    IQueryListingStateDo
+	Salvos               ISalvosDo
+	ScannerRuntimeState  IScannerRuntimeStateDo
+	SearchQuery          ISearchQueryDo
+	SteamMarket          ISteamMarketDo
+	TtlItem              ITtlItemDo
+	UserQuery            IUserQueryDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		ActionRegistry:      q.ActionRegistry.WithContext(ctx),
-		CashConverters:      q.CashConverters.WithContext(ctx),
-		CsMarket:            q.CsMarket.WithContext(ctx),
-		CsTradeBot:          q.CsTradeBot.WithContext(ctx),
-		Ebay:                q.Ebay.WithContext(ctx),
-		Globals:             q.Globals.WithContext(ctx),
-		Gumtree:             q.Gumtree.WithContext(ctx),
-		Listing:             q.Listing.WithContext(ctx),
-		ListingObservation:  q.ListingObservation.WithContext(ctx),
-		QueryListingState:   q.QueryListingState.WithContext(ctx),
-		Salvos:              q.Salvos.WithContext(ctx),
-		ScannerRuntimeState: q.ScannerRuntimeState.WithContext(ctx),
-		SearchQuery:         q.SearchQuery.WithContext(ctx),
-		SteamMarket:         q.SteamMarket.WithContext(ctx),
-		TtlItem:             q.TtlItem.WithContext(ctx),
-		UserQuery:           q.UserQuery.WithContext(ctx),
+		ActionRegistry:       q.ActionRegistry.WithContext(ctx),
+		CashConverters:       q.CashConverters.WithContext(ctx),
+		CashConvertersFilter: q.CashConvertersFilter.WithContext(ctx),
+		CsMarket:             q.CsMarket.WithContext(ctx),
+		CsTradeBot:           q.CsTradeBot.WithContext(ctx),
+		Ebay:                 q.Ebay.WithContext(ctx),
+		Globals:              q.Globals.WithContext(ctx),
+		Gumtree:              q.Gumtree.WithContext(ctx),
+		Listing:              q.Listing.WithContext(ctx),
+		ListingObservation:   q.ListingObservation.WithContext(ctx),
+		QueryListingState:    q.QueryListingState.WithContext(ctx),
+		Salvos:               q.Salvos.WithContext(ctx),
+		ScannerRuntimeState:  q.ScannerRuntimeState.WithContext(ctx),
+		SearchQuery:          q.SearchQuery.WithContext(ctx),
+		SteamMarket:          q.SteamMarket.WithContext(ctx),
+		TtlItem:              q.TtlItem.WithContext(ctx),
+		UserQuery:            q.UserQuery.WithContext(ctx),
 	}
 }
 

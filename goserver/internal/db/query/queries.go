@@ -12,24 +12,37 @@ import (
 )
 
 type QueryItem struct {
-	QueryId         string   `json:"queryId"`
-	Type            string   `json:"type"`
-	Id              string   `json:"id"`
-	DmOnly          bool     `json:"dmOnly"`
-	Url             *string  `json:"url,omitempty"`
-	Name            *string  `json:"name,omitempty"`
-	DisplayUrl      *string  `json:"displayUrl,omitempty"`
-	MaxPrice        *float64 `json:"maxPrice,omitempty"`
-	MinPrice        *float64 `json:"minPrice,omitempty"`
-	MinFloat        *float64 `json:"minFloat,omitempty"`
-	MaxFloat        *float64 `json:"maxFloat,omitempty"`
-	RequiredPhrases *string  `json:"requiredPhrases,omitempty"`
-	ExcludePhrases  *string  `json:"excludePhrases,omitempty"`
+	QueryId           string   `json:"queryId"`
+	Type              string   `json:"type"`
+	Id                string   `json:"id"`
+	DmOnly            bool     `json:"dmOnly"`
+	Url               *string  `json:"url,omitempty"`
+	Name              *string  `json:"name,omitempty"`
+	DisplayUrl        *string  `json:"displayUrl,omitempty"`
+	MaxPrice          *float64 `json:"maxPrice,omitempty"`
+	MinPrice          *float64 `json:"minPrice,omitempty"`
+	MinFloat          *float64 `json:"minFloat,omitempty"`
+	MaxFloat          *float64 `json:"maxFloat,omitempty"`
+	RequiredPhrases   *string  `json:"requiredPhrases,omitempty"`
+	RequiredMatchMode *string  `json:"requiredMatchMode,omitempty"`
+	ExcludePhrases    *string  `json:"excludePhrases,omitempty"`
+	ExcludeMatchMode  *string  `json:"excludeMatchMode,omitempty"`
 	// Deprecated: compatibility fields for columns that should be merged into
 	// RequiredPhrases/ExcludePhrases and removed in a future schema migration.
 	RequiredInDescription *string `json:"requiredInDescription,omitempty"`
 	ExcludeInDescription  *string `json:"excludeInDescription,omitempty"`
 	ScanMode              *string `json:"scanMode,omitempty"`
+}
+
+type CashConvertersQueryInput struct {
+	Url               string   `json:"url"`
+	ScanMode          string   `json:"scanMode"`
+	RequiredPhrases   string   `json:"requiredPhrases"`
+	RequiredMatchMode string   `json:"requiredMatchMode"`
+	ExcludePhrases    string   `json:"excludePhrases"`
+	ExcludeMatchMode  string   `json:"excludeMatchMode"`
+	MinPrice          *float64 `json:"minPrice"`
+	MaxPrice          *float64 `json:"maxPrice"`
 }
 
 func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]QueryItem, error) {
@@ -41,31 +54,31 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 
 	// CashConverters
 	if queryType == "" || queryType == "cashConverters" {
-		cc := q.CashConverters
-		results, err := cc.WithContext(ctx).Preload(cc.Query).Find()
+		filter := q.CashConvertersFilter
+		results, err := filter.WithContext(ctx).Preload(filter.Query).Preload(filter.CashConverters).Find()
 		if err != nil {
 			return nil, fmt.Errorf("list cash converters queries: %w", err)
 		}
 		for _, r := range results {
-			urlVal := r.Url
+			urlVal := r.CashConvertersUrl
 			reqPhrases := r.RequiredPhrases
 			exclPhrases := r.ExcludePhrases
-			reqInDesc := r.RequiredInDescription
-			exclInDesc := r.ExcludeInDescription
-			scanMode := r.ScanMode
+			requiredMode := r.RequiredMatchMode
+			excludeMode := r.ExcludeMatchMode
+			scanMode := r.CashConverters.ScanMode
 			list = append(list, QueryItem{
-				QueryId:               r.QueryId,
-				Type:                  "cashConverters",
-				Id:                    r.Url,
-				DmOnly:                r.Query.DmOnly,
-				Url:                   &urlVal,
-				RequiredPhrases:       &reqPhrases,
-				ExcludePhrases:        &exclPhrases,
-				RequiredInDescription: &reqInDesc,
-				ExcludeInDescription:  &exclInDesc,
-				ScanMode:              &scanMode,
-				MinPrice:              r.MinPrice,
-				MaxPrice:              r.MaxPrice,
+				QueryId:           r.QueryId,
+				Type:              "cashConverters",
+				Id:                r.ID,
+				DmOnly:            r.Query.DmOnly,
+				Url:               &urlVal,
+				RequiredPhrases:   &reqPhrases,
+				RequiredMatchMode: &requiredMode,
+				ExcludePhrases:    &exclPhrases,
+				ExcludeMatchMode:  &excludeMode,
+				ScanMode:          &scanMode,
+				MinPrice:          r.MinPrice,
+				MaxPrice:          r.MaxPrice,
 			})
 		}
 	}
@@ -223,10 +236,10 @@ func (q *Query) fetchQueryItem(ctx context.Context, queryType string, queryId st
 			return item, nil
 		}
 	}
-	return queries[len(queries)-1], nil
+	return QueryItem{}, fmt.Errorf("query %q of type %q not found", queryId, queryType)
 }
 
-func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, cc *models.CashConverters) (QueryItem, error) {
+func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, input CashConvertersQueryInput) (QueryItem, error) {
 	queryId := uuid.New().String()
 	qParent := models.SearchQuery{
 		ID:        queryId,
@@ -235,20 +248,39 @@ func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, cc *
 	}
 
 	err := q.Transaction(func(tx *Query) error {
+		scanMode := input.ScanMode
+		if scanMode == "" {
+			scanMode = "searchUrl"
+		}
+		if _, err := tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(input.Url)).
+			Attrs(tx.CashConverters.ScanMode.Value(scanMode)).FirstOrCreate(); err != nil {
+			return err
+		}
 		if err := tx.SearchQuery.WithContext(ctx).Create(&qParent); err != nil {
 			return err
 		}
-		cc.QueryId = queryId
-		if cc.ScanMode == "" {
-			cc.ScanMode = "searchUrl"
+		filter := models.CashConvertersFilter{
+			ID: queryId, CashConvertersUrl: input.Url, QueryId: queryId,
+			RequiredPhrases:   input.RequiredPhrases,
+			RequiredMatchMode: normalizeMatchMode(input.RequiredMatchMode, "all"),
+			ExcludePhrases:    input.ExcludePhrases,
+			ExcludeMatchMode:  normalizeMatchMode(input.ExcludeMatchMode, "any"),
+			MinPrice:          input.MinPrice, MaxPrice: input.MaxPrice, CreatedAt: time.Now().UTC(),
 		}
-		return tx.CashConverters.WithContext(ctx).Create(cc)
+		return tx.CashConvertersFilter.WithContext(ctx).Create(&filter)
 	})
 	if err != nil {
 		return QueryItem{}, err
 	}
 	defaultSavedQueryCache.invalidate()
-	return q.fetchQueryItem(ctx, "cashConverters", cc.Url)
+	return q.fetchQueryItem(ctx, "cashConverters", queryId)
+}
+
+func normalizeMatchMode(value string, fallback string) string {
+	if value == "any" || value == "all" {
+		return value
+	}
+	return fallback
 }
 
 func (q *Query) CreateEbayQuery(ctx context.Context, dmOnly bool, eb *models.Ebay) (QueryItem, error) {
@@ -383,38 +415,58 @@ func (q *Query) CreateCsTradeBotQuery(ctx context.Context, dmOnly bool, ct *mode
 	return q.fetchQueryItem(ctx, "csTradeBot", ct.Name)
 }
 
-func (q *Query) UpdateCashConvertersQuery(ctx context.Context, id string, dmOnly bool, cc *models.CashConverters) (QueryItem, error) {
+func (q *Query) UpdateCashConvertersQuery(ctx context.Context, id string, dmOnly bool, input CashConvertersQueryInput) (QueryItem, error) {
 	err := q.Transaction(func(tx *Query) error {
-		existing, err := tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(id)).First()
+		existing, err := tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.ID.Eq(id)).First()
 		if err != nil {
 			return err
 		}
 		if _, err := tx.SearchQuery.WithContext(ctx).Where(tx.SearchQuery.ID.Eq(existing.QueryId)).Update(tx.SearchQuery.DmOnly, dmOnly); err != nil {
 			return err
 		}
-		if cc.Url == "" {
-			cc.Url = id
+		targetURL := input.Url
+		if targetURL == "" {
+			targetURL = existing.CashConvertersUrl
 		}
-		if cc.ScanMode == "" {
-			cc.ScanMode = "searchUrl"
+		scanMode := input.ScanMode
+		if scanMode == "" {
+			scanMode = "searchUrl"
 		}
-		_, err = tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(id)).Updates(map[string]interface{}{
-			"url":                   cc.Url,
-			"requiredPhrases":       cc.RequiredPhrases,
-			"excludePhrases":        cc.ExcludePhrases,
-			"requiredInDescription": cc.RequiredInDescription,
-			"excludeInDescription":  cc.ExcludeInDescription,
-			"minPrice":              cc.MinPrice,
-			"maxPrice":              cc.MaxPrice,
-			"scanMode":              cc.ScanMode,
+		if _, err := tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(targetURL)).
+			Attrs(tx.CashConverters.ScanMode.Value(scanMode)).FirstOrCreate(); err != nil {
+			return err
+		}
+		if _, err = tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(targetURL)).Update(tx.CashConverters.ScanMode, scanMode); err != nil {
+			return err
+		}
+		_, err = tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.ID.Eq(id)).Updates(map[string]interface{}{
+			"cashConvertersUrl": targetURL,
+			"requiredPhrases":   input.RequiredPhrases,
+			"requiredMatchMode": normalizeMatchMode(input.RequiredMatchMode, "all"),
+			"excludePhrases":    input.ExcludePhrases,
+			"excludeMatchMode":  normalizeMatchMode(input.ExcludeMatchMode, "any"),
+			"minPrice":          input.MinPrice,
+			"maxPrice":          input.MaxPrice,
 		})
+		if err != nil {
+			return err
+		}
+		if existing.CashConvertersUrl != targetURL {
+			count, countErr := tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.CashConvertersUrl.Eq(existing.CashConvertersUrl)).Count()
+			if countErr != nil {
+				return countErr
+			}
+			if count == 0 {
+				_, err = tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(existing.CashConvertersUrl)).Delete()
+			}
+		}
 		return err
 	})
 	if err != nil {
 		return QueryItem{}, err
 	}
 	defaultSavedQueryCache.invalidate()
-	return q.fetchQueryItem(ctx, "cashConverters", cc.Url)
+	return q.fetchQueryItem(ctx, "cashConverters", id)
 }
 
 func (q *Query) UpdateEbayQuery(ctx context.Context, id string, dmOnly bool, eb *models.Ebay) (QueryItem, error) {
@@ -582,14 +634,16 @@ func (q *Query) UpdateCsTradeBotQuery(ctx context.Context, id string, dmOnly boo
 func (q *Query) DeleteSavedQuery(ctx context.Context, queryType string, id string) error {
 	err := q.Transaction(func(tx *Query) error {
 		var queryId string
+		var cashConvertersURL string
 		var err error
 
 		switch queryType {
 		case "cashConverters":
-			var cc *models.CashConverters
-			cc, err = tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(id)).First()
+			var filter *models.CashConvertersFilter
+			filter, err = tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.ID.Eq(id)).First()
 			if err == nil {
-				queryId = cc.QueryId
+				queryId = filter.QueryId
+				cashConvertersURL = filter.CashConvertersUrl
 			}
 		case "ebay":
 			var eb *models.Ebay
@@ -636,7 +690,23 @@ func (q *Query) DeleteSavedQuery(ctx context.Context, queryType string, id strin
 			return err
 		}
 
-		_, err = tx.SearchQuery.WithContext(ctx).Where(tx.SearchQuery.ID.Eq(queryId)).Delete()
+		if cashConvertersURL != "" {
+			if _, err = tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.ID.Eq(id)).Delete(); err != nil {
+				return err
+			}
+		}
+		if _, err = tx.SearchQuery.WithContext(ctx).Where(tx.SearchQuery.ID.Eq(queryId)).Delete(); err != nil {
+			return err
+		}
+		if cashConvertersURL != "" {
+			count, countErr := tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.CashConvertersUrl.Eq(cashConvertersURL)).Count()
+			if countErr != nil {
+				return countErr
+			}
+			if count == 0 {
+				_, err = tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(cashConvertersURL)).Delete()
+			}
+		}
 		return err
 	})
 	if err != nil {

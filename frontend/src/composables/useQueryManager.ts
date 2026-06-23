@@ -34,7 +34,9 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       minFloat: "",
       maxFloat: "",
       requiredPhrases: "",
+      requiredMatchMode: "all",
       excludePhrases: "",
+      excludeMatchMode: "any",
       scanMode: "searchUrl",
       dmOnly: false,
     };
@@ -92,7 +94,9 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
         return [
           { label: "Query URL", key: "url", type: "url" },
           { label: "Required phrases", key: "requiredPhrases", type: "text" },
+          { label: "Required phrase matching", key: "requiredMatchMode", type: "select", options: [{ label: "All phrases", value: "all" }, { label: "Any phrase", value: "any" }] },
           { label: "Exclude phrases", key: "excludePhrases", type: "text" },
+          { label: "Excluded phrase matching", key: "excludeMatchMode", type: "select", options: [{ label: "Any phrase", value: "any" }, { label: "All phrases", value: "all" }] },
           { label: "Min price", key: "minPrice", type: "number" },
           { label: "Max price", key: "maxPrice", type: "number" },
           { label: "Scan mode", key: "scanMode", type: "text" },
@@ -161,7 +165,9 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       minFloat: item.minFloat ?? 0,
       maxFloat: item.maxFloat ?? 0,
       requiredPhrases: item.requiredPhrases || "",
+      requiredMatchMode: item.requiredMatchMode || "all",
       excludePhrases: item.excludePhrases || "",
+      excludeMatchMode: item.excludeMatchMode || "any",
       scanMode: item.scanMode || "searchUrl",
       dmOnly: item.dmOnly,
     };
@@ -191,7 +197,9 @@ export function useQueryManager(apiHost: ComputedRef<string>, apiSecret: Compute
       case "cashConverters":
         payload.url = form.value.url;
         payload.requiredPhrases = form.value.requiredPhrases;
+        payload.requiredMatchMode = form.value.requiredMatchMode;
         payload.excludePhrases = form.value.excludePhrases;
+        payload.excludeMatchMode = form.value.excludeMatchMode;
         payload.scanMode = form.value.scanMode || "searchUrl";
         if (form.value.minPrice !== "") {
           payload.minPrice = form.value.minPrice;

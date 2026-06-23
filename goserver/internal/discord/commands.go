@@ -5,9 +5,31 @@ import (
 	"fmt"
 	"log"
 
+	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/models"
 	"github.com/bwmarrin/discordgo"
 )
+
+func valueOrString(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func matchModeChoices() []*discordgo.ApplicationCommandOptionChoice {
+	return []*discordgo.ApplicationCommandOptionChoice{
+		{Name: "All phrases", Value: "all"},
+		{Name: "Any phrase", Value: "any"},
+	}
+}
+
+func getOptionalString(options map[string]*discordgo.ApplicationCommandInteractionDataOption, name string, fallback string) string {
+	if option, ok := options[name]; ok && option != nil {
+		return option.StringValue()
+	}
+	return fallback
+}
 
 func (b *Bot) registerCommands() {
 	commands := []*discordgo.ApplicationCommand{
@@ -32,7 +54,9 @@ func (b *Bot) registerCommands() {
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Enter the minimum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Enter the maximum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredmode", Description: "Require any or all phrases.", Required: false, Choices: matchModeChoices()},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excludedmode", Description: "Exclude on any or all phrases.", Required: false, Choices: matchModeChoices()},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
 				{Name: "Search URL", Value: "searchUrl"},
 				{Name: "Site wide", Value: "siteWide"},
@@ -45,7 +69,9 @@ func (b *Bot) registerCommands() {
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Optional minimum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Optional maximum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredmode", Description: "Require any or all phrases.", Required: false, Choices: matchModeChoices()},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excludedmode", Description: "Exclude on any or all phrases.", Required: false, Choices: matchModeChoices()},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
 				{Name: "Search URL", Value: "searchUrl"},
 				{Name: "Site wide", Value: "siteWide"},
@@ -262,18 +288,17 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if opt, ok := options["excluded"]; ok && opt != nil {
 			excluded = opt.StringValue()
 		}
+		requiredMode := getOptionalString(options, "requiredmode", "all")
+		excludedMode := getOptionalString(options, "excludedmode", "any")
 		var scanMode string
 		if opt, ok := options["scanmode"]; ok && opt != nil {
 			scanMode = opt.StringValue()
 		}
 		dmOnly := getBoolOption(options, "dmonly")
-		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, &models.CashConverters{
-			Url:             query,
-			MinPrice:        minPrice,
-			MaxPrice:        maxPrice,
-			RequiredPhrases: required,
-			ExcludePhrases:  excluded,
-			ScanMode:        scanMode,
+		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, qry.CashConvertersQueryInput{
+			Url: query, MinPrice: minPrice, MaxPrice: maxPrice,
+			RequiredPhrases: required, RequiredMatchMode: requiredMode,
+			ExcludePhrases: excluded, ExcludeMatchMode: excludedMode, ScanMode: scanMode,
 		})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -282,11 +307,24 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "editcashquery":
 		id := getStringOption(options, "id")
-		cc, err := b.dbClient.CashConverters.WithContext(ctx).Where(b.dbClient.CashConverters.Url.Eq(id)).First()
+		items, err := b.dbClient.ListSavedQueries(ctx, "cashConverters")
+		var cc *qry.QueryItem
+		for index := range items {
+			if items[index].Id == id {
+				cc = &items[index]
+				break
+			}
+		}
+		if err == nil && cc == nil {
+			err = fmt.Errorf("query not found")
+		}
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: Query not found: %s", id)
 		} else {
-			urlVal := id
+			urlVal := ""
+			if cc.Url != nil {
+				urlVal = *cc.Url
+			}
 			if opt, ok := options["query"]; ok && opt != nil {
 				urlVal = opt.StringValue()
 			}
@@ -300,26 +338,31 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 				val := opt.FloatValue()
 				minPrice = &val
 			}
-			scanMode := cc.ScanMode
+			scanMode := valueOrString(cc.ScanMode, "searchUrl")
 			if opt, ok := options["scanmode"]; ok && opt != nil {
 				scanMode = opt.StringValue()
 			}
-			required := combinePhraseFilters(cc.RequiredPhrases, cc.RequiredInDescription)
+			required := valueOrString(cc.RequiredPhrases, "")
 			if opt, ok := options["required"]; ok && opt != nil {
 				required = opt.StringValue()
 			}
-			excluded := combinePhraseFilters(cc.ExcludePhrases, cc.ExcludeInDescription)
+			excluded := valueOrString(cc.ExcludePhrases, "")
 			if opt, ok := options["excluded"]; ok && opt != nil {
 				excluded = opt.StringValue()
 			}
+			requiredMode := valueOrString(cc.RequiredMatchMode, "all")
+			if opt, ok := options["requiredmode"]; ok && opt != nil {
+				requiredMode = opt.StringValue()
+			}
+			excludedMode := valueOrString(cc.ExcludeMatchMode, "any")
+			if opt, ok := options["excludedmode"]; ok && opt != nil {
+				excludedMode = opt.StringValue()
+			}
 
-			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, false, &models.CashConverters{
-				Url:             urlVal,
-				MinPrice:        minPrice,
-				MaxPrice:        maxPrice,
-				ScanMode:        scanMode,
-				RequiredPhrases: required,
-				ExcludePhrases:  excluded,
+			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, cc.DmOnly, qry.CashConvertersQueryInput{
+				Url: urlVal, MinPrice: minPrice, MaxPrice: maxPrice, ScanMode: scanMode,
+				RequiredPhrases: required, RequiredMatchMode: requiredMode,
+				ExcludePhrases: excluded, ExcludeMatchMode: excludedMode,
 			})
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)

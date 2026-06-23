@@ -89,8 +89,6 @@ func TestBuildCcApiUrl(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		minPrice *float64
-		maxPrice *float64
 		expected string
 	}{
 		{
@@ -119,38 +117,20 @@ func TestBuildCcApiUrl(t *testing.T) {
 			expected: "https://www.cashconverters.com.au/c3api/search/results?query=console&salePrice=150%7C900%7CC&category=gaming&store=123&customFilter=yes",
 		},
 		{
-			name:     "both prices override URL price",
+			name:     "preserves bracketed URL price",
 			input:    "https://www.cashconverters.com.au/search-results?query=console&SalePrice%5B0%5D=20%7C500%7CC&category=gaming",
-			minPrice: float64Pointer(50),
-			maxPrice: float64Pointer(100),
-			expected: "https://www.cashconverters.com.au/c3api/search/results?SalePrice%5B0%5D=50%7C100%7C&category=gaming&query=console",
-		},
-		{
-			name:     "minimum price supplies default maximum",
-			input:    "https://www.cashconverters.com.au/search-results?query=console",
-			minPrice: float64Pointer(50),
-			expected: "https://www.cashconverters.com.au/c3api/search/results?SalePrice%5B0%5D=50%7C999999%7C&query=console",
-		},
-		{
-			name:     "maximum price supplies zero minimum",
-			input:    "https://www.cashconverters.com.au/search-results?query=console",
-			maxPrice: float64Pointer(100),
-			expected: "https://www.cashconverters.com.au/c3api/search/results?SalePrice%5B0%5D=0%7C100%7C&query=console",
+			expected: "https://www.cashconverters.com.au/c3api/search/results?query=console&SalePrice%5B0%5D=20%7C500%7CC&category=gaming",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			res := buildCcApiUrl(tc.input, tc.minPrice, tc.maxPrice)
+			res := buildCcApiUrl(tc.input)
 			if res != tc.expected {
 				t.Errorf("buildCcApiUrl(%q) =\n%s\nexpected:\n%s", tc.input, res, tc.expected)
 			}
 		})
 	}
-}
-
-func float64Pointer(value float64) *float64 {
-	return &value
 }
 
 func TestGetCcDetailReusesPersistedDetailRegardlessOfAge(t *testing.T) {

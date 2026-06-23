@@ -26,22 +26,31 @@ func (UserQuery) TableName() string {
 }
 
 type CashConverters struct {
-	Url             string `gorm:"primaryKey;column:url" json:"url"`
-	RequiredPhrases string `gorm:"column:requiredPhrases" json:"requiredPhrases"`
-	ExcludePhrases  string `gorm:"column:excludePhrases" json:"excludePhrases"`
-	// Deprecated: retained for compatibility with existing rows. Merge into
-	// RequiredPhrases/ExcludePhrases and remove these columns in a future migration.
-	RequiredInDescription string      `gorm:"column:requiredInDescription" json:"requiredInDescription"`
-	ExcludeInDescription  string      `gorm:"column:excludeInDescription" json:"excludeInDescription"`
-	MinPrice              *float64    `gorm:"column:minPrice" json:"minPrice"`
-	MaxPrice              *float64    `gorm:"column:maxPrice" json:"maxPrice"`
-	ScanMode              string      `gorm:"column:scanMode" json:"scanMode"`
-	QueryId               string      `gorm:"column:queryId" json:"queryId"`
-	Query                 SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
+	Url      string `gorm:"primaryKey;column:url" json:"url"`
+	ScanMode string `gorm:"column:scanMode" json:"scanMode"`
 }
 
 func (CashConverters) TableName() string {
 	return "CashConverters"
+}
+
+type CashConvertersFilter struct {
+	ID                string         `gorm:"primaryKey;column:id" json:"id"`
+	CashConvertersUrl string         `gorm:"column:cashConvertersUrl;index" json:"cashConvertersUrl"`
+	CashConverters    CashConverters `gorm:"foreignKey:CashConvertersUrl;references:Url;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	QueryId           string         `gorm:"column:queryId;uniqueIndex" json:"queryId"`
+	Query             SearchQuery    `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"query,omitempty"`
+	RequiredPhrases   string         `gorm:"column:requiredPhrases" json:"requiredPhrases"`
+	RequiredMatchMode string         `gorm:"column:requiredMatchMode" json:"requiredMatchMode"`
+	ExcludePhrases    string         `gorm:"column:excludePhrases" json:"excludePhrases"`
+	ExcludeMatchMode  string         `gorm:"column:excludeMatchMode" json:"excludeMatchMode"`
+	MinPrice          *float64       `gorm:"column:minPrice" json:"minPrice"`
+	MaxPrice          *float64       `gorm:"column:maxPrice" json:"maxPrice"`
+	CreatedAt         time.Time      `gorm:"column:createdAt" json:"createdAt"`
+}
+
+func (CashConvertersFilter) TableName() string {
+	return "CashConvertersFilter"
 }
 
 type Ebay struct {
