@@ -79,8 +79,25 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
-  echo "Docker Compose plugin is required. Install docker-compose-plugin on the VM." >&2
-  exit 1
+  echo "Docker Compose plugin is unavailable; attempting to install or repair it."
+
+  if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    source /etc/os-release
+  fi
+
+  if [[ "${ID:-}" != "ubuntu" && "${ID_LIKE:-}" != *"debian"* ]]; then
+    echo "Automatic Docker Compose installation is only supported on Ubuntu/Debian." >&2
+    exit 1
+  fi
+
+  sudo apt-get update
+  sudo apt-get install -y docker-compose-plugin
+
+  if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
+    echo "Docker Compose plugin remains unavailable after installation." >&2
+    exit 1
+  fi
 fi
 
 if ! IFS= read -r GHCR_TOKEN || [[ -z "${GHCR_TOKEN}" ]]; then
