@@ -167,7 +167,27 @@ printf 'DEPLOY_IMAGE=%s\nDEPLOY_IMAGE_TAG=%s\n' \
   "${DEPLOY_IMAGE_TAG}" > "${COMPOSE_ENV_FILE}"
 chmod 600 "${COMPOSE_ENV_FILE}"
 
-"${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app
+pull_log="$(mktemp)"
+if ! "${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app \
+  2>&1 | tee "${pull_log}"; then
+  if ! grep -Fq "unpigz: abort: internal threads error" "${pull_log}"; then
+    rm -f "${pull_log}"
+    exit 1
+  fi
+
+  echo "Docker parallel decompression exhausted VM resources; disabling it and retrying once."
+  sudo install -d -m 0755 /etc/systemd/system/docker.service.d
+  printf '%s\n' \
+    '[Service]' \
+    'Environment="MOBY_DISABLE_PIGZ=1"' \
+    | sudo tee /etc/systemd/system/docker.service.d/disable-pigz.conf >/dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl restart docker
+
+  "${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app
+fi
+rm -f "${pull_log}"
+
 "${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up \
   -d \
   --force-recreate \
