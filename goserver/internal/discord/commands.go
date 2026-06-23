@@ -308,14 +308,16 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	case "editcashquery":
 		id := getStringOption(options, "id")
 		items, err := b.dbClient.ListSavedQueries(ctx, "cashConverters")
-		var cc *qry.QueryItem
+		cc := qry.QueryItem{}
+		found := false
 		for index := range items {
 			if items[index].Id == id {
-				cc = &items[index]
+				cc = items[index]
+				found = true
 				break
 			}
 		}
-		if err == nil && cc == nil {
+		if err == nil && !found {
 			err = fmt.Errorf("query not found")
 		}
 		if err != nil {
