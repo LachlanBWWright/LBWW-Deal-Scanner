@@ -78,7 +78,48 @@ if ! docker info >/dev/null 2>&1; then
   DOCKER=(sudo docker)
 fi
 
-if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
+COMPOSE=()
+
+resolve_compose_command() {
+  if "${DOCKER[@]}" compose version >/dev/null 2>&1; then
+    COMPOSE=("${DOCKER[@]}" compose)
+    return 0
+  fi
+
+  local plugin_path
+  for plugin_path in \
+    /usr/libexec/docker/cli-plugins/docker-compose \
+    /usr/lib/docker/cli-plugins/docker-compose; do
+    if [[ -x "${plugin_path}" ]]; then
+      if [[ "${DOCKER[0]}" == "sudo" ]]; then
+        COMPOSE=(sudo "${plugin_path}")
+      else
+        COMPOSE=("${plugin_path}")
+      fi
+
+      if "${COMPOSE[@]}" version >/dev/null 2>&1; then
+        return 0
+      fi
+    fi
+  done
+
+  if command -v docker-compose >/dev/null 2>&1; then
+    if [[ "${DOCKER[0]}" == "sudo" ]]; then
+      COMPOSE=(sudo docker-compose)
+    else
+      COMPOSE=(docker-compose)
+    fi
+
+    if "${COMPOSE[@]}" version >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  COMPOSE=()
+  return 1
+}
+
+if ! resolve_compose_command; then
   echo "Docker Compose plugin is unavailable; attempting to install or repair it."
 
   if [[ -f /etc/os-release ]]; then
@@ -91,11 +132,21 @@ if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
     exit 1
   fi
 
-  sudo apt-get update
-  sudo apt-get install -y docker-compose-plugin
+  if ! sudo apt-get install -y docker-compose-plugin; then
+    sudo apt-get update
+    sudo apt-get install -y docker-compose-plugin
+  fi
 
-  if ! "${DOCKER[@]}" compose version >/dev/null 2>&1; then
+  if ! resolve_compose_command; then
     echo "Docker Compose plugin remains unavailable after installation." >&2
+    echo "Docker executable: $(command -v docker || echo unavailable)" >&2
+    docker --version >&2 || true
+    "${DOCKER[@]}" compose version >&2 || true
+    command -v docker-compose >&2 || true
+    dpkg -L docker-compose-plugin 2>/dev/null | grep '/docker-compose$' >&2 || true
+    ls -l \
+      /usr/libexec/docker/cli-plugins/docker-compose \
+      /usr/lib/docker/cli-plugins/docker-compose 2>/dev/null >&2 || true
     exit 1
   fi
 fi
@@ -116,8 +167,8 @@ printf 'DEPLOY_IMAGE=%s\nDEPLOY_IMAGE_TAG=%s\n' \
   "${DEPLOY_IMAGE_TAG}" > "${COMPOSE_ENV_FILE}"
 chmod 600 "${COMPOSE_ENV_FILE}"
 
-"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app
-"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up \
+"${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" pull app
+"${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" up \
   -d \
   --force-recreate \
   --remove-orphans \
@@ -140,6 +191,6 @@ for ((attempt = 1; attempt <= healthcheck_attempts; attempt += 1)); do
 done
 
 echo "Application failed to become ready at ${HEALTHCHECK_URL}" >&2
-"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" ps >&2
-"${DOCKER[@]}" compose --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" logs --tail 100 app >&2
+"${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" ps >&2
+"${COMPOSE[@]}" --env-file "${APP_ENV_FILE}" --env-file "${COMPOSE_ENV_FILE}" -f "${COMPOSE_FILE}" logs --tail 100 app >&2
 exit 1
