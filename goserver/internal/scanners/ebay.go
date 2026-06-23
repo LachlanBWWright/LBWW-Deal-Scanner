@@ -136,10 +136,24 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 			_ = obsId
 		}
 
-		time.Sleep(3 * time.Second) // rate limit protection
+		if !sleepWithContext(ctx, 3*time.Second) {
+			return nil, ctx.Err()
+		}
 	}
 
 	return notifs, nil
+}
+
+func sleepWithContext(ctx context.Context, duration time.Duration) bool {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 func (e *EbayScanner) scrapeEbay(ctx context.Context, url string) ([]qry.DiscoveredListing, error) {

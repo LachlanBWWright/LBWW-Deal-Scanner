@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -542,6 +543,14 @@ func (s *Server) handleTestingRunScan(w http.ResponseWriter, r *http.Request) {
 	id := fmt.Sprintf("scan-%d-%s", time.Now().UnixNano(), "rand")
 
 	scanRes := scanners.RunTemporaryScan(r.Context(), body.Type, body.Payload)
+	if scanRes.TimedOut {
+		s.notifService.Publish(context.WithoutCancel(r.Context()), notifications.AppNotification{
+			Kind:    "error",
+			Source:  body.Type,
+			Message: fmt.Sprintf("Warning: scanner %q exceeded the %s time limit. The scan was cancelled.", body.Type, scanners.DefaultScanTimeout),
+			Tags:    []string{"warning", "scan-timeout"},
+		})
+	}
 
 	if body.Notify && len(scanRes.Notifications) > 0 {
 		for _, notif := range scanRes.Notifications {
@@ -562,6 +571,7 @@ func (s *Server) handleTestingRunScan(w http.ResponseWriter, r *http.Request) {
 		"items":                  scanRes.Items,
 		"notifications":          scanRes.Notifications,
 		"errors":                 scanRes.Errors,
+		"timedOut":               scanRes.TimedOut,
 		"notificationsPublished": scanRes.NotificationsPublished,
 	}
 
@@ -581,6 +591,7 @@ func (s *Server) handleTestingRunScan(w http.ResponseWriter, r *http.Request) {
 		"items":                  scanRes.Items,
 		"notifications":          scanRes.Notifications,
 		"errors":                 scanRes.Errors,
+		"timedOut":               scanRes.TimedOut,
 		"notificationsPublished": scanRes.NotificationsPublished,
 	})
 }

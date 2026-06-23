@@ -20,6 +20,7 @@ type StatusSetter interface {
 
 const statusUpdateInterval = 20 * time.Second
 const minimumScanCycleDuration = 30 * time.Second
+const DefaultScanTimeout = 3 * time.Minute
 
 type Runner struct {
 	cfg          *config.Config
@@ -28,8 +29,18 @@ type Runner struct {
 	notifService *notifications.NotificationService
 	statusSetter StatusSetter
 	scanners     []Scanner
+	scanTimeout  time.Duration
 	statusMu     sync.Mutex
 	previousScan *scanStatusResult
+}
+
+type scanTimeoutError struct {
+	scanner string
+	timeout time.Duration
+}
+
+func (e scanTimeoutError) Error() string {
+	return fmt.Sprintf("scanner %q exceeded the %s time limit", e.scanner, e.timeout)
 }
 
 type scanStatusResult struct {
@@ -56,6 +67,7 @@ func NewRunner(
 		stateManager: stateManager,
 		notifService: notifService,
 		statusSetter: statusSetter,
+		scanTimeout:  DefaultScanTimeout,
 	}
 }
 
@@ -255,42 +267,86 @@ func (r *Runner) scanWithTimedStatus(
 	ctx context.Context,
 	sc Scanner,
 ) ([]notifications.AppNotification, error) {
-	if r.statusSetter == nil {
-		return sc.Scan(ctx)
-	}
-
-	statusCtx, stopStatus := context.WithCancel(ctx)
-	statusStopped := make(chan struct{})
 	startedAt := time.Now()
 	previous := r.getPreviousScanResult()
 
-	r.statusSetter.SetStatus(formatScanningStatus(sc.Name(), 0, false, previous))
-	go func() {
-		defer close(statusStopped)
-		ticker := time.NewTicker(statusUpdateInterval)
-		defer ticker.Stop()
+	var stopStatus func()
+	if r.statusSetter != nil {
+		statusCtx, cancelStatus := context.WithCancel(ctx)
+		statusStopped := make(chan struct{})
+		r.statusSetter.SetStatus(formatScanningStatus(sc.Name(), 0, false, previous))
+		go func() {
+			defer close(statusStopped)
+			ticker := time.NewTicker(statusUpdateInterval)
+			defer ticker.Stop()
 
-		for {
-			select {
-			case <-statusCtx.Done():
-				return
-			case <-ticker.C:
-				r.statusSetter.SetStatus(
-					formatScanningStatus(sc.Name(), time.Since(startedAt), true, previous),
-				)
+			for {
+				select {
+				case <-statusCtx.Done():
+					return
+				case <-ticker.C:
+					r.statusSetter.SetStatus(
+						formatScanningStatus(sc.Name(), time.Since(startedAt), true, previous),
+					)
+				}
 			}
+		}()
+		stopStatus = func() {
+			cancelStatus()
+			<-statusStopped
 		}
-	}()
+	} else {
+		stopStatus = func() {}
+	}
 
-	notifs, err := sc.Scan(ctx)
+	notifs, err := r.runScannerWithTimeout(ctx, sc)
 	stopStatus()
-	<-statusStopped
 	r.setPreviousScanResult(scanStatusResult{
 		name:    sc.Name(),
 		elapsed: time.Since(startedAt),
 		outcome: getScanOutcome(notifs, err),
 	})
 	return notifs, err
+}
+
+type scanResult struct {
+	notifications []notifications.AppNotification
+	err           error
+}
+
+func (r *Runner) runScannerWithTimeout(
+	ctx context.Context,
+	sc Scanner,
+) ([]notifications.AppNotification, error) {
+	scanCtx, cancelScan := context.WithTimeout(ctx, r.scanTimeout)
+	defer cancelScan()
+
+	result := make(chan scanResult, 1)
+	go func() {
+		notifs, err := sc.Scan(scanCtx)
+		result <- scanResult{notifications: notifs, err: err}
+	}()
+
+	select {
+	case completed := <-result:
+		return completed.notifications, completed.err
+	case <-scanCtx.Done():
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		timeoutErr := scanTimeoutError{
+			scanner: sc.Name(),
+			timeout: r.scanTimeout,
+		}
+		r.notifService.Publish(context.WithoutCancel(ctx), notifications.AppNotification{
+			Kind:    "error",
+			Source:  sc.Name(),
+			Message: "Warning: " + timeoutErr.Error() + ". The scan was cancelled.",
+			Tags:    []string{"warning", "scan-timeout"},
+		})
+		return nil, timeoutErr
+	}
 }
 
 func (r *Runner) getPreviousScanResult() *scanStatusResult {

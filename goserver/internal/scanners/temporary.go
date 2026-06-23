@@ -20,6 +20,7 @@ type TemporaryScanResult struct {
 	Items                  []ManualScanItemResult          `json:"items"`
 	Notifications          []notifications.AppNotification `json:"notifications"`
 	Errors                 []string                        `json:"errors"`
+	TimedOut               bool                            `json:"timedOut"`
 	NotificationsPublished bool                            `json:"notificationsPublished"`
 }
 
@@ -116,6 +117,33 @@ func matchesPhraseFilters(text string, requiredPhrases, excludePhrases interface
 }
 
 func RunTemporaryScan(ctx context.Context, qType string, payload map[string]interface{}) TemporaryScanResult {
+	scanCtx, cancelScan := context.WithTimeout(ctx, DefaultScanTimeout)
+	defer cancelScan()
+
+	result := make(chan TemporaryScanResult, 1)
+	go func() {
+		result <- runTemporaryScan(scanCtx, qType, payload)
+	}()
+
+	select {
+	case completed := <-result:
+		return completed
+	case <-scanCtx.Done():
+		if ctx.Err() != nil {
+			return TemporaryScanResult{
+				Errors: []string{ctx.Err().Error()},
+			}
+		}
+		return TemporaryScanResult{
+			Errors: []string{
+				fmt.Sprintf("%s scan exceeded the %s time limit", qType, DefaultScanTimeout),
+			},
+			TimedOut: true,
+		}
+	}
+}
+
+func runTemporaryScan(ctx context.Context, qType string, payload map[string]interface{}) TemporaryScanResult {
 	var items []ManualScanItemResult
 	var notifs []notifications.AppNotification
 	var errors []string
