@@ -267,7 +267,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 			shouldNotify := false
 			if matched {
-				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" || (prev.Status == "matched" && prev.LastNotifiedAt == nil) {
+				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
 					shouldNotify = true
 				}
 			}
