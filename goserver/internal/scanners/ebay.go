@@ -10,7 +10,6 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
-	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -54,66 +53,18 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 				continue
 			}
 
-			// Evaluate
-			matched := true
-			var rejectReason *string
-
-			if item.MaxPrice != nil && found.TotalPrice != nil && *found.TotalPrice > *item.MaxPrice {
-				matched = false
-				reason := "AboveMaxPrice"
-				rejectReason = &reason
-			}
-
-			var status string
-			if matched {
-				status = "matched"
-			} else {
-				status = "rejected"
-			}
-
-			// Check previous state
-			prev, err := e.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
-			if err != nil {
-				log.Printf("Failed to get eBay query listing state: %v", err)
-				continue
-			}
-
-			shouldNotify := false
-			if matched {
-				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
-					shouldNotify = true
-				}
-			}
-
 			now := time.Now().UTC()
-			state := &models.QueryListingState{
-				QueryId:            item.QueryId,
-				ListingId:          listingId,
-				Source:             "ebay",
-				Status:             status,
-				LastEvaluatedAt:    now,
-				LastRejectedReason: rejectReason,
+			match := qry.MatchResult{Type: qry.MatchTypeMatched}
+			if found.TotalPrice != nil {
+				match = qry.MatchPriceRange(*found.TotalPrice, nil, item.MaxPrice)
 			}
 
-			if prev != nil {
-				state.FirstMatchedAt = prev.FirstMatchedAt
-				state.LowestObservedPrice = prev.LowestObservedPrice
-				if prev.LowestObservedPrice == nil || (found.TotalPrice != nil && *found.TotalPrice < *prev.LowestObservedPrice) {
-					state.LowestObservedPrice = found.TotalPrice
-				}
-			} else {
-				state.LowestObservedPrice = found.TotalPrice
-				if matched {
-					state.FirstMatchedAt = &now
-				}
+			decision, err := e.dbClient.EvaluateListingForQuery(ctx, item.QueryId, listingId, "ebay", found.TotalPrice, match, now, 0)
+			if err != nil {
+				return nil, err
 			}
 
-			if shouldNotify {
-				status = "notified"
-				state.Status = status
-				state.LastNotifiedAt = &now
-				state.LastNotifiedTotalPrice = found.TotalPrice
-
+			if decision.Type == qry.DecisionTypeNotify && found.TotalPrice != nil {
 				title := fmt.Sprintf("a %s priced at $%.2f is available at %s", found.Title, *found.TotalPrice, found.CanonicalUrl)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
@@ -129,10 +80,6 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 				})
 			}
 
-			err = e.dbClient.UpsertQueryListingState(ctx, state)
-			if err != nil {
-				log.Printf("Failed to update query listing state: %v", err)
-			}
 			_ = obsId
 		}
 

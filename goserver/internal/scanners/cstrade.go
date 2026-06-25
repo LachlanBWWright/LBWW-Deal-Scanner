@@ -9,7 +9,6 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
-	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -106,13 +105,12 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				continue
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
+			decision, err := s.dbClient.EvaluateListingForQuery(ctx, query.QueryId, listingId, "csTrade", &item.Price, qry.MatchResult{Type: qry.MatchTypeMatched}, now, 0)
 			if err != nil {
-				continue
+				return nil, err
 			}
 
-			if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
-				// Notify
+			if decision.Type == qry.DecisionTypeNotify {
 				title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://cs.trade/", item.MarketHashName, item.Wear, item.Price)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
@@ -126,20 +124,6 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 						Id:   query.Id,
 					},
 				})
-
-				state := &models.QueryListingState{
-					QueryId:                query.QueryId,
-					ListingId:              listingId,
-					Source:                 "csTrade",
-					Status:                 "notified",
-					LastEvaluatedAt:        now,
-					FirstMatchedAt:         &now,
-					LastMatchedAt:          &now,
-					LastNotifiedAt:         &now,
-					LastNotifiedTotalPrice: &item.Price,
-					LowestObservedPrice:    &item.Price,
-				}
-				s.dbClient.UpsertQueryListingState(ctx, state)
 			}
 		}
 	}
@@ -258,12 +242,12 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 						continue
 					}
 
-					prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
+					decision, err := s.dbClient.EvaluateListingForQuery(ctx, query.QueryId, listingId, "lootFarm", &price, qry.MatchResult{Type: qry.MatchTypeMatched}, now, 0)
 					if err != nil {
-						continue
+						return nil, err
 					}
 
-					if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
+					if decision.Type == qry.DecisionTypeNotify {
 						title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://loot.farm/", skin.N, itemFloat, price)
 						notifs = append(notifs, notifications.AppNotification{
 							Kind:     "deal",
@@ -277,20 +261,6 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 								Id:   query.Id,
 							},
 						})
-
-						state := &models.QueryListingState{
-							QueryId:                query.QueryId,
-							ListingId:              listingId,
-							Source:                 "lootFarm",
-							Status:                 "notified",
-							LastEvaluatedAt:        now,
-							FirstMatchedAt:         &now,
-							LastMatchedAt:          &now,
-							LastNotifiedAt:         &now,
-							LastNotifiedTotalPrice: &price,
-							LowestObservedPrice:    &price,
-						}
-						s.dbClient.UpsertQueryListingState(ctx, state)
 					}
 				}
 			}
@@ -421,12 +391,12 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				continue
 			}
 
-			prev, err := s.dbClient.GetQueryListingState(ctx, query.QueryId, listingId)
+			decision, err := s.dbClient.EvaluateListingForQuery(ctx, query.QueryId, listingId, "tradeIt", &price, qry.MatchResult{Type: qry.MatchTypeMatched}, now, 0)
 			if err != nil {
-				continue
+				return nil, err
 			}
 
-			if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
+			if decision.Type == qry.DecisionTypeNotify {
 				title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://tradeit.gg/csgo/trade", item.Name, bestFloat, price)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
@@ -440,20 +410,6 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 						Id:   query.Id,
 					},
 				})
-
-				state := &models.QueryListingState{
-					QueryId:                query.QueryId,
-					ListingId:              listingId,
-					Source:                 "tradeIt",
-					Status:                 "notified",
-					LastEvaluatedAt:        now,
-					FirstMatchedAt:         &now,
-					LastMatchedAt:          &now,
-					LastNotifiedAt:         &now,
-					LastNotifiedTotalPrice: &price,
-					LowestObservedPrice:    &price,
-				}
-				s.dbClient.UpsertQueryListingState(ctx, state)
 			}
 		}
 	}

@@ -2,10 +2,12 @@ package query
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"dealscanner/internal/models"
+	"gorm.io/gorm"
 )
 
 type MatchType string
@@ -37,6 +39,16 @@ const (
 	DecisionReasonAlreadyNotified       DecisionReason = "AlreadyNotified"
 	DecisionReasonUnavailable           DecisionReason = "Unavailable"
 	DecisionReasonMissingPrice          DecisionReason = "MissingPrice"
+)
+
+type ListingStateStatus = models.QueryListingStateStatus
+
+const (
+	ListingStateStatusMatched     ListingStateStatus = models.QueryListingStateStatusMatched
+	ListingStateStatusNotified    ListingStateStatus = models.QueryListingStateStatusNotified
+	ListingStateStatusRejected    ListingStateStatus = models.QueryListingStateStatusRejected
+	ListingStateStatusUnavailable ListingStateStatus = models.QueryListingStateStatusUnavailable
+	ListingStateStatusUnseen      ListingStateStatus = models.QueryListingStateStatusUnseen
 )
 
 type NotificationDecision struct {
@@ -110,7 +122,7 @@ func (q *Query) EvaluateListingForQuery(
 	furtherPriceDropRatio float64,
 ) (NotificationDecision, error) {
 	previous, err := q.QueryListingState.WithContext(ctx).Where(q.QueryListingState.QueryId.Eq(queryId), q.QueryListingState.ListingId.Eq(listingId)).First()
-	var previousStatus *string
+	var previousStatus *ListingStateStatus
 	var lastNotifiedTotalPrice *float64
 	var lowestObsPrice *float64
 
@@ -118,12 +130,14 @@ func (q *Query) EvaluateListingForQuery(
 		previousStatus = &previous.Status
 		lastNotifiedTotalPrice = previous.LastNotifiedTotalPrice
 		lowestObsPrice = previous.LowestObservedPrice
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return NotificationDecision{}, err
 	}
 
 	if match.Type == MatchTypeRejected {
-		status := "rejected"
+		status := ListingStateStatusRejected
 		if match.Reason == "Unavailable" {
-			status = "unavailable"
+			status = ListingStateStatusUnavailable
 		}
 
 		lowest := lowestPrice(lowestObsPrice, totalPrice)
@@ -136,6 +150,12 @@ func (q *Query) EvaluateListingForQuery(
 			LastEvaluatedAt:     evaluatedAt,
 			LastRejectedReason:  &match.Reason,
 			LowestObservedPrice: lowest,
+		}
+		if previous != nil {
+			state.FirstMatchedAt = previous.FirstMatchedAt
+			state.LastMatchedAt = previous.LastMatchedAt
+			state.LastNotifiedAt = previous.LastNotifiedAt
+			state.LastNotifiedTotalPrice = previous.LastNotifiedTotalPrice
 		}
 
 		err = q.UpsertQueryListingState(ctx, &state)
@@ -156,9 +176,9 @@ func (q *Query) EvaluateListingForQuery(
 
 	decision := getMatchedDecision(previousStatus, lastNotifiedTotalPrice, *totalPrice, furtherPriceDropRatio)
 
-	status := "matched"
+	status := ListingStateStatusMatched
 	if decision.Type == DecisionTypeNotify {
-		status = "notified"
+		status = ListingStateStatusNotified
 	}
 
 	lowest := lowestPrice(lowestObsPrice, totalPrice)
@@ -177,6 +197,9 @@ func (q *Query) EvaluateListingForQuery(
 		state.FirstMatchedAt = previous.FirstMatchedAt
 		state.LastNotifiedAt = previous.LastNotifiedAt
 		state.LastNotifiedTotalPrice = previous.LastNotifiedTotalPrice
+		if state.FirstMatchedAt == nil {
+			state.FirstMatchedAt = &evaluatedAt
+		}
 	} else {
 		state.FirstMatchedAt = &evaluatedAt
 	}
@@ -195,16 +218,16 @@ func (q *Query) EvaluateListingForQuery(
 }
 
 func getMatchedDecision(
-	previousStatus *string,
+	previousStatus *ListingStateStatus,
 	lastNotifiedTotalPrice *float64,
 	totalPrice float64,
 	furtherPriceDropRatio float64,
 ) NotificationDecision {
-	if previousStatus == nil || *previousStatus == "unseen" {
+	if previousStatus == nil || *previousStatus == ListingStateStatusUnseen {
 		return NotificationDecision{Type: DecisionTypeNotify, Reason: DecisionReasonFirstMatch}
 	}
 
-	if *previousStatus == "rejected" {
+	if *previousStatus == ListingStateStatusRejected || *previousStatus == ListingStateStatusUnavailable {
 		return NotificationDecision{Type: DecisionTypeNotify, Reason: DecisionReasonPriceDroppedIntoRange}
 	}
 

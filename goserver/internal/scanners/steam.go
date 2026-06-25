@@ -9,7 +9,6 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
-	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -112,64 +111,14 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				continue
 			}
 
-			// Evaluate
-			matched := true
-			var rejectReason *string
-
-			if item.MaxPrice != nil && price > *item.MaxPrice {
-				matched = false
-				reason := "AboveMaxPrice"
-				rejectReason = &reason
-			}
-
-			var status string
-			if matched {
-				status = "matched"
-			} else {
-				status = "rejected"
-			}
-
-			prev, err := s.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
-			if err != nil {
-				continue
-			}
-
-			shouldNotify := false
-			if matched {
-				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
-					shouldNotify = true
-				}
-			}
-
 			now := time.Now().UTC()
-			state := &models.QueryListingState{
-				QueryId:            item.QueryId,
-				ListingId:          listingId,
-				Source:             "steamMarket",
-				Status:             status,
-				LastEvaluatedAt:    now,
-				LastRejectedReason: rejectReason,
+			match := qry.MatchPriceRange(price, nil, item.MaxPrice)
+			decision, err := s.dbClient.EvaluateListingForQuery(ctx, item.QueryId, listingId, "steamMarket", &price, match, now, 0)
+			if err != nil {
+				return nil, err
 			}
 
-			if prev != nil {
-				state.FirstMatchedAt = prev.FirstMatchedAt
-				state.LowestObservedPrice = prev.LowestObservedPrice
-				if prev.LowestObservedPrice == nil || price < *prev.LowestObservedPrice {
-					state.LowestObservedPrice = &price
-				}
-			} else {
-				state.LowestObservedPrice = &price
-				if matched {
-					state.FirstMatchedAt = &now
-				}
-			}
-
-			if shouldNotify {
-				status = "notified"
-				state.Status = status
-				state.LastNotifiedAt = &now
-				state.LastNotifiedTotalPrice = &price
-
+			if decision.Type == qry.DecisionTypeNotify {
 				title := fmt.Sprintf("a %s is available for $%.2f USD at: %s", result.Name, price, canonicalUrl)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
@@ -184,8 +133,6 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 					},
 				})
 			}
-
-			s.dbClient.UpsertQueryListingState(ctx, state)
 		}
 
 		if len(prices) > 0 {
@@ -197,7 +144,10 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				}
 			}
 
-			s.dbClient.SteamMarket.WithContext(ctx).Where(s.dbClient.SteamMarket.Name.Eq(*item.Name)).Update(s.dbClient.SteamMarket.LastPrice, lowestPrice)
+			_, err := s.dbClient.SteamMarket.WithContext(ctx).Where(s.dbClient.SteamMarket.Name.Eq(*item.Name)).Update(s.dbClient.SteamMarket.LastPrice, lowestPrice)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

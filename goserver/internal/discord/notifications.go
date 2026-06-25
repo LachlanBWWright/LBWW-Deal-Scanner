@@ -69,47 +69,64 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, channelMessage, dmMessage
 		if err == nil {
 			for _, uq := range userQueries {
 				dmChan, err := b.session.UserChannelCreate(uq.UserId)
-				if err == nil && dmChan != nil {
-					unsubscribeActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
-					b.dbClient.SetAction(ctx, unsubscribeActionKey, models.ActionRegistry{
-						ID:        unsubscribeActionKey,
-						Type:      "unsubscribe_dm",
-						QueryType: &queryType,
-						QueryId:   &queryId,
-						Timestamp: time.Now().UnixMilli(),
-					})
+				if err != nil {
+					log.Printf("Failed to create Discord DM channel for user %s: %v", uq.UserId, err)
+					continue
+				}
+				if dmChan == nil {
+					log.Printf("Failed to create Discord DM channel for user %s: channel was nil", uq.UserId)
+					continue
+				}
 
-					dmMsg := &discordgo.MessageSend{
-						Content: dmMessage,
-						Components: []discordgo.MessageComponent{
-							discordgo.ActionsRow{
-								Components: []discordgo.MessageComponent{
-									discordgo.Button{
-										Label:    "Unsubscribe from DM",
-										Style:    discordgo.SecondaryButton,
-										CustomID: unsubscribeActionKey,
-									},
+				unsubscribeActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+				if err := b.dbClient.SetAction(ctx, unsubscribeActionKey, models.ActionRegistry{
+					ID:        unsubscribeActionKey,
+					Type:      "unsubscribe_dm",
+					QueryType: &queryType,
+					QueryId:   &queryId,
+					Timestamp: time.Now().UnixMilli(),
+				}); err != nil {
+					log.Printf("Failed to register Discord unsubscribe action for user %s: %v", uq.UserId, err)
+				}
+
+				dmMsg := &discordgo.MessageSend{
+					Content: dmMessage,
+					Components: []discordgo.MessageComponent{
+						discordgo.ActionsRow{
+							Components: []discordgo.MessageComponent{
+								discordgo.Button{
+									Label:    "Unsubscribe from DM",
+									Style:    discordgo.SecondaryButton,
+									CustomID: unsubscribeActionKey,
 								},
 							},
 						},
+					},
+				}
+				if imageUrl != nil && *imageUrl != "" {
+					if file, err := downloadFile(*imageUrl); err == nil {
+						dmMsg.Files = []*discordgo.File{file}
+					} else {
+						log.Printf("Failed to download image %s for DM: %v", *imageUrl, err)
 					}
-					if imageUrl != nil && *imageUrl != "" {
-						if file, err := downloadFile(*imageUrl); err == nil {
-							dmMsg.Files = []*discordgo.File{file}
-						} else {
-							log.Printf("Failed to download image %s for DM: %v", *imageUrl, err)
-						}
-					}
-					b.session.ChannelMessageSendComplex(dmChan.ID, dmMsg)
+				}
+				if _, err := b.session.ChannelMessageSendComplex(dmChan.ID, dmMsg); err != nil {
+					log.Printf("Failed to send Discord DM to user %s: %v", uq.UserId, err)
 				}
 			}
+		} else {
+			log.Printf("Failed to load Discord DM subscriptions for query %s: %v", parentQueryId, err)
 		}
 
 		// If query is DM-only, do not notify public channel
 		parentQuery, err := b.dbClient.SearchQuery.WithContext(ctx).Where(b.dbClient.SearchQuery.ID.Eq(parentQueryId)).First()
 		if err == nil && parentQuery.DmOnly {
 			return nil
+		} else if err != nil {
+			log.Printf("Failed to load parent query %s for Discord notification: %v", parentQueryId, err)
 		}
+	} else if err != nil {
+		log.Printf("Failed to resolve parent query for Discord notification %s/%s: %v", queryType, queryId, err)
 	}
 
 	// 2. Setup public channel message components
@@ -117,22 +134,26 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, channelMessage, dmMessage
 
 	if queryType != "" && queryId != "" {
 		deleteActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
-		b.dbClient.SetAction(ctx, deleteActionKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, deleteActionKey, models.ActionRegistry{
 			ID:        deleteActionKey,
 			Type:      "delete",
 			QueryType: &queryType,
 			QueryId:   &queryId,
 			Timestamp: time.Now().UnixMilli(),
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord delete action for %s/%s: %v", queryType, queryId, err)
+		}
 
 		subscribeDMActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
-		b.dbClient.SetAction(ctx, subscribeDMActionKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, subscribeDMActionKey, models.ActionRegistry{
 			ID:        subscribeDMActionKey,
 			Type:      "subscribe_dm",
 			QueryType: &queryType,
 			QueryId:   &queryId,
 			Timestamp: time.Now().UnixMilli(),
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord subscribe action for %s/%s: %v", queryType, queryId, err)
+		}
 
 		buttons = append(buttons, discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{

@@ -3,6 +3,7 @@ package discord
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -50,7 +51,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 		cancelKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
 		now := time.Now().UnixMilli()
 
-		b.dbClient.SetAction(ctx, confirmKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, confirmKey, models.ActionRegistry{
 			ID:         confirmKey,
 			Type:       "confirm_delete",
 			QueryType:  action.QueryType,
@@ -58,9 +59,11 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			UserId:     &i.Member.User.ID,
 			Timestamp:  now,
 			RelatedKey: &customId,
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord confirm delete action: %v", err)
+		}
 
-		b.dbClient.SetAction(ctx, cancelKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, cancelKey, models.ActionRegistry{
 			ID:         cancelKey,
 			Type:       "cancel_delete",
 			QueryType:  action.QueryType,
@@ -68,7 +71,9 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			UserId:     &i.Member.User.ID,
 			Timestamp:  now,
 			RelatedKey: &customId,
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord cancel delete action: %v", err)
+		}
 
 		responseContent = fmt.Sprintf("Are you sure you want to delete this %s query?\n%s\n\n**This action cannot be undone.**", *action.QueryType, formatQueryReference(*action.QueryId))
 		responseComponents = []discordgo.MessageComponent{

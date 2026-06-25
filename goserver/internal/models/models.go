@@ -1,6 +1,75 @@
 package models
 
-import "time"
+import (
+	"database/sql/driver"
+	"fmt"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+type QueryListingStateStatus string
+
+const (
+	QueryListingStateStatusMatched     QueryListingStateStatus = "matched"
+	QueryListingStateStatusNotified    QueryListingStateStatus = "notified"
+	QueryListingStateStatusRejected    QueryListingStateStatus = "rejected"
+	QueryListingStateStatusUnavailable QueryListingStateStatus = "unavailable"
+	QueryListingStateStatusUnseen      QueryListingStateStatus = "unseen"
+)
+
+func (s QueryListingStateStatus) String() string {
+	return string(s)
+}
+
+func (s QueryListingStateStatus) Valid() bool {
+	switch s {
+	case QueryListingStateStatusMatched,
+		QueryListingStateStatusNotified,
+		QueryListingStateStatusRejected,
+		QueryListingStateStatusUnavailable,
+		QueryListingStateStatusUnseen:
+		return true
+	default:
+		return false
+	}
+}
+
+func ParseQueryListingStateStatus(value string) (QueryListingStateStatus, error) {
+	status := QueryListingStateStatus(value)
+	if !status.Valid() {
+		return "", fmt.Errorf("invalid query listing state status %q", value)
+	}
+	return status, nil
+}
+
+func (s QueryListingStateStatus) Value() (driver.Value, error) {
+	if !s.Valid() {
+		return nil, fmt.Errorf("invalid query listing state status %q", s)
+	}
+	return string(s), nil
+}
+
+func (s *QueryListingStateStatus) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case string:
+		status, err := ParseQueryListingStateStatus(v)
+		if err != nil {
+			return err
+		}
+		*s = status
+		return nil
+	case []byte:
+		status, err := ParseQueryListingStateStatus(string(v))
+		if err != nil {
+			return err
+		}
+		*s = status
+		return nil
+	default:
+		return fmt.Errorf("unsupported query listing state status value %T", value)
+	}
+}
 
 type SearchQuery struct {
 	ID        string    `gorm:"primaryKey;column:id"`
@@ -203,23 +272,30 @@ func (ListingObservation) TableName() string {
 }
 
 type QueryListingState struct {
-	QueryId                string      `gorm:"primaryKey;column:queryId"`
-	Query                  SearchQuery `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ListingId              string      `gorm:"primaryKey;column:listingId"`
-	Listing                Listing     `gorm:"foreignKey:ListingId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Source                 string      `gorm:"column:source"`
-	Status                 string      `gorm:"column:status"`
-	LastEvaluatedAt        time.Time   `gorm:"column:lastEvaluatedAt"`
-	FirstMatchedAt         *time.Time  `gorm:"column:firstMatchedAt"`
-	LastMatchedAt          *time.Time  `gorm:"column:lastMatchedAt"`
-	LastRejectedReason     *string     `gorm:"column:lastRejectedReason"`
-	LastNotifiedAt         *time.Time  `gorm:"column:lastNotifiedAt"`
-	LastNotifiedTotalPrice *float64    `gorm:"column:lastNotifiedTotalPrice"`
-	LowestObservedPrice    *float64    `gorm:"column:lowestObservedPrice"`
+	QueryId                string                  `gorm:"primaryKey;column:queryId"`
+	Query                  SearchQuery             `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	ListingId              string                  `gorm:"primaryKey;column:listingId"`
+	Listing                Listing                 `gorm:"foreignKey:ListingId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Source                 string                  `gorm:"column:source"`
+	Status                 QueryListingStateStatus `gorm:"column:status"`
+	LastEvaluatedAt        time.Time               `gorm:"column:lastEvaluatedAt"`
+	FirstMatchedAt         *time.Time              `gorm:"column:firstMatchedAt"`
+	LastMatchedAt          *time.Time              `gorm:"column:lastMatchedAt"`
+	LastRejectedReason     *string                 `gorm:"column:lastRejectedReason"`
+	LastNotifiedAt         *time.Time              `gorm:"column:lastNotifiedAt"`
+	LastNotifiedTotalPrice *float64                `gorm:"column:lastNotifiedTotalPrice"`
+	LowestObservedPrice    *float64                `gorm:"column:lowestObservedPrice"`
 }
 
 func (QueryListingState) TableName() string {
 	return "QueryListingState"
+}
+
+func (s *QueryListingState) BeforeSave(tx *gorm.DB) error {
+	if !s.Status.Valid() {
+		return fmt.Errorf("invalid query listing state status %q", s.Status)
+	}
+	return nil
 }
 
 type ScannerRuntimeState struct {

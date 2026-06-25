@@ -170,45 +170,53 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 
 		now := time.Now().UnixMilli()
 
-		b.dbClient.SetAction(ctx, firstKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, firstKey, models.ActionRegistry{
 			ID:        firstKey,
 			Type:      "view_page",
 			QueryType: &queryType,
 			QueryId:   stringPtr("1"),
 			Timestamp: now,
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord first page action: %v", err)
+		}
 
 		backPage := page - 1
 		if backPage < 1 {
 			backPage = 1
 		}
-		b.dbClient.SetAction(ctx, backKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, backKey, models.ActionRegistry{
 			ID:        backKey,
 			Type:      "view_page",
 			QueryType: &queryType,
 			QueryId:   stringPtr(strconv.Itoa(backPage)),
 			Timestamp: now,
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord back page action: %v", err)
+		}
 
 		forwardPage := page + 1
 		if forwardPage > totalPages {
 			forwardPage = totalPages
 		}
-		b.dbClient.SetAction(ctx, forwardKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, forwardKey, models.ActionRegistry{
 			ID:        forwardKey,
 			Type:      "view_page",
 			QueryType: &queryType,
 			QueryId:   stringPtr(strconv.Itoa(forwardPage)),
 			Timestamp: now,
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord forward page action: %v", err)
+		}
 
-		b.dbClient.SetAction(ctx, lastKey, models.ActionRegistry{
+		if err := b.dbClient.SetAction(ctx, lastKey, models.ActionRegistry{
 			ID:        lastKey,
 			Type:      "view_page",
 			QueryType: &queryType,
 			QueryId:   stringPtr(strconv.Itoa(totalPages)),
 			Timestamp: now,
-		})
+		}); err != nil {
+			log.Printf("Failed to register Discord last page action: %v", err)
+		}
 
 		components = []discordgo.MessageComponent{
 			discordgo.ActionsRow{

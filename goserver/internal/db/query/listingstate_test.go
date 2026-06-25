@@ -252,6 +252,141 @@ func TestFurtherPriceDrops(t *testing.T) {
 	}
 }
 
+func TestEvaluateListingForQueryPreservesNotificationMetadataOnRejection(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	queryObj := models.SearchQuery{ID: "test-query-preserve", CreatedAt: time.Now()}
+	if err := dbClient.SearchQuery.WithContext(ctx).Create(&queryObj); err != nil {
+		t.Fatalf("Failed to create query: %v", err)
+	}
+
+	listingId := StableListingId("cashConverters", "https://example.test/preserve")
+	firstPrice := 80.0
+	firstAt := time.Now().UTC().Add(-time.Hour)
+
+	dec1, err := dbClient.EvaluateListingForQuery(
+		ctx,
+		queryObj.ID,
+		listingId,
+		"cashConverters",
+		&firstPrice,
+		MatchResult{Type: MatchTypeMatched},
+		firstAt,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("Failed to evaluate first match: %v", err)
+	}
+	if dec1.Type != DecisionTypeNotify {
+		t.Fatalf("Expected first match to notify, got %q", dec1.Type)
+	}
+
+	rejectedPrice := 140.0
+	secondAt := firstAt.Add(time.Hour)
+	dec2, err := dbClient.EvaluateListingForQuery(
+		ctx,
+		queryObj.ID,
+		listingId,
+		"cashConverters",
+		&rejectedPrice,
+		MatchResult{Type: MatchTypeRejected, Reason: "AboveMaxPrice"},
+		secondAt,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("Failed to evaluate rejection: %v", err)
+	}
+	if dec2.Type != DecisionTypeDoNotNotify || dec2.Reason != DecisionReasonRejected {
+		t.Fatalf("Expected rejection without notification, got type %q reason %q", dec2.Type, dec2.Reason)
+	}
+
+	state, err := dbClient.GetQueryListingState(ctx, queryObj.ID, listingId)
+	if err != nil {
+		t.Fatalf("Failed to read listing state: %v", err)
+	}
+	if state == nil {
+		t.Fatal("Expected persisted listing state")
+	}
+	if state.Status != ListingStateStatusRejected {
+		t.Fatalf("Expected rejected status, got %q", state.Status)
+	}
+	if state.FirstMatchedAt == nil || !state.FirstMatchedAt.Equal(firstAt) {
+		t.Fatalf("first matched time = %v; expected %v", state.FirstMatchedAt, firstAt)
+	}
+	if state.LastMatchedAt == nil || !state.LastMatchedAt.Equal(firstAt) {
+		t.Fatalf("last matched time = %v; expected %v", state.LastMatchedAt, firstAt)
+	}
+	if state.LastNotifiedAt == nil || !state.LastNotifiedAt.Equal(firstAt) {
+		t.Fatalf("last notified time = %v; expected %v", state.LastNotifiedAt, firstAt)
+	}
+	if state.LastNotifiedTotalPrice == nil || *state.LastNotifiedTotalPrice != firstPrice {
+		t.Fatalf("last notified total price = %v; expected %v", state.LastNotifiedTotalPrice, firstPrice)
+	}
+}
+
+func TestEvaluateListingForQueryNotifiesWhenPreviouslyRejectedThenMatched(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	queryObj := models.SearchQuery{ID: "test-query-rejected-then-matched", CreatedAt: time.Now()}
+	if err := dbClient.SearchQuery.WithContext(ctx).Create(&queryObj); err != nil {
+		t.Fatalf("Failed to create query: %v", err)
+	}
+
+	listingId := StableListingId("cashConverters", "https://example.test/rejected-then-matched")
+	rejectedPrice := 140.0
+	firstAt := time.Now().UTC().Add(-time.Hour)
+
+	_, err := dbClient.EvaluateListingForQuery(
+		ctx,
+		queryObj.ID,
+		listingId,
+		"cashConverters",
+		&rejectedPrice,
+		MatchResult{Type: MatchTypeRejected, Reason: "AboveMaxPrice"},
+		firstAt,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("Failed to evaluate rejection: %v", err)
+	}
+
+	matchedPrice := 80.0
+	secondAt := firstAt.Add(time.Hour)
+	decision, err := dbClient.EvaluateListingForQuery(
+		ctx,
+		queryObj.ID,
+		listingId,
+		"cashConverters",
+		&matchedPrice,
+		MatchResult{Type: MatchTypeMatched},
+		secondAt,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("Failed to evaluate match: %v", err)
+	}
+	if decision.Type != DecisionTypeNotify || decision.Reason != DecisionReasonPriceDroppedIntoRange {
+		t.Fatalf("Expected notification after rejected listing matched, got type %q reason %q", decision.Type, decision.Reason)
+	}
+
+	state, err := dbClient.GetQueryListingState(ctx, queryObj.ID, listingId)
+	if err != nil {
+		t.Fatalf("Failed to read listing state: %v", err)
+	}
+	if state == nil {
+		t.Fatal("Expected persisted listing state")
+	}
+	if state.FirstMatchedAt == nil || !state.FirstMatchedAt.Equal(secondAt) {
+		t.Fatalf("first matched time = %v; expected %v", state.FirstMatchedAt, secondAt)
+	}
+}
+
 func float64Ptr(f float64) *float64 {
 	return &f
 }

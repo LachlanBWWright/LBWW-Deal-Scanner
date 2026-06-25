@@ -751,7 +751,7 @@ func (q *Query) GetLastFoundItems(ctx context.Context, queryId string, limit int
 		Table("QueryListingState").
 		Select("Listing.title, Listing.canonicalUrl, QueryListingState.lastNotifiedTotalPrice, QueryListingState.lowestObservedPrice, QueryListingState.lastMatchedAt").
 		Joins("JOIN Listing ON QueryListingState.listingId = Listing.id").
-		Where("QueryListingState.queryId = ? AND QueryListingState.status IN (?)", queryId, []string{"notified", "matched"}).
+		Where("QueryListingState.queryId = ? AND QueryListingState.status IN (?)", queryId, []ListingStateStatus{ListingStateStatusNotified, ListingStateStatusMatched}).
 		Order("QueryListingState.lastMatchedAt DESC").
 		Limit(limit).
 		Scan(&results).Error
@@ -812,7 +812,7 @@ func (q *Query) GetLastFoundItemsBatch(ctx context.Context, queryIds []string, l
 			) as rn
 		`).
 		Joins("JOIN Listing ON QueryListingState.listingId = Listing.id").
-		Where("QueryListingState.queryId IN ? AND QueryListingState.status IN ?", queryIds, []string{"notified", "matched"})
+		Where("QueryListingState.queryId IN ? AND QueryListingState.status IN ?", queryIds, []ListingStateStatus{ListingStateStatusNotified, ListingStateStatusMatched})
 
 	err := q.db.WithContext(ctx).
 		Table("(?) as Ranked", subQuery).

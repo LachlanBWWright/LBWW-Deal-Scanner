@@ -10,7 +10,6 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
-	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -64,63 +63,17 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				continue
 			}
 
-			// Evaluate
-			matched := true
-			var rejectReason *string
-
-			if item.MaxPrice != nil && found.TotalPrice != nil && *found.TotalPrice > *item.MaxPrice {
-				matched = false
-				reason := "AboveMaxPrice"
-				rejectReason = &reason
+			match := qry.MatchResult{Type: qry.MatchTypeMatched}
+			if found.TotalPrice != nil {
+				match = qry.MatchPriceRange(*found.TotalPrice, nil, item.MaxPrice)
 			}
 
-			var status string
-			if matched {
-				status = "matched"
-			} else {
-				status = "rejected"
-			}
-
-			prev, err := s.dbClient.GetQueryListingState(ctx, item.QueryId, listingId)
+			decision, err := s.dbClient.EvaluateListingForQuery(ctx, item.QueryId, listingId, "gumtree", found.TotalPrice, match, now, 0)
 			if err != nil {
-				continue
+				return nil, err
 			}
 
-			shouldNotify := false
-			if matched {
-				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
-					shouldNotify = true
-				}
-			}
-
-			state := &models.QueryListingState{
-				QueryId:            item.QueryId,
-				ListingId:          listingId,
-				Source:             "gumtree",
-				Status:             status,
-				LastEvaluatedAt:    now,
-				LastRejectedReason: rejectReason,
-			}
-
-			if prev != nil {
-				state.FirstMatchedAt = prev.FirstMatchedAt
-				state.LowestObservedPrice = prev.LowestObservedPrice
-				if prev.LowestObservedPrice == nil || (found.TotalPrice != nil && *found.TotalPrice < *prev.LowestObservedPrice) {
-					state.LowestObservedPrice = found.TotalPrice
-				}
-			} else {
-				state.LowestObservedPrice = found.TotalPrice
-				if matched {
-					state.FirstMatchedAt = &now
-				}
-			}
-
-			if shouldNotify {
-				status = "notified"
-				state.Status = status
-				state.LastNotifiedAt = &now
-				state.LastNotifiedTotalPrice = found.TotalPrice
-
+			if decision.Type == qry.DecisionTypeNotify && found.TotalPrice != nil {
 				title := fmt.Sprintf("a %s priced at $%.2f is available at %s", found.Title, *found.TotalPrice, found.CanonicalUrl)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
@@ -135,8 +88,6 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 					},
 				})
 			}
-
-			s.dbClient.UpsertQueryListingState(ctx, state)
 		}
 	}
 

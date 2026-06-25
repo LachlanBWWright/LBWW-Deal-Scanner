@@ -67,7 +67,7 @@ func TestDeleteSavedQueryRemovesDependentRecords(t *testing.T) {
 		QueryId:         queryID,
 		ListingId:       listingID,
 		Source:          "ebay",
-		Status:          "matched",
+		Status:          ListingStateStatusMatched,
 		LastEvaluatedAt: time.Now().UTC(),
 	}); err != nil {
 		t.Fatalf("create query listing state: %v", err)

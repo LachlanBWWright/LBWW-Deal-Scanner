@@ -171,6 +171,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 		discovered := make([]qry.DiscoveredListing, 0, len(summaries))
 		states := make([]*models.QueryListingState, 0, len(summaries))
+		queryNotifs := make([]notifications.AppNotification, 0)
 		for _, sum := range summaries {
 			requiredPhrases := combinePhraseFilters(query.RequiredPhrases, query.RequiredInDescription)
 			excludedPhrases := combinePhraseFilters(query.ExcludePhrases, query.ExcludeInDescription)
@@ -256,18 +257,18 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				rejectReason = &reason
 			}
 
-			var status string
+			var status qry.ListingStateStatus
 			if matched {
-				status = "matched"
+				status = qry.ListingStateStatusMatched
 			} else {
-				status = "rejected"
+				status = qry.ListingStateStatusRejected
 			}
 
 			prev := existingStates[listingId]
 
 			shouldNotify := false
 			if matched {
-				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
+				if prev == nil || prev.Status == qry.ListingStateStatusRejected || prev.Status == qry.ListingStateStatusUnavailable || prev.Status == qry.ListingStateStatusUnseen {
 					shouldNotify = true
 				}
 			}
@@ -283,6 +284,12 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 			if prev != nil {
 				state.FirstMatchedAt = prev.FirstMatchedAt
+				state.LastMatchedAt = prev.LastMatchedAt
+				state.LastNotifiedAt = prev.LastNotifiedAt
+				state.LastNotifiedTotalPrice = prev.LastNotifiedTotalPrice
+				if matched && state.FirstMatchedAt == nil {
+					state.FirstMatchedAt = &now
+				}
 				state.LowestObservedPrice = prev.LowestObservedPrice
 				if prev.LowestObservedPrice == nil || detail.TotalPrice < *prev.LowestObservedPrice {
 					state.LowestObservedPrice = &detail.TotalPrice
@@ -301,13 +308,13 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			}
 
 			if shouldNotify {
-				status = "notified"
+				status = qry.ListingStateStatusNotified
 				state.Status = status
 				state.LastNotifiedAt = &now
 				state.LastNotifiedTotalPrice = &detail.TotalPrice
 
 				title := fmt.Sprintf("a %s for $%.2f is available at %s", detail.Title, detail.TotalPrice, detail.CanonicalUrl)
-				notifs = append(notifs, notifications.AppNotification{
+				queryNotifs = append(queryNotifs, notifications.AppNotification{
 					Kind:     "deal",
 					Source:   "cashConverters",
 					Title:    title,
@@ -325,8 +332,9 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 		}
 
 		if err := s.dbClient.PersistListingBatch(ctx, discovered, existingListings, states, now); err != nil {
-			log.Printf("Failed to persist Cash Converters results for URL %s: %v", *query.Url, err)
+			return nil, fmt.Errorf("persist Cash Converters results for URL %s: %w", *query.Url, err)
 		}
+		notifs = append(notifs, queryNotifs...)
 	}
 
 	return notifs, nil

@@ -50,7 +50,7 @@ func TestGetLastFoundItemsBatch(t *testing.T) {
 		QueryId:                "queryA",
 		ListingId:              "list1",
 		Source:                 "ebay",
-		Status:                 "notified",
+		Status:                 ListingStateStatusNotified,
 		LastMatchedAt:          &now,
 		LastNotifiedTotalPrice: floatPtr(50.0),
 	}
@@ -60,7 +60,7 @@ func TestGetLastFoundItemsBatch(t *testing.T) {
 		QueryId:                "queryA",
 		ListingId:              "list2",
 		Source:                 "ebay",
-		Status:                 "matched",
+		Status:                 ListingStateStatusMatched,
 		LastMatchedAt:          &t2,
 		LastNotifiedTotalPrice: floatPtr(45.0),
 	}
@@ -70,7 +70,7 @@ func TestGetLastFoundItemsBatch(t *testing.T) {
 		QueryId:                "queryA",
 		ListingId:              "list3",
 		Source:                 "ebay",
-		Status:                 "notified",
+		Status:                 ListingStateStatusNotified,
 		LastMatchedAt:          &t3,
 		LastNotifiedTotalPrice: floatPtr(55.0),
 	}
@@ -80,7 +80,7 @@ func TestGetLastFoundItemsBatch(t *testing.T) {
 		QueryId:                "queryB",
 		ListingId:              "list1",
 		Source:                 "ebay",
-		Status:                 "notified",
+		Status:                 ListingStateStatusNotified,
 		LastMatchedAt:          &now,
 		LastNotifiedTotalPrice: floatPtr(50.0),
 	}
