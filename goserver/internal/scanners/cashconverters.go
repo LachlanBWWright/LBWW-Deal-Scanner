@@ -267,7 +267,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 			shouldNotify := false
 			if matched {
-				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" {
+				if prev == nil || prev.Status == "rejected" || prev.Status == "unseen" || (prev.Status == "matched" && prev.LastNotifiedAt == nil) {
 					shouldNotify = true
 				}
 			}
@@ -287,11 +287,17 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 				if prev.LowestObservedPrice == nil || detail.TotalPrice < *prev.LowestObservedPrice {
 					state.LowestObservedPrice = &detail.TotalPrice
 				}
+				if matched && state.FirstMatchedAt == nil {
+					state.FirstMatchedAt = &now
+				}
 			} else {
 				state.LowestObservedPrice = &detail.TotalPrice
 				if matched {
 					state.FirstMatchedAt = &now
 				}
+			}
+			if matched {
+				state.LastMatchedAt = &now
 			}
 
 			if shouldNotify {

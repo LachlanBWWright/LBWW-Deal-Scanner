@@ -62,15 +62,19 @@ func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.Q
 			}
 			info = fmt.Sprintf("- URL: <%s> | Max Price: %s", q.Id, priceStr)
 		case "cashConverters":
-			minPrice := "URL"
+			minPrice := "Any"
 			if q.MinPrice != nil {
 				minPrice = fmt.Sprintf("$%.2f", *q.MinPrice)
 			}
-			maxPrice := "URL"
+			maxPrice := "Any"
 			if q.MaxPrice != nil {
 				maxPrice = fmt.Sprintf("$%.2f", *q.MaxPrice)
 			}
-			info = fmt.Sprintf("- URL: <%s> | Price Range: %s - %s", q.Id, minPrice, maxPrice)
+			urlRef := "missing URL"
+			if q.Url != nil && *q.Url != "" {
+				urlRef = formatQueryReference(*q.Url)
+			}
+			info = fmt.Sprintf("- URL: %s | ID: `%s` | Price Range: %s - %s", urlRef, q.Id, minPrice, maxPrice)
 		case "salvos":
 			info = fmt.Sprintf("- Name: `%s` | Price Range: $%.2f - $%.2f", q.Id, *q.MinPrice, *q.MaxPrice)
 		case "csMarket":

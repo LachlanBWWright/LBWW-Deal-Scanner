@@ -641,6 +641,21 @@ func (q *Query) DeleteSavedQuery(ctx context.Context, queryType string, id strin
 		case "cashConverters":
 			var filter *models.CashConvertersFilter
 			filter, err = tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.ID.Eq(id)).First()
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				filters, findErr := tx.CashConvertersFilter.WithContext(ctx).Where(tx.CashConvertersFilter.CashConvertersUrl.Eq(id)).Find()
+				if findErr != nil {
+					return findErr
+				}
+				switch len(filters) {
+				case 0:
+					return gorm.ErrRecordNotFound
+				case 1:
+					filter = filters[0]
+					err = nil
+				default:
+					return fmt.Errorf("multiple Cash Converters queries use URL %q; delete by ID instead", id)
+				}
+			}
 			if err == nil {
 				queryId = filter.QueryId
 				cashConvertersURL = filter.CashConvertersUrl

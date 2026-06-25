@@ -311,7 +311,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		cc := qry.QueryItem{}
 		found := false
 		for index := range items {
-			if items[index].Id == id {
+			if items[index].Id == id || (items[index].Url != nil && *items[index].Url == id) {
 				cc = items[index]
 				found = true
 				break
@@ -361,7 +361,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 				excludedMode = opt.StringValue()
 			}
 
-			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, id, cc.DmOnly, qry.CashConvertersQueryInput{
+			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, cc.Id, cc.DmOnly, qry.CashConvertersQueryInput{
 				Url: urlVal, MinPrice: minPrice, MaxPrice: maxPrice, ScanMode: scanMode,
 				RequiredPhrases: required, RequiredMatchMode: requiredMode,
 				ExcludePhrases: excluded, ExcludeMatchMode: excludedMode,
@@ -369,7 +369,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Updated Cash Converters query %s", formatQueryReference(id))
+				responseContent = fmt.Sprintf("✅ Updated Cash Converters query %s", formatQueryReference(cc.Id))
 			}
 		}
 	case "deletecashquery":
