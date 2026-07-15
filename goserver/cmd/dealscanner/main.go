@@ -59,6 +59,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if cfg.RetentionEnabled {
+		retentionPolicy := query.RetentionPolicy{
+			ObservationRetention: time.Duration(cfg.RetentionObservationDays) * 24 * time.Hour,
+			ListingRetention:     time.Duration(cfg.RetentionListingDays) * 24 * time.Hour,
+			TtlRetention:         time.Duration(cfg.RetentionTtlDays) * 24 * time.Hour,
+		}
+		go queryClient.StartRetentionPruner(ctx, time.Duration(cfg.RetentionPruneHours)*time.Hour, retentionPolicy)
+	}
+
 	if err := bot.Start(ctx); err != nil {
 		log.Printf("Failed to start Discord Bot: %v", err)
 	}

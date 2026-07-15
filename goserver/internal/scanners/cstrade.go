@@ -9,6 +9,7 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -78,6 +79,13 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 			continue
 		}
 
+		type matchedCsTradeItem struct {
+			listing qry.DiscoveredListing
+			item    CsTradeItem
+		}
+		matches := make([]matchedCsTradeItem, 0)
+		listings := make([]qry.DiscoveredListing, 0)
+
 		for _, item := range data.Inventory {
 			if item.AppID != 730 || item.MarketHashName != *query.Name {
 				continue
@@ -99,15 +107,32 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				ImageUrl:     &item.Icon,
 				Availability: &item.Status,
 			}
-			listingId := qry.StableListingId("csTrade", canonicalUrl)
-			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
-			if err != nil {
-				continue
-			}
+			matches = append(matches, matchedCsTradeItem{listing: found, item: item})
+			listings = append(listings, found)
+		}
 
-			decision, err := s.dbClient.EvaluateListingForQuery(ctx, query.QueryId, listingId, "csTrade", &item.Price, qry.MatchResult{Type: qry.MatchTypeMatched}, now, 0)
-			if err != nil {
-				return nil, err
+		cache, err := s.dbClient.LoadListingEvaluationCache(ctx, query.QueryId, listings)
+		if err != nil {
+			return nil, err
+		}
+		states := make([]*models.QueryListingState, 0, len(listings))
+
+		for _, matchItem := range matches {
+			found := matchItem.listing
+			item := matchItem.item
+			listingId := qry.StableListingId("csTrade", found.CanonicalUrl)
+			decision, state := qry.BuildQueryListingStateDecision(
+				cache.ExistingStates[listingId],
+				query.QueryId,
+				listingId,
+				"csTrade",
+				&item.Price,
+				qry.MatchResult{Type: qry.MatchTypeMatched},
+				now,
+				0,
+			)
+			if state != nil {
+				states = append(states, state)
 			}
 
 			if decision.Type == qry.DecisionTypeNotify {
@@ -125,6 +150,10 @@ func (s *CsTradeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 					},
 				})
 			}
+		}
+
+		if err := s.dbClient.PersistListingBatch(ctx, listings, cache.ExistingListings, cache.LatestObservations, cache.ExistingStates, states, now); err != nil {
+			return nil, err
 		}
 	}
 
@@ -199,6 +228,15 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 			continue
 		}
 
+		type matchedLootFarmItem struct {
+			listing   qry.DiscoveredListing
+			skinName  string
+			price     float64
+			itemFloat float64
+		}
+		matches := make([]matchedLootFarmItem, 0)
+		listings := make([]qry.DiscoveredListing, 0)
+
 		for _, skin := range data.Result {
 			if !strings.Contains(*query.Name, skin.N) {
 				continue
@@ -236,34 +274,58 @@ func (s *LootFarmScanner) Scan(ctx context.Context) ([]notifications.AppNotifica
 						Price:        &price,
 						TotalPrice:   &price,
 					}
-					listingId := qry.StableListingId("lootFarm", canonicalUrl)
-					_, err = s.dbClient.PersistListingObservation(ctx, found, now)
-					if err != nil {
-						continue
-					}
-
-					decision, err := s.dbClient.EvaluateListingForQuery(ctx, query.QueryId, listingId, "lootFarm", &price, qry.MatchResult{Type: qry.MatchTypeMatched}, now, 0)
-					if err != nil {
-						return nil, err
-					}
-
-					if decision.Type == qry.DecisionTypeNotify {
-						title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://loot.farm/", skin.N, itemFloat, price)
-						notifs = append(notifs, notifications.AppNotification{
-							Kind:     "deal",
-							Source:   "lootFarm",
-							Title:    title,
-							Url:      "https://loot.farm/",
-							Price:    &price,
-							ImageUrl: nil,
-							Query: &notifications.NotificationQuery{
-								Type: "csTradeBot",
-								Id:   query.Id,
-							},
-						})
-					}
+					matches = append(matches, matchedLootFarmItem{
+						listing:   found,
+						skinName:  skin.N,
+						price:     price,
+						itemFloat: itemFloat,
+					})
+					listings = append(listings, found)
 				}
 			}
+		}
+
+		cache, err := s.dbClient.LoadListingEvaluationCache(ctx, query.QueryId, listings)
+		if err != nil {
+			return nil, err
+		}
+		states := make([]*models.QueryListingState, 0, len(listings))
+
+		for _, matchItem := range matches {
+			listingId := qry.StableListingId("lootFarm", matchItem.listing.CanonicalUrl)
+			decision, state := qry.BuildQueryListingStateDecision(
+				cache.ExistingStates[listingId],
+				query.QueryId,
+				listingId,
+				"lootFarm",
+				&matchItem.price,
+				qry.MatchResult{Type: qry.MatchTypeMatched},
+				now,
+				0,
+			)
+			if state != nil {
+				states = append(states, state)
+			}
+
+			if decision.Type == qry.DecisionTypeNotify {
+				title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://loot.farm/", matchItem.skinName, matchItem.itemFloat, matchItem.price)
+				notifs = append(notifs, notifications.AppNotification{
+					Kind:     "deal",
+					Source:   "lootFarm",
+					Title:    title,
+					Url:      "https://loot.farm/",
+					Price:    &matchItem.price,
+					ImageUrl: nil,
+					Query: &notifications.NotificationQuery{
+						Type: "csTradeBot",
+						Id:   query.Id,
+					},
+				})
+			}
+		}
+
+		if err := s.dbClient.PersistListingBatch(ctx, listings, cache.ExistingListings, cache.LatestObservations, cache.ExistingStates, states, now); err != nil {
+			return nil, err
 		}
 	}
 
@@ -350,6 +412,15 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 			continue
 		}
 
+		type matchedTradeItItem struct {
+			listing   qry.DiscoveredListing
+			name      string
+			price     float64
+			bestFloat float64
+		}
+		matches := make([]matchedTradeItItem, 0)
+		listings := make([]qry.DiscoveredListing, 0)
+
 		for _, item := range allItems {
 			if item.Name != *query.Name {
 				continue
@@ -385,25 +456,45 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 				Price:        &price,
 				TotalPrice:   &price,
 			}
-			listingId := qry.StableListingId("tradeIt", canonicalUrl)
-			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
-			if err != nil {
-				continue
-			}
+			matches = append(matches, matchedTradeItItem{
+				listing:   found,
+				name:      item.Name,
+				price:     price,
+				bestFloat: bestFloat,
+			})
+			listings = append(listings, found)
+		}
 
-			decision, err := s.dbClient.EvaluateListingForQuery(ctx, query.QueryId, listingId, "tradeIt", &price, qry.MatchResult{Type: qry.MatchTypeMatched}, now, 0)
-			if err != nil {
-				return nil, err
+		cache, err := s.dbClient.LoadListingEvaluationCache(ctx, query.QueryId, listings)
+		if err != nil {
+			return nil, err
+		}
+		states := make([]*models.QueryListingState, 0, len(listings))
+
+		for _, matchItem := range matches {
+			listingId := qry.StableListingId("tradeIt", matchItem.listing.CanonicalUrl)
+			decision, state := qry.BuildQueryListingStateDecision(
+				cache.ExistingStates[listingId],
+				query.QueryId,
+				listingId,
+				"tradeIt",
+				&matchItem.price,
+				qry.MatchResult{Type: qry.MatchTypeMatched},
+				now,
+				0,
+			)
+			if state != nil {
+				states = append(states, state)
 			}
 
 			if decision.Type == qry.DecisionTypeNotify {
-				title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://tradeit.gg/csgo/trade", item.Name, bestFloat, price)
+				title := fmt.Sprintf("a %s with a float of %.5f is available for $%.2f USD at: https://tradeit.gg/csgo/trade", matchItem.name, matchItem.bestFloat, matchItem.price)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
 					Source:   "tradeIt",
 					Title:    title,
 					Url:      "https://tradeit.gg/csgo/trade",
-					Price:    &price,
+					Price:    &matchItem.price,
 					ImageUrl: nil,
 					Query: &notifications.NotificationQuery{
 						Type: "csTradeBot",
@@ -411,6 +502,10 @@ func (s *TradeItScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 					},
 				})
 			}
+		}
+
+		if err := s.dbClient.PersistListingBatch(ctx, listings, cache.ExistingListings, cache.LatestObservations, cache.ExistingStates, states, now); err != nil {
+			return nil, err
 		}
 	}
 

@@ -1,4 +1,7 @@
 .env
+.deploy-artifact/
+.DS_Store
+data/
 node_modules/
 build/
 frontend/dist/assets/

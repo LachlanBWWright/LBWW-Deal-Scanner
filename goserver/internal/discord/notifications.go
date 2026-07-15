@@ -89,17 +89,34 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, channelMessage, dmMessage
 					log.Printf("Failed to register Discord unsubscribe action for user %s: %v", uq.UserId, err)
 				}
 
+				viewDetailsActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+				if err := b.dbClient.SetAction(ctx, viewDetailsActionKey, models.ActionRegistry{
+					ID:        viewDetailsActionKey,
+					Type:      "view_query_details",
+					QueryType: &queryType,
+					QueryId:   &queryId,
+					Timestamp: time.Now().UnixMilli(),
+				}); err != nil {
+					log.Printf("Failed to register Discord query details action for user %s: %v", uq.UserId, err)
+				}
+				dmButtons := []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "View Query Details",
+						Style:    discordgo.PrimaryButton,
+						CustomID: viewDetailsActionKey,
+					},
+					discordgo.Button{
+						Label:    "Unsubscribe from DM",
+						Style:    discordgo.SecondaryButton,
+						CustomID: unsubscribeActionKey,
+					},
+				}
+
 				dmMsg := &discordgo.MessageSend{
 					Content: dmMessage,
 					Components: []discordgo.MessageComponent{
 						discordgo.ActionsRow{
-							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									Label:    "Unsubscribe from DM",
-									Style:    discordgo.SecondaryButton,
-									CustomID: unsubscribeActionKey,
-								},
-							},
+							Components: dmButtons,
 						},
 					},
 				}
@@ -155,19 +172,36 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, channelMessage, dmMessage
 			log.Printf("Failed to register Discord subscribe action for %s/%s: %v", queryType, queryId, err)
 		}
 
-		buttons = append(buttons, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.Button{
-					Label:    "Delete Query",
-					Style:    discordgo.DangerButton,
-					CustomID: deleteActionKey,
-				},
-				discordgo.Button{
-					Label:    "Subscribe to DM",
-					Style:    discordgo.PrimaryButton,
-					CustomID: subscribeDMActionKey,
-				},
+		viewDetailsActionKey := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+		if err := b.dbClient.SetAction(ctx, viewDetailsActionKey, models.ActionRegistry{
+			ID:        viewDetailsActionKey,
+			Type:      "view_query_details",
+			QueryType: &queryType,
+			QueryId:   &queryId,
+			Timestamp: time.Now().UnixMilli(),
+		}); err != nil {
+			log.Printf("Failed to register Discord query details action for %s/%s: %v", queryType, queryId, err)
+		}
+		channelButtons := []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "View Query Details",
+				Style:    discordgo.PrimaryButton,
+				CustomID: viewDetailsActionKey,
 			},
+			discordgo.Button{
+				Label:    "Delete Query",
+				Style:    discordgo.DangerButton,
+				CustomID: deleteActionKey,
+			},
+			discordgo.Button{
+				Label:    "Subscribe to DM",
+				Style:    discordgo.SecondaryButton,
+				CustomID: subscribeDMActionKey,
+			},
+		}
+
+		buttons = append(buttons, discordgo.ActionsRow{
+			Components: channelButtons,
 		})
 	}
 

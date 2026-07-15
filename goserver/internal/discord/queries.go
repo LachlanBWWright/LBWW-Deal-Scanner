@@ -53,43 +53,7 @@ func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.Q
 	entries := make([]string, 0, len(queries))
 	for _, q := range queries {
 		var sb strings.Builder
-		var info string
-		switch q.Type {
-		case "ebay", "gumtree":
-			priceStr := "Any"
-			if q.MaxPrice != nil {
-				priceStr = fmt.Sprintf("$%.2f", *q.MaxPrice)
-			}
-			info = fmt.Sprintf("- URL: <%s> | Max Price: %s", q.Id, priceStr)
-		case "cashConverters":
-			minPrice := "Any"
-			if q.MinPrice != nil {
-				minPrice = fmt.Sprintf("$%.2f", *q.MinPrice)
-			}
-			maxPrice := "Any"
-			if q.MaxPrice != nil {
-				maxPrice = fmt.Sprintf("$%.2f", *q.MaxPrice)
-			}
-			urlRef := "missing URL"
-			if q.Url != nil && *q.Url != "" {
-				urlRef = formatQueryReference(*q.Url)
-			}
-			info = fmt.Sprintf("- URL: %s | ID: `%s` | Price Range: %s - %s", urlRef, q.Id, minPrice, maxPrice)
-		case "salvos":
-			info = fmt.Sprintf("- Name: `%s` | Price Range: $%.2f - $%.2f", q.Id, *q.MinPrice, *q.MaxPrice)
-		case "csMarket":
-			info = fmt.Sprintf("- URL: <%s> | Max Price: $%.2f | Max Float: %.5f", q.Id, *q.MaxPrice, *q.MaxFloat)
-		case "csTradeBot":
-			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f | Float Range: %.5f - %.5f", q.Id, *q.MaxPrice, *q.MinFloat, *q.MaxFloat)
-		case "steamMarket":
-			urlPart := ""
-			if q.DisplayUrl != nil && *q.DisplayUrl != "" {
-				urlPart = fmt.Sprintf(" | [Market Link](<%s>)", *q.DisplayUrl)
-			}
-			info = fmt.Sprintf("- Name: `%s` | Max Price: $%.2f%s", q.Id, *q.MaxPrice, urlPart)
-		}
-
-		sb.WriteString(info)
+		sb.WriteString(formatQueryInfo(q))
 		if q.DmOnly {
 			sb.WriteString(" (DM Only)")
 		}

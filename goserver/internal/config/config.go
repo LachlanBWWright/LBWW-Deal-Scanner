@@ -8,15 +8,20 @@ import (
 )
 
 type Config struct {
-	ApiHost             string
-	ApiPort             int
-	ApiSecret           string
-	DatabaseUrl         string
-	TursoDatabaseUrl    string
-	TursoAuthToken      string
-	ScheduledMode       bool
-	ScheduledDurationMs int
-	EnableTestingApi    bool
+	ApiHost                  string
+	ApiPort                  int
+	ApiSecret                string
+	DatabaseUrl              string
+	TursoDatabaseUrl         string
+	TursoAuthToken           string
+	ScheduledMode            bool
+	ScheduledDurationMs      int
+	EnableTestingApi         bool
+	RetentionEnabled         bool
+	RetentionPruneHours      int
+	RetentionObservationDays int
+	RetentionListingDays     int
+	RetentionTtlDays         int
 
 	// Discord / Globals defaults
 	BotClientId    string
@@ -112,15 +117,20 @@ func LoadConfig() *Config {
 	LoadEnv(".env")
 
 	return &Config{
-		ApiHost:             getEnv("API_HOST", "0.0.0.0"),
-		ApiPort:             getEnvInt("API_PORT", getEnvInt("PORT", 3000)),
-		ApiSecret:           os.Getenv("API_SECRET"),
-		DatabaseUrl:         os.Getenv("TURSO_DATABASE_URL"),
-		TursoDatabaseUrl:    os.Getenv("TURSO_DATABASE_URL"),
-		TursoAuthToken:      os.Getenv("TURSO_AUTH_TOKEN"),
-		ScheduledMode:       getEnvBool("SCHEDULED_SCANNER_MODE", false),
-		ScheduledDurationMs: getEnvInt("SCHEDULED_SCANNER_DURATION_MS", 300000),
-		EnableTestingApi:    getEnvBool("ENABLE_TESTING_API", true),
+		ApiHost:                  getEnv("API_HOST", "0.0.0.0"),
+		ApiPort:                  getEnvInt("API_PORT", getEnvInt("PORT", 3000)),
+		ApiSecret:                os.Getenv("API_SECRET"),
+		DatabaseUrl:              os.Getenv("DATABASE_URL"),
+		TursoDatabaseUrl:         os.Getenv("TURSO_DATABASE_URL"),
+		TursoAuthToken:           os.Getenv("TURSO_AUTH_TOKEN"),
+		ScheduledMode:            getEnvBool("SCHEDULED_SCANNER_MODE", false),
+		ScheduledDurationMs:      getEnvInt("SCHEDULED_SCANNER_DURATION_MS", 300000),
+		EnableTestingApi:         getEnvBool("ENABLE_TESTING_API", true),
+		RetentionEnabled:         getEnvBool("RETENTION_ENABLED", true),
+		RetentionPruneHours:      getEnvInt("RETENTION_PRUNE_INTERVAL_HOURS", 24),
+		RetentionObservationDays: getEnvInt("RETENTION_OBSERVATION_DAYS", 7),
+		RetentionListingDays:     getEnvInt("RETENTION_LISTING_DAYS", 7),
+		RetentionTtlDays:         getEnvInt("RETENTION_TTL_DAYS", 7),
 
 		BotClientId:    os.Getenv("BOT_CLIENT_ID"),
 		DiscordGuildId: os.Getenv("DISCORD_GUILD_ID"),

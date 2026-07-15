@@ -11,6 +11,8 @@ import (
 	"golang.org/x/net/html"
 )
 
+const systemChromiumPath = "/usr/bin/chromium"
+
 // CleanSelectionText extracts text from a goquery.Selection and normalizes spacing between elements and words.
 func CleanSelectionText(s *goquery.Selection) string {
 	var parts []string
@@ -46,16 +48,21 @@ func GetPageHTMLWithBrowser(ctx context.Context, targetUrl string, timeout time.
 	var userAgent string
 
 	if strings.Contains(targetUrl, "ebay.com.au") || strings.Contains(targetUrl, "ebay.com") {
-		// eBay blocks Chromium but works flawlessly headlessly with WebKit (Safari engine)
-		browser, err = pw.WebKit.Launch(playwright.BrowserTypeLaunchOptions{
-			Headless: playwright.Bool(true),
+		browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
+			ExecutablePath: playwright.String(systemChromiumPath),
+			Headless:       playwright.Bool(true),
+			Args: []string{
+				"--disable-blink-features=AutomationControlled",
+				"--no-sandbox",
+			},
 		})
 		userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15"
 	} else if strings.Contains(targetUrl, "gumtree.com.au") || strings.Contains(targetUrl, "gumtree.com") {
 		// Gumtree requires headed Chromium to bypass anti-bot blocks
 		// We launch it off-screen so it is completely invisible to the user
 		browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-			Headless: playwright.Bool(false),
+			ExecutablePath: playwright.String(systemChromiumPath),
+			Headless:       playwright.Bool(false),
 			Args: []string{
 				"--disable-blink-features=AutomationControlled",
 				"--no-sandbox",
@@ -66,7 +73,8 @@ func GetPageHTMLWithBrowser(ctx context.Context, targetUrl string, timeout time.
 	} else {
 		// Default to Chromium in headless mode (e.g. for Salvos)
 		browser, err = pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-			Headless: playwright.Bool(true),
+			ExecutablePath: playwright.String(systemChromiumPath),
+			Headless:       playwright.Bool(true),
 			Args: []string{
 				"--disable-blink-features=AutomationControlled",
 				"--no-sandbox",
@@ -138,9 +146,10 @@ func CheckBrowser(ctx context.Context) error {
 	}
 	defer pw.Stop()
 
-	// Launch chromium in headless mode for checks
+	// Launch the system Chromium binary in headless mode for checks.
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+		ExecutablePath: playwright.String(systemChromiumPath),
+		Headless:       playwright.Bool(true),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to launch chromium: %w", err)

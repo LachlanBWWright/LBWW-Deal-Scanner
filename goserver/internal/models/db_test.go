@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 type testConn struct {
@@ -75,5 +77,55 @@ func TestValidatingConnPingUsesValidationQuery(t *testing.T) {
 	}
 	if underlying.execCalls != 1 {
 		t.Fatalf("Ping() validation calls = %d, want 1", underlying.execCalls)
+	}
+}
+
+func TestOpenLocalSQLitePersistsDataAndEnforcesForeignKeys(t *testing.T) {
+	databaseURL := "file:" + filepath.ToSlash(filepath.Join(t.TempDir(), "dealscanner.db"))
+
+	first, err := Open(databaseURL, "")
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+
+	query := SearchQuery{ID: "query-1", CreatedAt: time.Now().UTC()}
+	if err := first.Create(&query).Error; err != nil {
+		t.Fatalf("create query: %v", err)
+	}
+	firstSQL, err := first.DB()
+	if err != nil {
+		t.Fatalf("first DB() error = %v", err)
+	}
+	if err := firstSQL.Close(); err != nil {
+		t.Fatalf("close first database: %v", err)
+	}
+
+	second, err := Open(databaseURL, "")
+	if err != nil {
+		t.Fatalf("reopen database: %v", err)
+	}
+	secondSQL, err := second.DB()
+	if err != nil {
+		t.Fatalf("second DB() error = %v", err)
+	}
+	defer secondSQL.Close()
+
+	var count int64
+	if err := second.Model(&SearchQuery{}).Where("id = ?", query.ID).Count(&count).Error; err != nil {
+		t.Fatalf("count persisted query: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("persisted query count = %d, want 1", count)
+	}
+
+	invalidUserQuery := UserQuery{ID: "user-query-1", UserId: "user-1", QueryId: "missing"}
+	if err := second.Create(&invalidUserQuery).Error; err == nil {
+		t.Fatal("create user query without a parent query succeeded, want foreign key error")
+	}
+}
+
+func TestOpenRejectsUnsupportedDatabaseURL(t *testing.T) {
+	if _, err := Open("/var/lib/dealscanner/dealscanner.db", ""); err == nil {
+		t.Fatal("Open() succeeded for an unsupported database URL")
 	}
 }

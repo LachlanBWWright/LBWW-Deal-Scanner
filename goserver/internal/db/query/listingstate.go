@@ -10,6 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const queryListingStateFreshnessWriteInterval = time.Hour
+
 type MatchType string
 
 const (
@@ -122,16 +124,54 @@ func (q *Query) EvaluateListingForQuery(
 	furtherPriceDropRatio float64,
 ) (NotificationDecision, error) {
 	previous, err := q.QueryListingState.WithContext(ctx).Where(q.QueryListingState.QueryId.Eq(queryId), q.QueryListingState.ListingId.Eq(listingId)).First()
+
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return NotificationDecision{}, err
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		previous = nil
+	}
+
+	decision, state := BuildQueryListingStateDecision(
+		previous,
+		queryId,
+		listingId,
+		source,
+		totalPrice,
+		match,
+		evaluatedAt,
+		furtherPriceDropRatio,
+	)
+	if state == nil {
+		return decision, nil
+	}
+
+	err = q.UpsertQueryListingStateIfChanged(ctx, previous, state, evaluatedAt)
+	if err != nil {
+		return NotificationDecision{}, err
+	}
+
+	return decision, nil
+}
+
+func BuildQueryListingStateDecision(
+	previous *models.QueryListingState,
+	queryId string,
+	listingId string,
+	source string,
+	totalPrice *float64,
+	match MatchResult,
+	evaluatedAt time.Time,
+	furtherPriceDropRatio float64,
+) (NotificationDecision, *models.QueryListingState) {
 	var previousStatus *ListingStateStatus
 	var lastNotifiedTotalPrice *float64
 	var lowestObsPrice *float64
 
-	if err == nil && previous != nil {
+	if previous != nil {
 		previousStatus = &previous.Status
 		lastNotifiedTotalPrice = previous.LastNotifiedTotalPrice
 		lowestObsPrice = previous.LowestObservedPrice
-	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return NotificationDecision{}, err
 	}
 
 	if match.Type == MatchTypeRejected {
@@ -158,16 +198,11 @@ func (q *Query) EvaluateListingForQuery(
 			state.LastNotifiedTotalPrice = previous.LastNotifiedTotalPrice
 		}
 
-		err = q.UpsertQueryListingState(ctx, &state)
-		if err != nil {
-			return NotificationDecision{}, err
-		}
-
 		reason := DecisionReasonRejected
 		if match.Reason == "Unavailable" {
 			reason = DecisionReasonUnavailable
 		}
-		return NotificationDecision{Type: DecisionTypeDoNotNotify, Reason: reason}, nil
+		return NotificationDecision{Type: DecisionTypeDoNotNotify, Reason: reason}, &state
 	}
 
 	if totalPrice == nil {
@@ -209,12 +244,7 @@ func (q *Query) EvaluateListingForQuery(
 		state.LastNotifiedTotalPrice = totalPrice
 	}
 
-	err = q.UpsertQueryListingState(ctx, &state)
-	if err != nil {
-		return NotificationDecision{}, err
-	}
-
-	return decision, nil
+	return decision, &state
 }
 
 func getMatchedDecision(

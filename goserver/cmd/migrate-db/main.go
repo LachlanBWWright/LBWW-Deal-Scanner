@@ -199,7 +199,7 @@ func verifyCascadeConstraints(db *gorm.DB) error {
 func main() {
 	cfg := config.LoadConfig()
 
-	db, err := models.Open(cfg.TursoDatabaseUrl, cfg.TursoAuthToken)
+	db, err := models.Open(cfg.DatabaseUrl, cfg.TursoAuthToken)
 	if err != nil {
 		log.Fatalf("Failed to migrate database schema: %v", err)
 	}
@@ -218,5 +218,5 @@ func main() {
 		log.Fatalf("Database cascade verification failed: %v", err)
 	}
 
-	log.Println("Turso database schema migration completed.")
+	log.Println("Database schema migration completed.")
 }

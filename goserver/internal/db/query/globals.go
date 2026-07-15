@@ -10,6 +10,10 @@ import (
 )
 
 func (q *Query) GetGlobals(ctx context.Context) (*models.Globals, error) {
+	if cached, ok := defaultGlobalsCache.get(); ok {
+		return cached, nil
+	}
+
 	g, err := q.Globals.WithContext(ctx).First()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -17,11 +21,16 @@ func (q *Query) GetGlobals(ctx context.Context) (*models.Globals, error) {
 		}
 		return nil, err
 	}
+	defaultGlobalsCache.set(g)
 	return g, nil
 }
 
 func (q *Query) UpdateGlobals(ctx context.Context, g *models.Globals) error {
-	return q.Globals.WithContext(ctx).Save(g)
+	if err := q.Globals.WithContext(ctx).Save(g); err != nil {
+		return err
+	}
+	defaultGlobalsCache.set(g)
+	return nil
 }
 
 func (q *Query) SeedGlobals(ctx context.Context, cfg *config.Config) error {
@@ -59,7 +68,11 @@ func (q *Query) SeedGlobals(ctx context.Context, cfg *config.Config) error {
 			CsDealsDollarRatio:      1.0,
 			TradeitGgDollarRatio:    1.0,
 		}
-		return q.Globals.WithContext(ctx).Create(&g)
+		if err := q.Globals.WithContext(ctx).Create(&g); err != nil {
+			return err
+		}
+		defaultGlobalsCache.set(&g)
+		return nil
 	}
 	return err
 }

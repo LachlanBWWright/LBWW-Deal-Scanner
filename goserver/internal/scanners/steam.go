@@ -9,6 +9,7 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 )
 
@@ -90,11 +91,11 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 		}
 
 		var prices []float64
+		listings := make([]qry.DiscoveredListing, 0, len(steamResponse.Results))
 		for _, result := range steamResponse.Results {
 			price := result.SellPrice / 100.0
 			prices = append(prices, price)
 
-			// Persist listing
 			canonicalUrl := fmt.Sprintf("https://steamcommunity.com/market/listings/730/%s", result.Name)
 			found := qry.DiscoveredListing{
 				Source:       "steamMarket",
@@ -103,29 +104,44 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				Price:        &price,
 				TotalPrice:   &price,
 			}
+			listings = append(listings, found)
+		}
 
-			listingId := qry.StableListingId("steamMarket", canonicalUrl)
-			_, err = s.dbClient.PersistListingObservation(ctx, found, time.Now().UTC())
-			if err != nil {
-				log.Printf("Failed to persist SCM observation: %v", err)
+		now := time.Now().UTC()
+		cache, err := s.dbClient.LoadListingEvaluationCache(ctx, item.QueryId, listings)
+		if err != nil {
+			return nil, err
+		}
+		states := make([]*models.QueryListingState, 0, len(listings))
+
+		for _, found := range listings {
+			listingId := qry.StableListingId("steamMarket", found.CanonicalUrl)
+			if found.TotalPrice == nil {
 				continue
 			}
-
-			now := time.Now().UTC()
-			match := qry.MatchPriceRange(price, nil, item.MaxPrice)
-			decision, err := s.dbClient.EvaluateListingForQuery(ctx, item.QueryId, listingId, "steamMarket", &price, match, now, 0)
-			if err != nil {
-				return nil, err
+			match := qry.MatchPriceRange(*found.TotalPrice, nil, item.MaxPrice)
+			decision, state := qry.BuildQueryListingStateDecision(
+				cache.ExistingStates[listingId],
+				item.QueryId,
+				listingId,
+				"steamMarket",
+				found.TotalPrice,
+				match,
+				now,
+				0,
+			)
+			if state != nil {
+				states = append(states, state)
 			}
 
 			if decision.Type == qry.DecisionTypeNotify {
-				title := fmt.Sprintf("a %s is available for $%.2f USD at: %s", result.Name, price, canonicalUrl)
+				title := fmt.Sprintf("a %s is available for $%.2f USD at: %s", found.Title, *found.TotalPrice, found.CanonicalUrl)
 				notifs = append(notifs, notifications.AppNotification{
 					Kind:     "deal",
 					Source:   "steamMarket",
 					Title:    title,
-					Url:      canonicalUrl,
-					Price:    &price,
+					Url:      found.CanonicalUrl,
+					Price:    found.TotalPrice,
 					ImageUrl: nil,
 					Query: &notifications.NotificationQuery{
 						Type: "steamMarket",
@@ -133,6 +149,10 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 					},
 				})
 			}
+		}
+
+		if err := s.dbClient.PersistListingBatch(ctx, listings, cache.ExistingListings, cache.LatestObservations, cache.ExistingStates, states, now); err != nil {
+			return nil, err
 		}
 
 		if len(prices) > 0 {
@@ -144,9 +164,11 @@ func (s *SteamMarketScanner) Scan(ctx context.Context) ([]notifications.AppNotif
 				}
 			}
 
-			_, err := s.dbClient.SteamMarket.WithContext(ctx).Where(s.dbClient.SteamMarket.Name.Eq(*item.Name)).Update(s.dbClient.SteamMarket.LastPrice, lowestPrice)
-			if err != nil {
-				return nil, err
+			if item.LastPrice == nil || *item.LastPrice != lowestPrice {
+				_, err := s.dbClient.SteamMarket.WithContext(ctx).Where(s.dbClient.SteamMarket.Name.Eq(*item.Name)).Update(s.dbClient.SteamMarket.LastPrice, lowestPrice)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

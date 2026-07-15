@@ -10,6 +10,7 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -56,21 +57,31 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 			continue
 		}
 
+		cache, err := s.dbClient.LoadListingEvaluationCache(ctx, item.QueryId, listings)
+		if err != nil {
+			return nil, err
+		}
+		states := make([]*models.QueryListingState, 0, len(listings))
+
 		for _, found := range listings {
 			listingId := qry.StableListingId("gumtree", found.CanonicalUrl)
-			_, err = s.dbClient.PersistListingObservation(ctx, found, now)
-			if err != nil {
-				continue
-			}
-
 			match := qry.MatchResult{Type: qry.MatchTypeMatched}
 			if found.TotalPrice != nil {
 				match = qry.MatchPriceRange(*found.TotalPrice, nil, item.MaxPrice)
 			}
 
-			decision, err := s.dbClient.EvaluateListingForQuery(ctx, item.QueryId, listingId, "gumtree", found.TotalPrice, match, now, 0)
-			if err != nil {
-				return nil, err
+			decision, state := qry.BuildQueryListingStateDecision(
+				cache.ExistingStates[listingId],
+				item.QueryId,
+				listingId,
+				"gumtree",
+				found.TotalPrice,
+				match,
+				now,
+				0,
+			)
+			if state != nil {
+				states = append(states, state)
 			}
 
 			if decision.Type == qry.DecisionTypeNotify && found.TotalPrice != nil {
@@ -88,6 +99,10 @@ func (s *GumtreeScanner) Scan(ctx context.Context) ([]notifications.AppNotificat
 					},
 				})
 			}
+		}
+
+		if err := s.dbClient.PersistListingBatch(ctx, listings, cache.ExistingListings, cache.LatestObservations, cache.ExistingStates, states, now); err != nil {
+			return nil, err
 		}
 	}
 

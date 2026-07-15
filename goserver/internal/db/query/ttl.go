@@ -19,11 +19,16 @@ const (
 	ScannerCsTradeBot     = 5
 )
 
+const ttlRefreshWriteInterval = time.Hour
+
 func (q *Query) CheckIfNew(ctx context.Context, itemId string, scanner int) (bool, error) {
-	_, err := q.TtlItem.WithContext(ctx).Where(q.TtlItem.ItemId.Eq(itemId), q.TtlItem.Scanner.Eq(scanner)).First()
+	item, err := q.TtlItem.WithContext(ctx).Where(q.TtlItem.ItemId.Eq(itemId), q.TtlItem.Scanner.Eq(scanner)).First()
 	if err == nil {
-		if _, err := q.TtlItem.WithContext(ctx).Where(q.TtlItem.ItemId.Eq(itemId), q.TtlItem.Scanner.Eq(scanner)).Update(q.TtlItem.LastUpdated, time.Now().UTC()); err != nil {
-			return false, err
+		now := time.Now().UTC()
+		if now.Sub(item.LastUpdated) >= ttlRefreshWriteInterval {
+			if _, err := q.TtlItem.WithContext(ctx).Where(q.TtlItem.ItemId.Eq(itemId), q.TtlItem.Scanner.Eq(scanner)).Update(q.TtlItem.LastUpdated, now); err != nil {
+				return false, err
+			}
 		}
 		return false, nil
 	}

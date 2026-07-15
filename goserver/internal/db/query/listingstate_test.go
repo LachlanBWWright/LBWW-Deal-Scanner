@@ -77,6 +77,262 @@ func TestPersistListingObservationStoresDetailTimestampOnFirstObservation(t *tes
 	}
 }
 
+func TestPersistListingObservationSkipsFreshListingUpdateButKeepsObservations(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	observedAt := time.Now().UTC()
+	availability := "available"
+	firstPrice := 100.0
+	listing := DiscoveredListing{
+		Source:       "ebay",
+		CanonicalUrl: "https://example.test/item/1",
+		Title:        "Item",
+		Price:        &firstPrice,
+		TotalPrice:   &firstPrice,
+		Availability: &availability,
+	}
+
+	listingID, err := dbClient.PersistListingObservation(ctx, listing, observedAt)
+	if err != nil {
+		t.Fatalf("persist first observation: %v", err)
+	}
+
+	secondPrice := 90.0
+	listing.Price = &secondPrice
+	listing.TotalPrice = &secondPrice
+	if _, err := dbClient.PersistListingObservation(ctx, listing, observedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("persist second observation: %v", err)
+	}
+
+	persisted, err := dbClient.Listing.WithContext(ctx).Where(dbClient.Listing.ID.Eq(listingID)).First()
+	if err != nil {
+		t.Fatalf("read persisted listing: %v", err)
+	}
+	if !persisted.LastSeenAt.Equal(observedAt) {
+		t.Fatalf("last seen = %v; expected unchanged %v", persisted.LastSeenAt, observedAt)
+	}
+
+	var observationCount int64
+	if err := dbClient.UnderlyingDB().WithContext(ctx).
+		Model(&models.ListingObservation{}).
+		Where("listingId = ?", listingID).
+		Count(&observationCount).Error; err != nil {
+		t.Fatalf("count observations: %v", err)
+	}
+	if observationCount != 2 {
+		t.Fatalf("observation count = %d; expected 2", observationCount)
+	}
+}
+
+func TestPersistListingObservationSkipsFreshUnchangedObservation(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	observedAt := time.Now().UTC()
+	availability := "available"
+	price := 100.0
+	listing := DiscoveredListing{
+		Source:       "ebay",
+		CanonicalUrl: "https://example.test/item/1",
+		Title:        "Item",
+		Price:        &price,
+		TotalPrice:   &price,
+		Availability: &availability,
+	}
+
+	listingID, err := dbClient.PersistListingObservation(ctx, listing, observedAt)
+	if err != nil {
+		t.Fatalf("persist first observation: %v", err)
+	}
+	if _, err := dbClient.PersistListingObservation(ctx, listing, observedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("persist second observation: %v", err)
+	}
+
+	var observationCount int64
+	if err := dbClient.UnderlyingDB().WithContext(ctx).
+		Model(&models.ListingObservation{}).
+		Where("listingId = ?", listingID).
+		Count(&observationCount).Error; err != nil {
+		t.Fatalf("count observations: %v", err)
+	}
+	if observationCount != 1 {
+		t.Fatalf("observation count = %d; expected 1", observationCount)
+	}
+}
+
+func TestPersistListingBatchSkipsFreshUnchangedObservationAndState(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	observedAt := time.Now().UTC()
+	availability := "available"
+	price := 100.0
+	found := DiscoveredListing{
+		Source:       "cashConverters",
+		CanonicalUrl: "https://example.test/item/1",
+		Title:        "Item",
+		Price:        &price,
+		TotalPrice:   &price,
+		Availability: &availability,
+	}
+	listingID := StableListingId(found.Source, found.CanonicalUrl)
+
+	queryObj := models.SearchQuery{ID: "batch-query", CreatedAt: observedAt}
+	if err := dbClient.SearchQuery.WithContext(ctx).Create(&queryObj); err != nil {
+		t.Fatalf("create query: %v", err)
+	}
+
+	initialState := &models.QueryListingState{
+		QueryId:             queryObj.ID,
+		ListingId:           listingID,
+		Source:              found.Source,
+		Status:              models.QueryListingStateStatusRejected,
+		LastEvaluatedAt:     observedAt,
+		LastRejectedReason:  stringPtr("AboveMaxPrice"),
+		LowestObservedPrice: &price,
+	}
+	if err := dbClient.PersistListingBatch(ctx, []DiscoveredListing{found}, map[string]*models.Listing{}, map[string]*models.ListingObservation{}, map[string]*models.QueryListingState{}, []*models.QueryListingState{initialState}, observedAt); err != nil {
+		t.Fatalf("persist initial batch: %v", err)
+	}
+
+	existingListings, err := dbClient.LoadListings(ctx, []string{listingID})
+	if err != nil {
+		t.Fatalf("load listings: %v", err)
+	}
+	latestObservations, err := dbClient.LoadLatestListingObservations(ctx, []string{listingID})
+	if err != nil {
+		t.Fatalf("load latest observations: %v", err)
+	}
+	existingStates, err := dbClient.LoadQueryListingStates(ctx, queryObj.ID, []string{listingID})
+	if err != nil {
+		t.Fatalf("load states: %v", err)
+	}
+
+	nextState := &models.QueryListingState{
+		QueryId:             queryObj.ID,
+		ListingId:           listingID,
+		Source:              found.Source,
+		Status:              models.QueryListingStateStatusRejected,
+		LastEvaluatedAt:     observedAt.Add(time.Minute),
+		LastRejectedReason:  stringPtr("AboveMaxPrice"),
+		LowestObservedPrice: &price,
+	}
+	if err := dbClient.PersistListingBatch(ctx, []DiscoveredListing{found}, existingListings, latestObservations, existingStates, []*models.QueryListingState{nextState}, observedAt.Add(time.Minute)); err != nil {
+		t.Fatalf("persist unchanged batch: %v", err)
+	}
+
+	var observationCount int64
+	if err := dbClient.UnderlyingDB().WithContext(ctx).
+		Model(&models.ListingObservation{}).
+		Where("listingId = ?", listingID).
+		Count(&observationCount).Error; err != nil {
+		t.Fatalf("count observations: %v", err)
+	}
+	if observationCount != 1 {
+		t.Fatalf("observation count = %d; expected 1", observationCount)
+	}
+
+	state, err := dbClient.GetQueryListingState(ctx, queryObj.ID, listingID)
+	if err != nil {
+		t.Fatalf("get state: %v", err)
+	}
+	if !state.LastEvaluatedAt.Equal(observedAt) {
+		t.Fatalf("last evaluated = %v; expected unchanged %v", state.LastEvaluatedAt, observedAt)
+	}
+}
+
+func TestPersistListingBatchKeepsFreshPriceChangeObservationAndState(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	observedAt := time.Now().UTC()
+	availability := "available"
+	firstPrice := 100.0
+	found := DiscoveredListing{
+		Source:       "cashConverters",
+		CanonicalUrl: "https://example.test/item/1",
+		Title:        "Item",
+		Price:        &firstPrice,
+		TotalPrice:   &firstPrice,
+		Availability: &availability,
+	}
+	listingID := StableListingId(found.Source, found.CanonicalUrl)
+
+	queryObj := models.SearchQuery{ID: "batch-query", CreatedAt: observedAt}
+	if err := dbClient.SearchQuery.WithContext(ctx).Create(&queryObj); err != nil {
+		t.Fatalf("create query: %v", err)
+	}
+
+	initialState := &models.QueryListingState{
+		QueryId:             queryObj.ID,
+		ListingId:           listingID,
+		Source:              found.Source,
+		Status:              models.QueryListingStateStatusMatched,
+		LastEvaluatedAt:     observedAt,
+		LastMatchedAt:       &observedAt,
+		FirstMatchedAt:      &observedAt,
+		LowestObservedPrice: &firstPrice,
+	}
+	if err := dbClient.PersistListingBatch(ctx, []DiscoveredListing{found}, map[string]*models.Listing{}, map[string]*models.ListingObservation{}, map[string]*models.QueryListingState{}, []*models.QueryListingState{initialState}, observedAt); err != nil {
+		t.Fatalf("persist initial batch: %v", err)
+	}
+
+	existingListings, err := dbClient.LoadListings(ctx, []string{listingID})
+	if err != nil {
+		t.Fatalf("load listings: %v", err)
+	}
+	latestObservations, err := dbClient.LoadLatestListingObservations(ctx, []string{listingID})
+	if err != nil {
+		t.Fatalf("load latest observations: %v", err)
+	}
+	existingStates, err := dbClient.LoadQueryListingStates(ctx, queryObj.ID, []string{listingID})
+	if err != nil {
+		t.Fatalf("load states: %v", err)
+	}
+
+	secondPrice := 90.0
+	found.Price = &secondPrice
+	found.TotalPrice = &secondPrice
+	evaluatedAt := observedAt.Add(time.Minute)
+	nextState := &models.QueryListingState{
+		QueryId:             queryObj.ID,
+		ListingId:           listingID,
+		Source:              found.Source,
+		Status:              models.QueryListingStateStatusMatched,
+		LastEvaluatedAt:     evaluatedAt,
+		LastMatchedAt:       &evaluatedAt,
+		FirstMatchedAt:      initialState.FirstMatchedAt,
+		LowestObservedPrice: &secondPrice,
+	}
+	if err := dbClient.PersistListingBatch(ctx, []DiscoveredListing{found}, existingListings, latestObservations, existingStates, []*models.QueryListingState{nextState}, evaluatedAt); err != nil {
+		t.Fatalf("persist changed batch: %v", err)
+	}
+
+	var observationCount int64
+	if err := dbClient.UnderlyingDB().WithContext(ctx).
+		Model(&models.ListingObservation{}).
+		Where("listingId = ?", listingID).
+		Count(&observationCount).Error; err != nil {
+		t.Fatalf("count observations: %v", err)
+	}
+	if observationCount != 2 {
+		t.Fatalf("observation count = %d; expected 2", observationCount)
+	}
+
+	state, err := dbClient.GetQueryListingState(ctx, queryObj.ID, listingID)
+	if err != nil {
+		t.Fatalf("get state: %v", err)
+	}
+	if state.LowestObservedPrice == nil || *state.LowestObservedPrice != secondPrice {
+		t.Fatalf("lowest observed price = %v; expected %v", state.LowestObservedPrice, secondPrice)
+	}
+}
+
 func TestMatchPhrases(t *testing.T) {
 	res := MatchPhrases("Xbox console\nIncludes an elite controller", "xbox, elite controller", "")
 	if res.Type != MatchTypeMatched {
@@ -201,6 +457,70 @@ func TestEvaluateListingForQuery(t *testing.T) {
 	}
 	if count != 2 {
 		t.Errorf("Expected 2 observations, got %d", count)
+	}
+}
+
+func TestEvaluateListingForQuerySkipsUnchangedFreshStateWrite(t *testing.T) {
+	dbClient, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	queryObj := models.SearchQuery{ID: "test-query-fresh-state", CreatedAt: time.Now()}
+	if err := dbClient.SearchQuery.WithContext(ctx).Create(&queryObj); err != nil {
+		t.Fatalf("create query: %v", err)
+	}
+
+	listing := DiscoveredListing{
+		Source:       "ebay",
+		CanonicalUrl: "https://example.test/fresh-state",
+		Title:        "Fresh state",
+	}
+	listingID, err := dbClient.PersistListingObservation(ctx, listing, time.Now())
+	if err != nil {
+		t.Fatalf("persist listing: %v", err)
+	}
+
+	firstEvaluatedAt := time.Now().UTC()
+	decision, err := dbClient.EvaluateListingForQuery(
+		ctx,
+		queryObj.ID,
+		listingID,
+		"ebay",
+		nil,
+		MatchResult{Type: MatchTypeRejected, Reason: "AboveMaxPrice"},
+		firstEvaluatedAt,
+		0,
+	)
+	if err != nil {
+		t.Fatalf("first evaluation: %v", err)
+	}
+	if decision.Type != DecisionTypeDoNotNotify {
+		t.Fatalf("first decision = %v; expected do not notify", decision.Type)
+	}
+
+	_, err = dbClient.EvaluateListingForQuery(
+		ctx,
+		queryObj.ID,
+		listingID,
+		"ebay",
+		nil,
+		MatchResult{Type: MatchTypeRejected, Reason: "AboveMaxPrice"},
+		firstEvaluatedAt.Add(time.Minute),
+		0,
+	)
+	if err != nil {
+		t.Fatalf("second evaluation: %v", err)
+	}
+
+	state, err := dbClient.GetQueryListingState(ctx, queryObj.ID, listingID)
+	if err != nil {
+		t.Fatalf("get state: %v", err)
+	}
+	if state == nil {
+		t.Fatal("state was not persisted")
+	}
+	if !state.LastEvaluatedAt.Equal(firstEvaluatedAt) {
+		t.Fatalf("last evaluated = %v; expected unchanged %v", state.LastEvaluatedAt, firstEvaluatedAt)
 	}
 }
 

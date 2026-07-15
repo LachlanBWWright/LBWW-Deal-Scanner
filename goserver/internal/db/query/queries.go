@@ -20,6 +20,7 @@ type QueryItem struct {
 	Name              *string  `json:"name,omitempty"`
 	DisplayUrl        *string  `json:"displayUrl,omitempty"`
 	MaxPrice          *float64 `json:"maxPrice,omitempty"`
+	LastPrice         *float64 `json:"lastPrice,omitempty"`
 	MinPrice          *float64 `json:"minPrice,omitempty"`
 	MinFloat          *float64 `json:"minFloat,omitempty"`
 	MaxFloat          *float64 `json:"maxFloat,omitempty"`
@@ -184,6 +185,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 			nameVal := r.Name
 			displayUrl := r.DisplayUrl
 			maxPrice := r.MaxPrice
+			lastPrice := r.LastPrice
 			list = append(list, QueryItem{
 				QueryId:    r.QueryId,
 				Type:       "steamMarket",
@@ -192,6 +194,7 @@ func (q *Query) ListSavedQueries(ctx context.Context, queryType string) ([]Query
 				Name:       &nameVal,
 				DisplayUrl: &displayUrl,
 				MaxPrice:   &maxPrice,
+				LastPrice:  &lastPrice,
 			})
 		}
 	}

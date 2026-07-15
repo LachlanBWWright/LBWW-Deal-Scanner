@@ -1,0 +1,21 @@
+[Unit]
+Description=Dealscanner application
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/dealscanner/current
+EnvironmentFile=/home/ubuntu/dealscanner/.env
+Environment=API_HOST=0.0.0.0
+Environment=API_PORT=3000
+Environment=DATABASE_URL=file:/home/ubuntu/dealscanner/data/dealscanner.db
+Environment=PLAYWRIGHT_DRIVER_PATH=/home/ubuntu/dealscanner/current/playwright-driver
+ExecStart=/home/ubuntu/dealscanner/current/dealscanner
+Restart=always
+RestartSec=5
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

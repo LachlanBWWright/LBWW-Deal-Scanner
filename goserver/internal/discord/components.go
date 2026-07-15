@@ -169,6 +169,13 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			}
 		}
 
+	case "view_query_details":
+		if action.QueryType == nil || action.QueryId == nil {
+			responseContent = "❌ Query details are unavailable."
+			break
+		}
+		responseContent = b.formatQueryDetails(ctx, *action.QueryType, *action.QueryId)
+
 	case "view_page":
 		if action.QueryType != nil && action.QueryId != nil {
 			pageVal, err := strconv.Atoi(*action.QueryId)

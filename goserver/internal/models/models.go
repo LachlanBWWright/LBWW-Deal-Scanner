@@ -243,7 +243,7 @@ type Listing struct {
 	Description   *string    `gorm:"column:description"`
 	Availability  *string    `gorm:"column:availability"`
 	FirstSeenAt   time.Time  `gorm:"column:firstSeenAt"`
-	LastSeenAt    time.Time  `gorm:"column:lastSeenAt"`
+	LastSeenAt    time.Time  `gorm:"column:lastSeenAt;index"`
 	LastDetailAt  *time.Time `gorm:"column:lastDetailAt"`
 	UnavailableAt *time.Time `gorm:"column:unavailableAt"`
 }
@@ -254,9 +254,9 @@ func (Listing) TableName() string {
 
 type ListingObservation struct {
 	ID           string    `gorm:"primaryKey;column:id"`
-	ListingId    string    `gorm:"column:listingId"`
+	ListingId    string    `gorm:"column:listingId;index"`
 	Source       string    `gorm:"column:source"`
-	ObservedAt   time.Time `gorm:"column:observedAt"`
+	ObservedAt   time.Time `gorm:"column:observedAt;index"`
 	Price        *float64  `gorm:"column:price"`
 	Shipping     *float64  `gorm:"column:shipping"`
 	TotalPrice   *float64  `gorm:"column:totalPrice"`
@@ -278,11 +278,11 @@ type QueryListingState struct {
 	Listing                Listing                 `gorm:"foreignKey:ListingId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Source                 string                  `gorm:"column:source"`
 	Status                 QueryListingStateStatus `gorm:"column:status"`
-	LastEvaluatedAt        time.Time               `gorm:"column:lastEvaluatedAt"`
+	LastEvaluatedAt        time.Time               `gorm:"column:lastEvaluatedAt;index"`
 	FirstMatchedAt         *time.Time              `gorm:"column:firstMatchedAt"`
 	LastMatchedAt          *time.Time              `gorm:"column:lastMatchedAt"`
 	LastRejectedReason     *string                 `gorm:"column:lastRejectedReason"`
-	LastNotifiedAt         *time.Time              `gorm:"column:lastNotifiedAt"`
+	LastNotifiedAt         *time.Time              `gorm:"column:lastNotifiedAt;index"`
 	LastNotifiedTotalPrice *float64                `gorm:"column:lastNotifiedTotalPrice"`
 	LowestObservedPrice    *float64                `gorm:"column:lowestObservedPrice"`
 }
@@ -331,7 +331,7 @@ func (ActionRegistry) TableName() string {
 type TtlItem struct {
 	ItemId      string    `gorm:"primaryKey;column:itemId" json:"itemId"`
 	Scanner     int       `gorm:"primaryKey;column:scanner" json:"scanner"`
-	LastUpdated time.Time `gorm:"column:lastUpdated" json:"lastUpdated"`
+	LastUpdated time.Time `gorm:"column:lastUpdated;index" json:"lastUpdated"`
 }
 
 func (TtlItem) TableName() string {

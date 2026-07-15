@@ -8,21 +8,34 @@ RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm run build
 
-# Stage 2: Build the Go Backend
+# Stage 2: Install the Playwright driver.
+# Pin this build stage because the floating node:22-bookworm image published with
+# Node 22.23.1 contains an npm package.json that Node rejects on linux/amd64.
+FROM node:22.22-bullseye AS playwright-builder
+RUN driver_dir=/root/.cache/ms-playwright-go/1.57.0 && \
+    npm install --prefix /tmp/playwright-driver playwright@1.57.0 && \
+    mkdir -p "${driver_dir}/package" && \
+    cp -a /tmp/playwright-driver/node_modules/playwright/. "${driver_dir}/package/" && \
+    cp -a /tmp/playwright-driver/node_modules "${driver_dir}/package/node_modules" && \
+    cp /usr/local/bin/node "${driver_dir}/node" && \
+    rm -rf /tmp/playwright-driver
+
+# Stage 3: Build the Go Backend
+# Build a static musl binary so it runs on the Ubuntu 20.04 Deal VM without a
+# dependency on the builder image's newer glibc.
 FROM golang:1.26-bookworm AS backend-builder
 WORKDIR /app/goserver
 # We need gcc for sqlite3 CGO compilation
-RUN apt-get update && apt-get install -y gcc musl-dev
+RUN apt-get update && apt-get install -y gcc musl-dev musl-tools
 COPY goserver/go.mod goserver/go.sum ./
 RUN go mod download
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN go run github.com/playwright-community/playwright-go/cmd/playwright install chromium webkit
 COPY goserver/ ./
 # Build the binary with CGO enabled
 ENV CGO_ENABLED=1
-RUN go build -ldflags="-w -s" -o dealscanner cmd/dealscanner/main.go
+ENV CC=musl-gcc
+RUN go build -tags musl -ldflags="-linkmode external -extldflags -static -w -s" -o dealscanner cmd/dealscanner/main.go
 
-# Stage 3: Run the application
+# Stage 4: Run the application
 FROM debian:bookworm-slim
 WORKDIR /app
 
@@ -31,6 +44,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
       chromium \
+      nodejs \
       fonts-liberation \
       gstreamer1.0-libav \
       gstreamer1.0-plugins-base \
@@ -87,12 +101,10 @@ RUN apt-get update && \
 # Environment variables for Playwright/Chromium.
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Copy the built Go binary
 COPY --from=backend-builder /app/goserver/dealscanner /app/dealscanner
-COPY --from=backend-builder /root/.cache/ms-playwright-go /root/.cache/ms-playwright-go
-COPY --from=backend-builder /ms-playwright /ms-playwright
+COPY --from=playwright-builder /root/.cache/ms-playwright-go /root/.cache/ms-playwright-go
 
 # Copy the built frontend static assets
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist

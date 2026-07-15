@@ -89,18 +89,25 @@ jobs:
       - name: Build Docker image
         run: docker build -t dealscanner:ci .
 
-      - name: Verify Docker image requires Turso config
+      - name: Verify Docker image starts with local SQLite
         run: |
-          set +e
-          docker run --rm dealscanner:ci >container.log 2>&1
-          status=$?
-          set -e
-          cat container.log
-          if [ "$status" -eq 0 ]; then
-            echo "Container started without required Turso configuration" >&2
-            exit 1
-          fi
-          grep -q "TURSO_DATABASE_URL is required" container.log
+          database_dir="$(mktemp -d)"
+          trap 'rm -rf "${database_dir}"' EXIT
+          docker run --detach --name dealscanner-local-sqlite \
+            --mount "type=bind,source=${database_dir},target=/var/lib/dealscanner" \
+            --env DATABASE_URL=file:/var/lib/dealscanner/dealscanner.db \
+            --env SCHEDULED_SCANNER_MODE=false \
+            --env CASH_CONVERTERS=false \
+            --env CS_ITEMS=false \
+            --env EBAY=false \
+            --env GUMTREE=false \
+            --env SALVOS=false \
+            --env STEAM_QUERY=false \
+            dealscanner:ci
+          sleep 10
+          docker inspect --format '{{.State.Running}}' dealscanner-local-sqlite | grep -qx true
+          test -f "${database_dir}/dealscanner.db"
+          docker rm --force dealscanner-local-sqlite
 
   publish-image:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
@@ -150,8 +157,6 @@ jobs:
     steps:
       - name: Verify smoke test secrets
         env:
-          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           BOT_CLIENT_ID: ${{ secrets.BOT_CLIENT_ID }}
           DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
@@ -159,8 +164,6 @@ jobs:
           set -euo pipefail
 
           echo "Container smoke test requires repository secrets:"
-          echo "- TURSO_DATABASE_URL"
-          echo "- TURSO_AUTH_TOKEN"
           echo "- BOT_CLIENT_ID"
           echo "- DISCORD_GUILD_ID"
           echo "- DISCORD_TOKEN"
@@ -176,16 +179,6 @@ jobs:
           echo "- GUMTREE=false"
           echo "- SALVOS=false"
           echo "- STEAM_QUERY=false"
-
-          if [ -z "${TURSO_DATABASE_URL}" ]; then
-            echo "Missing required repository secret: TURSO_DATABASE_URL" >&2
-            exit 1
-          fi
-
-          if [ -z "${TURSO_AUTH_TOKEN}" ]; then
-            echo "Missing required repository secret: TURSO_AUTH_TOKEN" >&2
-            exit 1
-          fi
 
           if [ -z "${BOT_CLIENT_ID}" ]; then
             echo "Missing required repository secret: BOT_CLIENT_ID" >&2
@@ -219,17 +212,20 @@ jobs:
         env:
           DEPLOY_IMAGE: ${{ env.IMAGE_REPOSITORY }}
           DEPLOY_IMAGE_TAG: sha-${{ github.sha }}
-          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           BOT_CLIENT_ID: ${{ secrets.BOT_CLIENT_ID }}
           DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           set -euo pipefail
 
+          database_dir="$(mktemp -d)"
+          trap 'rm -rf "${database_dir}"' EXIT
+
           docker run --detach \
             --name dealscanner-smoke \
             --publish 127.0.0.1:3000:3000 \
+            --mount "type=bind,source=${database_dir},target=/var/lib/dealscanner" \
+            --env DATABASE_URL=file:/var/lib/dealscanner/dealscanner.db \
             --env API_HOST=0.0.0.0 \
             --env PORT=3000 \
             --env API_SECRET=ci-smoke-test-secret \
@@ -241,8 +237,6 @@ jobs:
             --env GUMTREE=false \
             --env SALVOS=false \
             --env STEAM_QUERY=false \
-            --env TURSO_DATABASE_URL="${TURSO_DATABASE_URL}" \
-            --env TURSO_AUTH_TOKEN="${TURSO_AUTH_TOKEN}" \
             --env BOT_CLIENT_ID="${BOT_CLIENT_ID}" \
             --env DISCORD_GUILD_ID="${DISCORD_GUILD_ID}" \
             --env DISCORD_TOKEN="${DISCORD_TOKEN}" \
@@ -251,6 +245,7 @@ jobs:
           cleanup() {
             docker logs dealscanner-smoke || true
             docker rm --force dealscanner-smoke || true
+            rm -rf "${database_dir}"
           }
           trap cleanup EXIT
 
@@ -297,8 +292,6 @@ jobs:
           ORACLE_USER: ${{ secrets.ORACLE_USER }}
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
           API_SECRET: ${{ secrets.API_SECRET }}
-          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           set -euo pipefail
@@ -318,7 +311,7 @@ jobs:
             exit 1
           fi
 
-          for secret_name in API_SECRET TURSO_DATABASE_URL TURSO_AUTH_TOKEN DISCORD_TOKEN; do
+          for secret_name in API_SECRET DISCORD_TOKEN; do
             if [ -z "${!secret_name}" ]; then
               echo "Missing required repository secret: ${secret_name}" >&2
               exit 1
@@ -334,8 +327,6 @@ jobs:
           ORACLE_PORT: ${{ secrets.ORACLE_PORT }}
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
           API_SECRET: ${{ secrets.API_SECRET }}
-          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           BOT_CLIENT_ID: ${{ vars.BOT_CLIENT_ID || secrets.BOT_CLIENT_ID }}
           DISCORD_GUILD_ID: ${{ vars.DISCORD_GUILD_ID || secrets.DISCORD_GUILD_ID }}
@@ -381,8 +372,7 @@ jobs:
             printf 'API_PORT=3000\n'
             printf 'API_SECRET=%s\n' "${API_SECRET}"
             printf 'ENABLE_TESTING_API=false\n'
-            printf 'TURSO_DATABASE_URL=%s\n' "${TURSO_DATABASE_URL}"
-            printf 'TURSO_AUTH_TOKEN=%s\n' "${TURSO_AUTH_TOKEN}"
+            printf 'DATABASE_URL=file:/var/lib/dealscanner/dealscanner.db\n'
             printf 'SCHEDULED_SCANNER_MODE=%s\n' "${SCHEDULED_SCANNER_MODE:-false}"
             printf 'SCHEDULED_SCANNER_DURATION_MS=%s\n' "${SCHEDULED_SCANNER_DURATION_MS:-300000}"
             printf 'BOT_CLIENT_ID=%s\n' "${BOT_CLIENT_ID}"

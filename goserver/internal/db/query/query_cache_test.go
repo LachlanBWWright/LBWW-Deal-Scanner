@@ -14,13 +14,14 @@ func setupQueryCacheTestDB(t *testing.T) (*Query, func()) {
 	t.Helper()
 
 	defaultSavedQueryCache.invalidate()
+	defaultGlobalsCache.invalidate()
 
 	gdb, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
 
-	err = gdb.AutoMigrate(&models.SearchQuery{}, &models.Ebay{})
+	err = gdb.AutoMigrate(&models.SearchQuery{}, &models.Ebay{}, &models.Globals{})
 	if err != nil {
 		t.Fatalf("Failed to migrate test database: %v", err)
 	}
@@ -28,6 +29,7 @@ func setupQueryCacheTestDB(t *testing.T) (*Query, func()) {
 	dbClient := Use(gdb)
 	cleanup := func() {
 		defaultSavedQueryCache.invalidate()
+		defaultGlobalsCache.invalidate()
 		sqlDB, _ := gdb.DB()
 		if sqlDB != nil {
 			sqlDB.Close()
@@ -35,6 +37,66 @@ func setupQueryCacheTestDB(t *testing.T) (*Query, func()) {
 	}
 
 	return dbClient, cleanup
+}
+
+func TestSavedQueryCacheDefensivelyCopiesLastPrice(t *testing.T) {
+	price := 12.5
+	item := QueryItem{LastPrice: &price}
+
+	cloned := cloneQueryItem(item)
+	if cloned.LastPrice == nil || *cloned.LastPrice != price {
+		t.Fatalf("Expected cloned LastPrice %v, got %#v", price, cloned.LastPrice)
+	}
+
+	*cloned.LastPrice = 99
+	if item.LastPrice == nil || *item.LastPrice != price {
+		t.Fatalf("Expected original LastPrice to remain %v, got %#v", price, item.LastPrice)
+	}
+}
+
+func TestGetGlobalsUsesCacheAndReturnsDefensiveCopies(t *testing.T) {
+	dbClient, cleanup := setupQueryCacheTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	original := models.Globals{ID: "1", Gumtree: true}
+	if err := dbClient.Globals.WithContext(ctx).Create(&original); err != nil {
+		t.Fatalf("Failed to create globals: %v", err)
+	}
+
+	first, err := dbClient.GetGlobals(ctx)
+	if err != nil {
+		t.Fatalf("GetGlobals failed: %v", err)
+	}
+	if first == nil || !first.Gumtree {
+		t.Fatalf("Expected cached Gumtree=true, got %#v", first)
+	}
+	first.Gumtree = false
+
+	if _, err := dbClient.Globals.WithContext(ctx).Where(dbClient.Globals.ID.Eq("1")).Update(dbClient.Globals.Gumtree, false); err != nil {
+		t.Fatalf("Failed to update globals directly: %v", err)
+	}
+
+	second, err := dbClient.GetGlobals(ctx)
+	if err != nil {
+		t.Fatalf("GetGlobals failed: %v", err)
+	}
+	if second == nil || !second.Gumtree {
+		t.Fatalf("Expected cached defensive copy to keep Gumtree=true, got %#v", second)
+	}
+
+	second.Gumtree = false
+	if err := dbClient.UpdateGlobals(ctx, second); err != nil {
+		t.Fatalf("UpdateGlobals failed: %v", err)
+	}
+
+	updated, err := dbClient.GetGlobals(ctx)
+	if err != nil {
+		t.Fatalf("GetGlobals failed: %v", err)
+	}
+	if updated == nil || updated.Gumtree {
+		t.Fatalf("Expected UpdateGlobals to refresh cache with Gumtree=false, got %#v", updated)
+	}
 }
 
 func TestListSavedQueriesUsesCacheAndReturnsDefensiveCopies(t *testing.T) {

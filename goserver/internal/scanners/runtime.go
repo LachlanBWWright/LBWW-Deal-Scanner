@@ -21,6 +21,7 @@ type StatusSetter interface {
 const statusUpdateInterval = 20 * time.Second
 const minimumScanCycleDuration = 30 * time.Second
 const DefaultScanTimeout = 3 * time.Minute
+const runtimeStateFlushIntervalCycles = 10
 
 type Runner struct {
 	cfg          *config.Config
@@ -131,6 +132,7 @@ func (r *Runner) runLoop(ctx context.Context, maxDuration *time.Duration) {
 
 	steamScanCnt := dbState.SteamScanCount
 	csTradeScanCnt := dbState.CsTradeScanCount
+	cyclesSinceRuntimeStateFlush := 0
 
 	for {
 		if maxDuration != nil && time.Since(loopStart) >= *maxDuration {
@@ -154,18 +156,25 @@ func (r *Runner) runLoop(ctx context.Context, maxDuration *time.Duration) {
 
 		// Increment scan counters
 		steamScanCnt++
+		steamCounterReset := false
 		if steamScanCnt >= 55 {
 			steamScanCnt = 0
+			steamCounterReset = true
 		}
 		csTradeScanCnt++
+		csTradeCounterReset := false
 		if csTradeScanCnt >= 100 {
 			csTradeScanCnt = 0
+			csTradeCounterReset = true
 		}
 
-		// Save back to DB
-		dbState.SteamScanCount = steamScanCnt
-		dbState.CsTradeScanCount = csTradeScanCnt
-		r.dbClient.UpdateScannerRuntimeState(ctx, dbState)
+		cyclesSinceRuntimeStateFlush++
+		if cyclesSinceRuntimeStateFlush >= runtimeStateFlushIntervalCycles || steamCounterReset || csTradeCounterReset {
+			dbState.SteamScanCount = steamScanCnt
+			dbState.CsTradeScanCount = csTradeScanCnt
+			r.dbClient.UpdateScannerRuntimeState(ctx, dbState)
+			cyclesSinceRuntimeStateFlush = 0
+		}
 
 		if !waitForMinimumCycleDuration(ctx, cycleStartedAt, minimumScanCycleDuration) {
 			return

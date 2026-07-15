@@ -16,13 +16,60 @@ import (
 
 func Open(connStr string, tursoAuthToken string) (*gorm.DB, error) {
 	if connStr == "" {
-		return nil, fmt.Errorf("TURSO_DATABASE_URL is required")
+		return nil, fmt.Errorf("DATABASE_URL is required")
 	}
+
+	if strings.HasPrefix(connStr, "file:") {
+		return openLocalSQLite(connStr)
+	}
+	if strings.HasPrefix(connStr, "libsql://") || strings.HasPrefix(connStr, "https://") {
+		return openTurso(connStr, tursoAuthToken)
+	}
+
+	return nil, fmt.Errorf("DATABASE_URL must start with file:, libsql://, or https://")
+}
+
+func openLocalSQLite(connStr string) (*gorm.DB, error) {
+	sqlDB, err := sql.Open("sqlite3", connStr)
+	if err != nil {
+		return nil, fmt.Errorf("open local SQLite database: %w", err)
+	}
+
+	// SQLite permits one writer at a time. A single connection avoids lock
+	// contention between scanner and API goroutines until production metrics
+	// show that a larger pool is worthwhile.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+
+	if err := configureLocalSQLite(sqlDB); err != nil {
+		sqlDB.Close()
+		return nil, err
+	}
+
+	return openGormAndMigrate(sqlDB, "local SQLite")
+}
+
+func configureLocalSQLite(sqlDB *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	for _, pragma := range []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA busy_timeout = 5000",
+		"PRAGMA synchronous = NORMAL",
+	} {
+		if _, err := sqlDB.ExecContext(ctx, pragma); err != nil {
+			return fmt.Errorf("configure local SQLite with %q: %w", pragma, err)
+		}
+	}
+
+	return nil
+}
+
+func openTurso(connStr string, tursoAuthToken string) (*gorm.DB, error) {
 	if tursoAuthToken == "" {
-		return nil, fmt.Errorf("TURSO_AUTH_TOKEN is required")
-	}
-	if !strings.HasPrefix(connStr, "libsql://") && !strings.HasPrefix(connStr, "https://") {
-		return nil, fmt.Errorf("TURSO_DATABASE_URL must start with libsql:// or https://")
+		return nil, fmt.Errorf("TURSO_AUTH_TOKEN is required when DATABASE_URL selects Turso")
 	}
 
 	connector, err := libsql.NewConnector(connStr, libsql.WithAuthToken(tursoAuthToken))
@@ -45,12 +92,16 @@ func Open(connStr string, tursoAuthToken string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect to libsql database: %w", err)
 	}
 
+	return openGormAndMigrate(sqlDB, "libsql")
+}
+
+func openGormAndMigrate(sqlDB *sql.DB, backend string) (*gorm.DB, error) {
 	db, err := gorm.Open(sqlite.Dialector{Conn: sqlDB}, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Warn),
 	})
 	if err != nil {
 		sqlDB.Close()
-		return nil, fmt.Errorf("failed to open libsql database: %w", err)
+		return nil, fmt.Errorf("failed to open %s database: %w", backend, err)
 	}
 
 	if err := migrateCashConvertersFilters(db); err != nil {

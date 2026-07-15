@@ -163,6 +163,11 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			log.Printf("Failed to load Cash Converters listings for URL %s: %v", *query.Url, err)
 			continue
 		}
+		latestObservations, err := s.dbClient.LoadLatestListingObservations(ctx, listingIDs)
+		if err != nil {
+			log.Printf("Failed to load Cash Converters observations for URL %s: %v", *query.Url, err)
+			continue
+		}
 		existingStates, err := s.dbClient.LoadQueryListingStates(ctx, query.QueryId, listingIDs)
 		if err != nil {
 			log.Printf("Failed to load Cash Converters states for URL %s: %v", *query.Url, err)
@@ -331,7 +336,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			states = append(states, state)
 		}
 
-		if err := s.dbClient.PersistListingBatch(ctx, discovered, existingListings, states, now); err != nil {
+		if err := s.dbClient.PersistListingBatch(ctx, discovered, existingListings, latestObservations, existingStates, states, now); err != nil {
 			return nil, fmt.Errorf("persist Cash Converters results for URL %s: %w", *query.Url, err)
 		}
 		notifs = append(notifs, queryNotifs...)

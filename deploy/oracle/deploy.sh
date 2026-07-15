@@ -31,12 +31,22 @@ set -a
 source "${APP_ENV_FILE}"
 set +a
 
-if [[ -z "${TURSO_DATABASE_URL:-}" || -z "${TURSO_AUTH_TOKEN:-}" ]]; then
-  echo "TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are required in ${APP_ENV_FILE}" >&2
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:3000/}"
+
+DATABASE_DIRECTORY="${DEPLOY_ROOT}/data"
+MIN_DATABASE_FREE_KB="${MIN_DATABASE_FREE_KB:-1048576}"
+
+sudo install -d -m 0700 "${DATABASE_DIRECTORY}"
+if ! sudo test -w "${DATABASE_DIRECTORY}"; then
+  echo "Database directory is not writable: ${DATABASE_DIRECTORY}" >&2
   exit 1
 fi
 
-HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:3000/}"
+available_database_kb="$(df -Pk "${DATABASE_DIRECTORY}" | awk 'NR == 2 { print $4 }')"
+if [[ ! "${available_database_kb}" =~ ^[0-9]+$ ]] || (( available_database_kb < MIN_DATABASE_FREE_KB )); then
+  echo "Insufficient free space for SQLite database at ${DATABASE_DIRECTORY}: ${available_database_kb:-unknown} KB available, ${MIN_DATABASE_FREE_KB} KB required" >&2
+  exit 1
+fi
 
 cd "${DEPLOY_ROOT}"
 

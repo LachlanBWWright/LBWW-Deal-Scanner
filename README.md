@@ -41,12 +41,11 @@ docker compose up --build
 Provide these environment variables through `.env` locally or Cloud Run service secrets:
 
 ```bash
-TURSO_DATABASE_URL=libsql://your-database-org.turso.io
-TURSO_AUTH_TOKEN=your-token
+DATABASE_URL=file:/var/lib/dealscanner/dealscanner.db
 API_SECRET=your-api-secret
 ```
 
-The Go server requires Turso. `DATABASE_URL` and local SQLite files are not used by the containerized app.
+The Go server uses `DATABASE_URL`. Use a `file:` URL for local SQLite; Turso remains supported temporarily when `DATABASE_URL` is a `libsql://` or `https://` URL and `TURSO_AUTH_TOKEN` is set.
 
 The production workflow builds the image in GitHub Actions, pushes it to GitHub Container Registry, SSHes into the VM, and runs Docker Compose to pull and restart the container. This keeps Docker builds off the VM and avoids running a GitHub Actions runner on the production host.
 

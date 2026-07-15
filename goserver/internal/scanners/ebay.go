@@ -10,6 +10,7 @@ import (
 	"time"
 
 	qry "dealscanner/internal/db/query"
+	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
 	"github.com/PuerkitoBio/goquery"
 )
@@ -45,23 +46,32 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 			continue
 		}
 
+		now := time.Now().UTC()
+		cache, err := e.dbClient.LoadListingEvaluationCache(ctx, item.QueryId, listings)
+		if err != nil {
+			return nil, err
+		}
+		states := make([]*models.QueryListingState, 0, len(listings))
+
 		for _, found := range listings {
 			listingId := qry.StableListingId("ebay", found.CanonicalUrl)
-			obsId, err := e.dbClient.PersistListingObservation(ctx, found, time.Now().UTC())
-			if err != nil {
-				log.Printf("Failed to persist eBay observation: %v", err)
-				continue
-			}
-
-			now := time.Now().UTC()
 			match := qry.MatchResult{Type: qry.MatchTypeMatched}
 			if found.TotalPrice != nil {
 				match = qry.MatchPriceRange(*found.TotalPrice, nil, item.MaxPrice)
 			}
 
-			decision, err := e.dbClient.EvaluateListingForQuery(ctx, item.QueryId, listingId, "ebay", found.TotalPrice, match, now, 0)
-			if err != nil {
-				return nil, err
+			decision, state := qry.BuildQueryListingStateDecision(
+				cache.ExistingStates[listingId],
+				item.QueryId,
+				listingId,
+				"ebay",
+				found.TotalPrice,
+				match,
+				now,
+				0,
+			)
+			if state != nil {
+				states = append(states, state)
 			}
 
 			if decision.Type == qry.DecisionTypeNotify && found.TotalPrice != nil {
@@ -79,8 +89,10 @@ func (e *EbayScanner) Scan(ctx context.Context) ([]notifications.AppNotification
 					},
 				})
 			}
+		}
 
-			_ = obsId
+		if err := e.dbClient.PersistListingBatch(ctx, listings, cache.ExistingListings, cache.LatestObservations, cache.ExistingStates, states, now); err != nil {
+			return nil, err
 		}
 
 		if !sleepWithContext(ctx, 3*time.Second) {
