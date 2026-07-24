@@ -61,6 +61,8 @@ func (b *Bot) SendDeal(ctx context.Context, channelId, channelMessage, dmMessage
 	if b.session == nil {
 		return fmt.Errorf("bot session is not initialized")
 	}
+	channelMessage = removeMarkdownCodeFences(channelMessage)
+	dmMessage = removeMarkdownCodeFences(dmMessage)
 
 	// 1. Fetch parent queryId and send DMs to subscribed users
 	parentQueryId, err := b.getQueryIdByTypeAndKey(ctx, queryType, queryId)
@@ -227,7 +229,7 @@ func (b *Bot) SendError(channelId, message string) error {
 	if b.session == nil {
 		return fmt.Errorf("bot session is not initialized")
 	}
-	_, err := b.session.ChannelMessageSend(channelId, message)
+	_, err := b.session.ChannelMessageSend(channelId, removeMarkdownCodeFences(message))
 	return err
 }
 

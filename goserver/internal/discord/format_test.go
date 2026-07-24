@@ -7,6 +7,16 @@ import (
 	"dealscanner/internal/db/query"
 )
 
+func TestRemoveMarkdownCodeFences(t *testing.T) {
+	t.Parallel()
+
+	got := removeMarkdownCodeFences("Before ```\ncontents\n``` after")
+	want := "Before \ncontents\n after"
+	if got != want {
+		t.Fatalf("removeMarkdownCodeFences() = %q, want %q", got, want)
+	}
+}
+
 func TestFormatQueryReferenceFormatsHTTPURLsAsDiscordLinks(t *testing.T) {
 	t.Parallel()
 

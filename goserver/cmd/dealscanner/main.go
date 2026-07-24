@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -72,6 +73,12 @@ func main() {
 		log.Printf("Failed to start Discord Bot: %v", err)
 	}
 	defer bot.Close()
+	if cfg.ErrorChannelId != "" {
+		if err := bot.SendError(cfg.ErrorChannelId, discord.BuildStartupMessage(cfg)); err != nil {
+			log.Printf("Failed to send Discord startup message: %v", err)
+		}
+		log.SetOutput(io.MultiWriter(os.Stderr, discord.NewErrorLogWriter(cfg.ErrorChannelId, bot)))
+	}
 
 	// 5. Initialize Notification Providers & Service
 	discordProvider := notifications.NewDiscordProvider(cfg, bot)

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"dealscanner/internal/config"
 	"dealscanner/internal/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -37,6 +38,38 @@ func setupQueryCacheTestDB(t *testing.T) (*Query, func()) {
 	}
 
 	return dbClient, cleanup
+}
+
+func TestSeedGlobalsSynchronizesExistingRowFromConfig(t *testing.T) {
+	dbClient, cleanup := setupQueryCacheTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	stale := models.Globals{ID: "1", CashConverters: false}
+	if err := dbClient.Globals.WithContext(ctx).Create(&stale); err != nil {
+		t.Fatalf("Failed to create stale globals: %v", err)
+	}
+
+	cfg := &config.Config{
+		CashConverters:          true,
+		CashConvertersChannelId: "channel-1",
+		CashConvertersRoleId:    "role-1",
+		ErrorChannelId:          "logs-1",
+	}
+	if err := dbClient.SeedGlobals(ctx, cfg); err != nil {
+		t.Fatalf("SeedGlobals failed: %v", err)
+	}
+
+	globals, err := dbClient.GetGlobals(ctx)
+	if err != nil {
+		t.Fatalf("GetGlobals failed: %v", err)
+	}
+	if globals == nil || !globals.CashConverters {
+		t.Fatalf("Expected Cash Converters to be enabled, got %#v", globals)
+	}
+	if globals.CashConvertersChannelId != "channel-1" || globals.CashConvertersRoleId != "role-1" || globals.ErrorChannelId != "logs-1" {
+		t.Fatalf("Expected configured Discord targets, got %#v", globals)
+	}
 }
 
 func TestSavedQueryCacheDefensivelyCopiesLastPrice(t *testing.T) {

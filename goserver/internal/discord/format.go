@@ -9,6 +9,10 @@ import (
 	"dealscanner/internal/db/query"
 )
 
+func removeMarkdownCodeFences(message string) string {
+	return strings.ReplaceAll(message, "```", "")
+}
+
 func formatQueryReference(value string) string {
 	cleaned := strings.TrimSpace(strings.NewReplacer("\r", "", "\n", "").Replace(value))
 	parsed, err := url.Parse(cleaned)
@@ -123,6 +127,30 @@ func (b *Bot) formatQueryDetails(ctx context.Context, queryType string, queryId 
 	}
 
 	return "❌ Query not found."
+}
+
+func (b *Bot) deleteSavedQueryWithDetails(ctx context.Context, queryType string, queryId string) (string, error) {
+	queries, err := b.dbClient.ListSavedQueries(ctx, queryType)
+	if err != nil {
+		return "", fmt.Errorf("load query before deletion: %w", err)
+	}
+
+	var details string
+	for _, q := range queries {
+		if queryMatchesID(q, queryId) {
+			details = strings.TrimPrefix(formatQueryInfo(q), "- ")
+			break
+		}
+	}
+
+	if err := b.dbClient.DeleteSavedQuery(ctx, queryType, queryId); err != nil {
+		return "", err
+	}
+
+	if details == "" {
+		details = fmt.Sprintf("ID: %s", formatQueryReference(queryId))
+	}
+	return details, nil
 }
 
 func queryMatchesID(q query.QueryItem, queryId string) bool {

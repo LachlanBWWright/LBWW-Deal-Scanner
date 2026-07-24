@@ -60,7 +60,7 @@ func (d *DiscordProvider) Send(ctx context.Context, notification AppNotification
 		}
 		msg := fmt.Sprintf("❌ **An error occurred in %s**:\n\n%s", notification.Source, notification.Message)
 		if notification.Stack != "" {
-			msg += fmt.Sprintf("\n\n```\n%s\n```", notification.Stack)
+			msg += fmt.Sprintf("\n\n%s", notification.Stack)
 		}
 		return d.sender.SendError(d.cfg.ErrorChannelId, msg)
 	}

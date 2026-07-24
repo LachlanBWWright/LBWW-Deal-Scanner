@@ -81,6 +81,7 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 	queries, err := b.dbClient.ListSavedQueries(ctx, queryType)
 	if err != nil {
 		content := fmt.Sprintf("❌ Error: %v", err)
+		content = removeMarkdownCodeFences(content)
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content})
 		return
 	}
@@ -106,6 +107,7 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 			}
 			content = fmt.Sprintf("No saved %s queries found.", name)
 		}
+		content = removeMarkdownCodeFences(content)
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content})
 		return
 	}
@@ -123,7 +125,7 @@ func (b *Bot) sendPaginatedQueries(ctx context.Context, s *discordgo.Session, i 
 		page = totalPages
 	}
 
-	content := pages[page-1]
+	content := removeMarkdownCodeFences(pages[page-1])
 
 	var components []discordgo.MessageComponent
 	if totalPages > 1 {

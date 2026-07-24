@@ -118,6 +118,10 @@ function cancelDelete() {
   pendingDeleteQuery.value = null;
 }
 
+function deletionQueryUrls(item: QueryItem): string[] {
+  return [...new Set([item.url, item.displayUrl].filter((value): value is string => Boolean(value)))];
+}
+
 async function confirmDelete() {
   if (!pendingDeleteQuery.value) return;
   const deleted = await deleteQuery(pendingDeleteQuery.value);
@@ -252,6 +256,14 @@ export default {};
           <h3 class="mt-1 text-lg font-semibold">Delete this saved query?</h3>
           <p class="mt-2 break-all text-sm text-foreground">
             {{ pendingDeleteQuery.name || pendingDeleteQuery.displayUrl || pendingDeleteQuery.url || pendingDeleteQuery.id }}
+          </p>
+          <p
+            v-for="url in deletionQueryUrls(pendingDeleteQuery)"
+            :key="url"
+            class="mt-2 break-all text-sm text-foreground"
+          >
+            <span class="font-medium">Search URL:</span>
+            <a :href="url" target="_blank" rel="noreferrer" class="underline underline-offset-2">{{ url }}</a>
           </p>
           <p class="mt-2 text-sm text-muted-foreground">
             This removes the saved rule and cannot be undone.

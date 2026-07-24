@@ -258,11 +258,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deleteebayquery":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "ebay", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "ebay", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted eBay query: %s", formatQueryReference(id))
+			responseContent = fmt.Sprintf("✅ Deleted eBay query:\n%s", details)
 		}
 	case "viewebayqueries":
 		b.sendPaginatedQueries(ctx, s, i, "ebay", "Saved eBay Queries", 1)
@@ -374,11 +374,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deletecashquery":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "cashConverters", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "cashConverters", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted Cash Converters query: %s", formatQueryReference(id))
+			responseContent = fmt.Sprintf("✅ Deleted Cash Converters query:\n%s", details)
 		}
 	case "viewcashqueries":
 		b.sendPaginatedQueries(ctx, s, i, "cashConverters", "Saved Cash Converters Queries", 1)
@@ -417,11 +417,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deletegumtreequery":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "gumtree", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "gumtree", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted Gumtree query: %s", formatQueryReference(id))
+			responseContent = fmt.Sprintf("✅ Deleted Gumtree query:\n%s", details)
 		}
 	case "viewgumtreequeries":
 		b.sendPaginatedQueries(ctx, s, i, "gumtree", "Saved Gumtree Queries", 1)
@@ -465,11 +465,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deletesalvosquery":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "salvos", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "salvos", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted Salvos query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted Salvos query:\n%s", details)
 		}
 	case "viewsalvosqueries":
 		b.sendPaginatedQueries(ctx, s, i, "salvos", "Saved Salvos Queries", 1)
@@ -512,11 +512,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deletecsmarket":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "csMarket", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "csMarket", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted CS Market query: %s", formatQueryReference(id))
+			responseContent = fmt.Sprintf("✅ Deleted CS Market query:\n%s", details)
 		}
 	case "viewcsmarketqueries":
 		b.sendPaginatedQueries(ctx, s, i, "csMarket", "Saved CS Market Queries", 1)
@@ -580,11 +580,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deletemultisearchquery":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "csTradeBot", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "csTradeBot", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted multisearch query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted multisearch query:\n%s", details)
 		}
 	case "viewmultisearchqueries":
 		b.sendPaginatedQueries(ctx, s, i, "csTradeBot", "Saved CS Trade Bot Multisearches", 1)
@@ -623,11 +623,11 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "deletescmquery":
 		id := getStringOption(options, "id")
-		err := b.dbClient.DeleteSavedQuery(ctx, "steamMarket", id)
+		details, err := b.deleteSavedQueryWithDetails(ctx, "steamMarket", id)
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
 		} else {
-			responseContent = fmt.Sprintf("✅ Deleted Steam SCM query: `%s`", id)
+			responseContent = fmt.Sprintf("✅ Deleted Steam SCM query:\n%s", details)
 		}
 	case "viewscmqueries":
 		b.sendPaginatedQueries(ctx, s, i, "steamMarket", "Saved Steam SCM Queries", 1)
@@ -637,6 +637,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	if responseContent != "" {
+		responseContent = removeMarkdownCodeFences(responseContent)
 		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 			Content: &responseContent,
 		})

@@ -34,45 +34,47 @@ func (q *Query) UpdateGlobals(ctx context.Context, g *models.Globals) error {
 }
 
 func (q *Query) SeedGlobals(ctx context.Context, cfg *config.Config) error {
-	_, err := q.Globals.WithContext(ctx).First()
+	g, err := q.Globals.WithContext(ctx).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		g := models.Globals{
-			ID:                      "1",
-			BotClientId:             cfg.BotClientId,
-			DiscordGuildId:          cfg.DiscordGuildId,
-			DiscordToken:            cfg.DiscordToken,
-			CashConverters:          cfg.CashConverters,
-			CashConvertersChannelId: cfg.CashConvertersChannelId,
-			CashConvertersRoleId:    cfg.CashConvertersRoleId,
-			CommandPermissionRoleId: cfg.CommandPermissionRoleId,
-			CsChannelId:             cfg.CsChannelId,
-			CsItems:                 cfg.CsItems,
-			CsMarketChannelId:       cfg.CsMarketChannelId,
-			CsMarketRoleId:          cfg.CsMarketRoleId,
-			CsRoleId:                cfg.CsRoleId,
-			Ebay:                    cfg.Ebay,
-			EbayChannelId:           cfg.EbayChannelId,
-			EbayRoleId:              cfg.EbayRoleId,
-			ErrorChannelId:          cfg.ErrorChannelId,
-			Gumtree:                 cfg.Gumtree,
-			GumtreeChannelId:        cfg.GumtreeChannelId,
-			GumtreeRoleId:           cfg.GumtreeRoleId,
-			Salvos:                  cfg.Salvos,
-			SalvosChannelId:         cfg.SalvosChannelId,
-			SalvosRoleId:            cfg.SalvosRoleId,
-			SteamQuery:              cfg.SteamQuery,
-			SteamQueryChannelId:     cfg.SteamQueryChannelId,
-			SteamQueryRoleId:        cfg.SteamQueryRoleId,
-			CsTradeDollarRatio:      1.0,
-			LootFarmDollarRatio:     1.0,
-			CsDealsDollarRatio:      1.0,
-			TradeitGgDollarRatio:    1.0,
+		g = &models.Globals{
+			ID:                   "1",
+			CsTradeDollarRatio:   1.0,
+			LootFarmDollarRatio:  1.0,
+			CsDealsDollarRatio:   1.0,
+			TradeitGgDollarRatio: 1.0,
 		}
-		if err := q.Globals.WithContext(ctx).Create(&g); err != nil {
-			return err
-		}
-		defaultGlobalsCache.set(&g)
-		return nil
+	} else if err != nil {
+		return err
 	}
-	return err
+
+	// The environment is the deployment source of truth for scanner switches,
+	// Discord credentials, channels, and roles. Keep an existing migrated row
+	// synchronized instead of retaining stale defaults indefinitely.
+	g.BotClientId = cfg.BotClientId
+	g.DiscordGuildId = cfg.DiscordGuildId
+	g.DiscordToken = cfg.DiscordToken
+	g.CashConverters = cfg.CashConverters
+	g.CashConvertersChannelId = cfg.CashConvertersChannelId
+	g.CashConvertersRoleId = cfg.CashConvertersRoleId
+	g.CommandPermissionRoleId = cfg.CommandPermissionRoleId
+	g.CsChannelId = cfg.CsChannelId
+	g.CsItems = cfg.CsItems
+	g.CsMarketChannelId = cfg.CsMarketChannelId
+	g.CsMarketRoleId = cfg.CsMarketRoleId
+	g.CsRoleId = cfg.CsRoleId
+	g.Ebay = cfg.Ebay
+	g.EbayChannelId = cfg.EbayChannelId
+	g.EbayRoleId = cfg.EbayRoleId
+	g.ErrorChannelId = cfg.ErrorChannelId
+	g.Gumtree = cfg.Gumtree
+	g.GumtreeChannelId = cfg.GumtreeChannelId
+	g.GumtreeRoleId = cfg.GumtreeRoleId
+	g.Salvos = cfg.Salvos
+	g.SalvosChannelId = cfg.SalvosChannelId
+	g.SalvosRoleId = cfg.SalvosRoleId
+	g.SteamQuery = cfg.SteamQuery
+	g.SteamQueryChannelId = cfg.SteamQueryChannelId
+	g.SteamQueryRoleId = cfg.SteamQueryRoleId
+
+	return q.UpdateGlobals(ctx, g)
 }

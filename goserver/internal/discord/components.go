@@ -75,7 +75,7 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 			log.Printf("Failed to register Discord cancel delete action: %v", err)
 		}
 
-		responseContent = fmt.Sprintf("Are you sure you want to delete this %s query?\n%s\n\n**This action cannot be undone.**", *action.QueryType, formatQueryReference(*action.QueryId))
+		responseContent = fmt.Sprintf("Are you sure you want to delete this %s query?\n%s\n\n**This action cannot be undone.**", *action.QueryType, b.formatQueryDetails(ctx, *action.QueryType, *action.QueryId))
 		responseComponents = []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
@@ -95,11 +95,12 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	case "confirm_delete":
 		if action.QueryType != nil && action.QueryId != nil {
-			err = b.dbClient.DeleteSavedQuery(ctx, *action.QueryType, *action.QueryId)
+			var details string
+			details, err = b.deleteSavedQueryWithDetails(ctx, *action.QueryType, *action.QueryId)
 			if err != nil {
 				responseContent = fmt.Sprintf("❌ Error deleting query: %v", err)
 			} else {
-				responseContent = fmt.Sprintf("✅ Successfully deleted query of type `%s` (%s)", *action.QueryType, formatQueryReference(*action.QueryId))
+				responseContent = fmt.Sprintf("✅ Successfully deleted query of type `%s`:\n%s", *action.QueryType, details)
 				b.dbClient.DeleteAction(ctx, customId)
 				if action.RelatedKey != nil {
 					b.dbClient.DeleteAction(ctx, *action.RelatedKey)
@@ -204,8 +205,9 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 	}
 
+	cleanResponseContent := removeMarkdownCodeFences(responseContent)
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content:    &responseContent,
+		Content:    &cleanResponseContent,
 		Components: &responseComponents,
 	})
 }
