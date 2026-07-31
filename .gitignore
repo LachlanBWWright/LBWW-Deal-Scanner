@@ -8,6 +8,9 @@ frontend/dist/assets/
 prisma/dev.db
 prisma/test.db
 *.db-journal
+*.db
+*.db-shm
+*.db-wal
 *.key
 *.key.pub
 *.pem

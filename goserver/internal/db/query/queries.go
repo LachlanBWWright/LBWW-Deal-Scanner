@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"dealscanner/internal/models"
@@ -253,7 +254,11 @@ func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, inpu
 	err := q.Transaction(func(tx *Query) error {
 		scanMode := input.ScanMode
 		if scanMode == "" {
-			scanMode = "searchUrl"
+			scanMode = "siteWide"
+		}
+		required := input.RequiredPhrases
+		if required == "" && input.Url != "" && !strings.HasPrefix(input.Url, "http://") && !strings.HasPrefix(input.Url, "https://") {
+			required = input.Url
 		}
 		if _, err := tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(input.Url)).
 			Attrs(tx.CashConverters.ScanMode.Value(scanMode)).FirstOrCreate(); err != nil {
@@ -264,7 +269,7 @@ func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, inpu
 		}
 		filter := models.CashConvertersFilter{
 			ID: queryId, CashConvertersUrl: input.Url, QueryId: queryId,
-			RequiredPhrases:   input.RequiredPhrases,
+			RequiredPhrases:   required,
 			RequiredMatchMode: normalizeMatchMode(input.RequiredMatchMode, "all"),
 			ExcludePhrases:    input.ExcludePhrases,
 			ExcludeMatchMode:  normalizeMatchMode(input.ExcludeMatchMode, "any"),
@@ -280,7 +285,8 @@ func (q *Query) CreateCashConvertersQuery(ctx context.Context, dmOnly bool, inpu
 }
 
 func normalizeMatchMode(value string, fallback string) string {
-	if value == "any" || value == "all" {
+	if value == "any" || value == "all" || value == "any_words" || value == "all_words" ||
+		value == "any_substring" || value == "all_substring" {
 		return value
 	}
 	return fallback
@@ -433,7 +439,7 @@ func (q *Query) UpdateCashConvertersQuery(ctx context.Context, id string, dmOnly
 		}
 		scanMode := input.ScanMode
 		if scanMode == "" {
-			scanMode = "searchUrl"
+			scanMode = "siteWide"
 		}
 		if _, err := tx.CashConverters.WithContext(ctx).Where(tx.CashConverters.Url.Eq(targetURL)).
 			Attrs(tx.CashConverters.ScanMode.Value(scanMode)).FirstOrCreate(); err != nil {

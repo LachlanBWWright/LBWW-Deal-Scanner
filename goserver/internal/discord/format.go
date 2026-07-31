@@ -95,14 +95,8 @@ func formatQueryName(q query.QueryItem) string {
 }
 
 func formatCashConvertersQueryInfo(q query.QueryItem) string {
-	urlRef := "missing URL"
-	if q.Url != nil && *q.Url != "" {
-		urlRef = formatQueryReference(*q.Url)
-	}
-
 	return fmt.Sprintf(
-		"- URL: %s | ID: `%s` | Price Range: %s - %s | Required: %s (%s) | Excluded: %s (%s) | Scan Mode: `%s`",
-		urlRef,
+		"- ID: `%s` | Price Range: %s - %s | Required: %s (%s) | Excluded: %s (%s)",
 		q.Id,
 		formatOptionalPrice(q.MinPrice),
 		formatOptionalPrice(q.MaxPrice),
@@ -110,7 +104,6 @@ func formatCashConvertersQueryInfo(q query.QueryItem) string {
 		formatOptionalMode(q.RequiredMatchMode, "all"),
 		formatOptionalPhraseFilter(q.ExcludePhrases),
 		formatOptionalMode(q.ExcludeMatchMode, "any"),
-		formatOptionalMode(q.ScanMode, "searchUrl"),
 	)
 }
 

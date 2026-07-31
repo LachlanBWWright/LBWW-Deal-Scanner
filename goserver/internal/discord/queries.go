@@ -38,6 +38,14 @@ func getBoolOption(opts map[string]*discordgo.ApplicationCommandInteractionDataO
 	return false
 }
 
+func getBoolOptionDefault(opts map[string]*discordgo.ApplicationCommandInteractionDataOption, name string, defaultValue bool) bool {
+	opt, ok := opts[name]
+	if !ok || opt == nil {
+		return defaultValue
+	}
+	return opt.BoolValue()
+}
+
 func (b *Bot) formatQueriesWithFoundItems(ctx context.Context, queries []query.QueryItem, title string) string {
 	queryIds := make([]string, 0, len(queries))
 	for _, q := range queries {

@@ -129,3 +129,16 @@ func TestOpenRejectsUnsupportedDatabaseURL(t *testing.T) {
 		t.Fatal("Open() succeeded for an unsupported database URL")
 	}
 }
+
+func TestExtractLegacyCashConvertersPhrase(t *testing.T) {
+	tests := map[string]string{
+		"https://www.cashconverters.com.au/search-results?query=nintendo%20switch": "nintendo switch",
+		"https://www.cashconverters.com.au/shop/phones/iphone-15":                  "iphone 15",
+		"  vintage camera  ": "vintage camera",
+	}
+	for input, want := range tests {
+		if got := extractLegacyCashConvertersPhrase(input); got != want {
+			t.Errorf("extractLegacyCashConvertersPhrase(%q) = %q, want %q", input, got, want)
+		}
+	}
+}

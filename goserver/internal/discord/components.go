@@ -17,29 +17,27 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 	ctx := context.Background()
 	customId := i.MessageComponentData().CustomID
 
-	action, err := b.dbClient.GetAction(ctx, customId)
-	if err != nil || action == nil {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "❌ Action expired or not found.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+	// A component interaction must be acknowledged within three seconds. Database
+	// lookups can exceed that while the catalog scanner is writing, so defer before
+	// resolving the action. Use a separate ephemeral response: editing a deferred
+	// message update would replace the notification that contains the button.
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	}); err != nil {
+		log.Printf("Failed to acknowledge Discord button interaction: %v", err)
 		return
 	}
 
-	if action.Type == "view_page" {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	action, err := b.dbClient.GetAction(ctx, customId)
+	if err != nil || action == nil {
+		content := "❌ Action expired or not found."
+		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &content,
 		})
-	} else {
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral,
-			},
-		})
+		return
 	}
 
 	var responseContent string
@@ -203,6 +201,21 @@ func (b *Bot) handleButton(s *discordgo.Session, i *discordgo.InteractionCreate)
 				return
 			}
 		}
+
+	case cashSearchPageAction:
+		if action.QueryType == nil || action.QueryId == nil {
+			responseContent = "❌ Cash Converters search page is unavailable."
+			break
+		}
+		pageVal, pageErr := strconv.Atoi(*action.QueryId)
+		input, inputErr := decodeCashSearchInput(*action.QueryType)
+		if pageErr != nil || inputErr != nil {
+			responseContent = "❌ Cash Converters search page is unavailable."
+			break
+		}
+		b.sendPaginatedCashSearch(ctx, s, i, input, pageVal)
+		b.dbClient.DeleteAction(ctx, customId)
+		return
 	}
 
 	cleanResponseContent := removeMarkdownCodeFences(responseContent)

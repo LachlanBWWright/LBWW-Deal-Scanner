@@ -337,3 +337,92 @@ type TtlItem struct {
 func (TtlItem) TableName() string {
 	return "TtlItem"
 }
+
+type CashConvertersScanState struct {
+	ID                        string     `gorm:"primaryKey;column:id"`
+	CurrentSweepID            int64      `gorm:"column:currentSweepId"`
+	TailNextPage              int        `gorm:"column:tailNextPage"`
+	LastKnownNonEmptyPage     int        `gorm:"column:lastKnownNonEmptyPage"`
+	ConsecutiveEmptyTailPages int        `gorm:"column:consecutiveEmptyTailPages"`
+	LastHeadScanAt            *time.Time `gorm:"column:lastHeadScanAt"`
+	LastTailScanAt            *time.Time `gorm:"column:lastTailScanAt"`
+	LastSweepCompletedAt      *time.Time `gorm:"column:lastSweepCompletedAt"`
+	LastSuccessfulRequestAt   *time.Time `gorm:"column:lastSuccessfulRequestAt"`
+	LastErrorAt               *time.Time `gorm:"column:lastErrorAt"`
+	LastError                 *string    `gorm:"column:lastError"`
+	UpdatedAt                 time.Time  `gorm:"column:updatedAt"`
+}
+
+func (CashConvertersScanState) TableName() string {
+	return "CashConvertersScanState"
+}
+
+type CashConvertersListingMeta struct {
+	ListingID                string     `gorm:"primaryKey;column:listingId"`
+	Listing                  Listing    `gorm:"foreignKey:ListingID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	ExternalItemID           *string    `gorm:"column:externalItemId;index"`
+	FirstSeenSweepID         int64      `gorm:"column:firstSeenSweepId"`
+	LastSeenSweepID          int64      `gorm:"column:lastSeenSweepId;index"`
+	LastSeenPage             int        `gorm:"column:lastSeenPage"`
+	LastListedAt             time.Time  `gorm:"column:lastListedAt;index"`
+	DetailFetchCount         int        `gorm:"column:detailFetchCount"`
+	LastDetailStatus         *string    `gorm:"column:lastDetailStatus"`
+	SourceStatus             string     `gorm:"column:sourceStatus;index"` // available, suspected_missing, confirmed_missing
+	MissingSuspectedAt       *time.Time `gorm:"column:missingSuspectedAt;index"`
+	MissingVerifiedAt        *time.Time `gorm:"column:missingVerifiedAt"`
+	MissingVerificationCount int        `gorm:"column:missingVerificationCount"`
+	DeletedAt                *time.Time `gorm:"column:deletedAt;index"`
+	CreatedAt                time.Time  `gorm:"column:createdAt"`
+	UpdatedAt                time.Time  `gorm:"column:updatedAt"`
+}
+
+func (CashConvertersListingMeta) TableName() string {
+	return "CashConvertersListingMeta"
+}
+
+type CashConvertersDetailJob struct {
+	ID            string     `gorm:"primaryKey;column:id"`
+	ListingID     string     `gorm:"column:listingId;index;uniqueIndex:idx_cc_detail_stage"`
+	DueAt         time.Time  `gorm:"column:dueAt;index"`
+	Stage         string     `gorm:"column:stage;uniqueIndex:idx_cc_detail_stage"` // initial, plus_5m, plus_10m, plus_60m, plus_300m, missing_verify
+	Attempts      int        `gorm:"column:attempts"`
+	LastAttemptAt *time.Time `gorm:"column:lastAttemptAt"`
+	CompletedAt   *time.Time `gorm:"column:completedAt;index"`
+	LastError     *string    `gorm:"column:lastError"`
+	CreatedAt     time.Time  `gorm:"column:createdAt"`
+	UpdatedAt     time.Time  `gorm:"column:updatedAt"`
+}
+
+func (CashConvertersDetailJob) TableName() string {
+	return "CashConvertersDetailJob"
+}
+
+type CashConvertersSearchDoc struct {
+	ListingID    string     `gorm:"primaryKey;column:listingId"`
+	Title        string     `gorm:"column:title"`
+	Description  string     `gorm:"column:description"`
+	CanonicalURL string     `gorm:"column:canonicalUrl"`
+	ImageURL     *string    `gorm:"column:imageUrl"`
+	TotalPrice   *float64   `gorm:"column:totalPrice"`
+	Availability string     `gorm:"column:availability;index"`
+	SourceStatus string     `gorm:"column:sourceStatus;index"`
+	LastSeenAt   time.Time  `gorm:"column:lastSeenAt;index"`
+	LastDetailAt *time.Time `gorm:"column:lastDetailAt"`
+	UpdatedAt    time.Time  `gorm:"column:updatedAt"`
+}
+
+func (CashConvertersSearchDoc) TableName() string {
+	return "CashConvertersSearchDoc"
+}
+
+type CashConvertersDeletedListing struct {
+	ListingID      string    `gorm:"primaryKey;column:listingId"`
+	CanonicalURL   string    `gorm:"column:canonicalUrl"`
+	ExternalItemID *string   `gorm:"column:externalItemId;index"`
+	DeletedAt      time.Time `gorm:"column:deletedAt;index"`
+	Reason         string    `gorm:"column:reason"`
+}
+
+func (CashConvertersDeletedListing) TableName() string {
+	return "CashConvertersDeletedListing"
+}

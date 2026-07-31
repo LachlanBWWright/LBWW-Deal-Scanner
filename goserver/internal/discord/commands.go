@@ -19,8 +19,10 @@ func valueOrString(value *string, fallback string) string {
 
 func matchModeChoices() []*discordgo.ApplicationCommandOptionChoice {
 	return []*discordgo.ApplicationCommandOptionChoice{
-		{Name: "All phrases", Value: "all"},
-		{Name: "Any phrase", Value: "any"},
+		{Name: "All whole words/phrases", Value: "all_words"},
+		{Name: "Any whole word/phrase", Value: "any_words"},
+		{Name: "All letter sequences", Value: "all_substring"},
+		{Name: "Any letter sequence", Value: "any_substring"},
 	}
 }
 
@@ -32,6 +34,20 @@ func getOptionalString(options map[string]*discordgo.ApplicationCommandInteracti
 }
 
 func (b *Bot) registerCommands() {
+	existingCommands, err := b.session.ApplicationCommands(b.cfg.BotClientId, b.cfg.DiscordGuildId)
+	if err != nil {
+		log.Printf("Failed to inspect existing Discord commands: %v", err)
+	} else {
+		for _, existing := range existingCommands {
+			if existing.Name != "ccsearch" {
+				continue
+			}
+			if err := b.session.ApplicationCommandDelete(b.cfg.BotClientId, b.cfg.DiscordGuildId, existing.ID); err != nil {
+				log.Printf("Failed to remove renamed Discord command %s: %v", existing.Name, err)
+			}
+		}
+	}
+
 	commands := []*discordgo.ApplicationCommand{
 		// eBay
 		{Name: "createebayquery", Description: "Creates a saved query for eBay", Options: []*discordgo.ApplicationCommandOption{
@@ -50,37 +66,47 @@ func (b *Bot) registerCommands() {
 		{Name: "viewebayqueries", Description: "List all saved eBay queries"},
 
 		{Name: "createcashquery", Description: "Creates a saved query for Cash Converters", Options: []*discordgo.ApplicationCommandOption{
-			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "The URL of the query.", Required: true},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "Required phrase(s) for the whole Cash Converters site.", Required: true},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Enter the minimum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Enter the maximum price (in AUD).", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredmode", Description: "Require any or all phrases.", Required: false, Choices: matchModeChoices()},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excludedmode", Description: "Exclude on any or all phrases.", Required: false, Choices: matchModeChoices()},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
-				{Name: "Search URL", Value: "searchUrl"},
-				{Name: "Site wide", Value: "siteWide"},
-			}},
 			{Type: discordgo.ApplicationCommandOptionBoolean, Name: "dmonly", Description: "Make this query DM-only.", Required: false},
 		}},
 		{Name: "editcashquery", Description: "Edit an existing Cash Converters saved query", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "id", Description: "ID of the saved query to edit", Required: true},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "New URL or query string to replace the old one", Required: true},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "New required phrase(s)", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Optional minimum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Optional maximum total price for notifications", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredmode", Description: "Require any or all phrases.", Required: false, Choices: matchModeChoices()},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "excludedmode", Description: "Exclude on any or all phrases.", Required: false, Choices: matchModeChoices()},
-			{Type: discordgo.ApplicationCommandOptionString, Name: "scanmode", Description: "How to scan this query", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
-				{Name: "Search URL", Value: "searchUrl"},
-				{Name: "Site wide", Value: "siteWide"},
-			}},
 		}},
 		{Name: "deletecashquery", Description: "Delete an existing Cash Converters query", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "id", Description: "URL/ID of the query to delete", Required: true},
 		}},
 		{Name: "viewcashqueries", Description: "List all saved Cash Converters queries"},
+		{Name: "cashsearch", Description: "Search live Cash Converters inventory", Options: []*discordgo.ApplicationCommandOption{
+			{Type: discordgo.ApplicationCommandOptionString, Name: "text", Description: "Search title and description.", Required: true},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredmode", Description: "Required phrase matching: whole/partial and any/all.", Required: false, Choices: matchModeChoices()},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excluded", Description: "Comma-separated phrases excluded from the title and description.", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "excludedmode", Description: "Excluded phrase matching: whole/partial and any/all.", Required: false, Choices: matchModeChoices()},
+			{Type: discordgo.ApplicationCommandOptionNumber, Name: "minprice", Description: "Minimum total price (in AUD).", Required: false},
+			{Type: discordgo.ApplicationCommandOptionNumber, Name: "maxprice", Description: "Maximum total price (in AUD).", Required: false},
+			{Type: discordgo.ApplicationCommandOptionBoolean, Name: "availableonly", Description: "Only show available items (default true).", Required: false},
+			{Type: discordgo.ApplicationCommandOptionInteger, Name: "limit", Description: "Items per Discord page (default/max 5).", Required: false},
+			{Type: discordgo.ApplicationCommandOptionString, Name: "sort", Description: "Sort order.", Required: false, Choices: []*discordgo.ApplicationCommandOptionChoice{
+				{Name: "Newest", Value: "newest"},
+				{Name: "Price: Low to High", Value: "price_asc"},
+				{Name: "Price: High to Low", Value: "price_desc"},
+				{Name: "Relevance", Value: "relevance"},
+			}},
+			{Type: discordgo.ApplicationCommandOptionBoolean, Name: "ephemeral", Description: "Make response visible only to you (default true).", Required: false},
+		}},
 
 		// Gumtree
 		{Name: "creategumtreequery", Description: "Creates a saved query for Gumtree", Options: []*discordgo.ApplicationCommandOption{
@@ -211,17 +237,23 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	}
 
-	// Defer reply
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
-
-	var responseContent string
-
 	options := make(map[string]*discordgo.ApplicationCommandInteractionDataOption)
 	for _, opt := range data.Options {
 		options[opt.Name] = opt
 	}
+
+	responseFlags := discordgo.MessageFlags(0)
+	if data.Name == "cashsearch" && getBoolOptionDefault(options, "ephemeral", true) {
+		responseFlags = discordgo.MessageFlagsEphemeral
+	}
+
+	// Defer reply
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: responseFlags},
+	})
+
+	var responseContent string
 
 	switch data.Name {
 	// eBay
@@ -288,17 +320,13 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		if opt, ok := options["excluded"]; ok && opt != nil {
 			excluded = opt.StringValue()
 		}
-		requiredMode := getOptionalString(options, "requiredmode", "all")
-		excludedMode := getOptionalString(options, "excludedmode", "any")
-		var scanMode string
-		if opt, ok := options["scanmode"]; ok && opt != nil {
-			scanMode = opt.StringValue()
-		}
+		requiredMode := getOptionalString(options, "requiredmode", "all_words")
+		excludedMode := getOptionalString(options, "excludedmode", "any_words")
 		dmOnly := getBoolOption(options, "dmonly")
 		_, err := b.dbClient.CreateCashConvertersQuery(ctx, dmOnly, qry.CashConvertersQueryInput{
 			Url: query, MinPrice: minPrice, MaxPrice: maxPrice,
 			RequiredPhrases: required, RequiredMatchMode: requiredMode,
-			ExcludePhrases: excluded, ExcludeMatchMode: excludedMode, ScanMode: scanMode,
+			ExcludePhrases: excluded, ExcludeMatchMode: excludedMode, ScanMode: "siteWide",
 		})
 		if err != nil {
 			responseContent = fmt.Sprintf("❌ Error: %v", err)
@@ -327,8 +355,10 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			if cc.Url != nil {
 				urlVal = *cc.Url
 			}
+			required := valueOrString(cc.RequiredPhrases, "")
 			if opt, ok := options["query"]; ok && opt != nil {
 				urlVal = opt.StringValue()
+				required = opt.StringValue()
 			}
 			maxPrice := cc.MaxPrice
 			if opt, ok := options["maxprice"]; ok && opt != nil {
@@ -340,11 +370,6 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 				val := opt.FloatValue()
 				minPrice = &val
 			}
-			scanMode := valueOrString(cc.ScanMode, "searchUrl")
-			if opt, ok := options["scanmode"]; ok && opt != nil {
-				scanMode = opt.StringValue()
-			}
-			required := valueOrString(cc.RequiredPhrases, "")
 			if opt, ok := options["required"]; ok && opt != nil {
 				required = opt.StringValue()
 			}
@@ -362,7 +387,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 			}
 
 			_, err = b.dbClient.UpdateCashConvertersQuery(ctx, cc.Id, cc.DmOnly, qry.CashConvertersQueryInput{
-				Url: urlVal, MinPrice: minPrice, MaxPrice: maxPrice, ScanMode: scanMode,
+				Url: urlVal, MinPrice: minPrice, MaxPrice: maxPrice, ScanMode: "siteWide",
 				RequiredPhrases: required, RequiredMatchMode: requiredMode,
 				ExcludePhrases: excluded, ExcludeMatchMode: excludedMode,
 			})
@@ -382,6 +407,8 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 		}
 	case "viewcashqueries":
 		b.sendPaginatedQueries(ctx, s, i, "cashConverters", "Saved Cash Converters Queries", 1)
+	case "cashsearch":
+		b.sendPaginatedCashSearch(ctx, s, i, cashSearchInputFromOptions(options), 1)
 
 	// Gumtree
 	case "creategumtreequery":

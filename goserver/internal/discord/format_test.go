@@ -57,7 +57,6 @@ func TestFormatQueriesWithFoundItemsIncludesCashConvertersFilters(t *testing.T) 
 	requiredMode := "all"
 	excluded := "broken, parts"
 	excludedMode := "any"
-	scanMode := "searchUrl"
 
 	got := formatCashConvertersQueryInfo(query.QueryItem{
 		QueryId:           "query-1",
@@ -70,14 +69,12 @@ func TestFormatQueriesWithFoundItemsIncludesCashConvertersFilters(t *testing.T) 
 		RequiredMatchMode: &requiredMode,
 		ExcludePhrases:    &excluded,
 		ExcludeMatchMode:  &excludedMode,
-		ScanMode:          &scanMode,
 	})
 
 	expectedParts := []string{
 		"Price Range: $100.00 - $450.00",
 		"Required: `ps5, controller` (all)",
 		"Excluded: `broken, parts` (any)",
-		"Scan Mode: `searchUrl`",
 	}
 	for _, expected := range expectedParts {
 		if !strings.Contains(got, expected) {
@@ -102,7 +99,6 @@ func TestFormatQueriesWithFoundItemsShowsUnsetCashConvertersFilters(t *testing.T
 		"Price Range: Any - Any",
 		"Required: `None` (all)",
 		"Excluded: `None` (any)",
-		"Scan Mode: `searchUrl`",
 	}
 	for _, expected := range expectedParts {
 		if !strings.Contains(got, expected) {

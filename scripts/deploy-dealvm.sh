@@ -99,9 +99,10 @@ run_with_heartbeat "Local Linux/amd64 build" \
 log "Extracting the application, frontend, and Playwright driver from the local image"
 container_id="$(docker create "${image_name}")"
 docker cp "${container_id}:/app/dealscanner" "${artifact_dir}/dealscanner"
+docker cp "${container_id}:/app/migrate-db" "${artifact_dir}/migrate-db"
 docker cp "${container_id}:/app/frontend/dist" "${artifact_dir}/frontend"
 docker cp "${container_id}:/root/.cache/ms-playwright-go/1.57.0" "${artifact_dir}/playwright-driver"
-chmod 755 "${artifact_dir}/dealscanner"
+chmod 755 "${artifact_dir}/dealscanner" "${artifact_dir}/migrate-db"
 du -sh "${artifact_dir}"/*
 
 log "Creating the remote application directory"
@@ -119,7 +120,7 @@ ssh "${host}" "mv '${remote_dir}/.env.incoming' '${remote_dir}/.env' && chmod 60
 log "Verified and activated the current local .env"
 
 log "Checking and installing required VM runtime packages"
-ssh "${host}" "if ! command -v node >/dev/null; then sudo apt-get update && sudo apt-get install -y nodejs; fi; if ! command -v chromium >/dev/null; then sudo apt-get update && sudo apt-get install -y chromium-browser; if command -v chromium-browser >/dev/null; then sudo ln -sfn \"\$(command -v chromium-browser)\" /usr/bin/chromium; fi; fi; command -v chromium >/dev/null; mkdir -p '${remote_dir}/releases' '${remote_dir}/data' && chmod 700 '${remote_dir}/data'"
+ssh "${host}" "missing_packages=''; command -v node >/dev/null || missing_packages=\"\${missing_packages} nodejs\"; command -v chromium >/dev/null || missing_packages=\"\${missing_packages} chromium-browser\"; command -v xdg-settings >/dev/null || missing_packages=\"\${missing_packages} xdg-utils\"; if [[ -n \"\${missing_packages}\" ]]; then sudo apt-get update && sudo apt-get install -y \${missing_packages}; fi; if ! command -v chromium >/dev/null && command -v chromium-browser >/dev/null; then sudo ln -sfn \"\$(command -v chromium-browser)\" /usr/bin/chromium; fi; command -v chromium >/dev/null; command -v xdg-settings >/dev/null; mkdir -p '${remote_dir}/releases' '${remote_dir}/data' && chmod 700 '${remote_dir}/data'"
 
 release_id="$(date -u +%Y%m%dT%H%M%SZ)"
 release_dir="${remote_dir}/releases/${release_id}"
@@ -130,7 +131,13 @@ rsync -az --delete --progress "${artifact_dir}/" "${host}:${release_dir}/"
 log "Uploading the systemd service definition"
 scp deploy/dealvm/dealscanner.service "${host}:${remote_dir}/dealscanner.service"
 
+log "Backing up and migrating the production database"
+"${repository_dir}/scripts/migrate-dealvm.sh" \
+  "${host}" \
+  --release "${release_dir}" \
+  --leave-stopped
+
 log "Activating the release and starting Dealscanner"
-ssh "${host}" "ln -sfn '${release_dir}' '${remote_dir}/current' && sudo install -m 644 '${remote_dir}/dealscanner.service' /etc/systemd/system/dealscanner.service && sudo systemctl daemon-reload && sudo systemctl enable dealscanner && sudo systemctl restart dealscanner && sleep 3 && curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null && sudo systemctl --no-pager --full status dealscanner"
+ssh "${host}" "ln -sfn '${release_dir}' '${remote_dir}/current' && sudo install -m 644 '${remote_dir}/dealscanner.service' /etc/systemd/system/dealscanner.service && sudo systemctl daemon-reload && sudo systemctl enable dealscanner && sudo systemctl restart dealscanner && for attempt in \$(seq 1 60); do if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then sudo systemctl --no-pager --full status dealscanner; exit 0; fi; sleep 2; done; sudo systemctl --no-pager --full status dealscanner; sudo journalctl -u dealscanner -n 100 --no-pager; exit 1"
 
 log "Deployment succeeded; Dealscanner is responding on the VM at http://127.0.0.1:3000/"

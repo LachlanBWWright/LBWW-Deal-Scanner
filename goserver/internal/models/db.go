@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -127,13 +128,165 @@ func openGormAndMigrate(sqlDB *sql.DB, backend string) (*gorm.DB, error) {
 		&ScannerRuntimeState{},
 		&ActionRegistry{},
 		&TtlItem{},
+		&CashConvertersScanState{},
+		&CashConvertersListingMeta{},
+		&CashConvertersDetailJob{},
+		&CashConvertersSearchDoc{},
+		&CashConvertersDeletedListing{},
 	)
 	if err != nil {
 		sqlDB.Close()
 		return nil, fmt.Errorf("failed to run GORM auto-migrations: %w", err)
 	}
 
+	if err := migrateCashConvertersSiteWideQueries(db); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to migrate legacy Cash Converters queries: %w", err)
+	}
+
+	if err := migrateCashConvertersSearch(db); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to migrate Cash Converters search index: %w", err)
+	}
+
 	return db, nil
+}
+
+func migrateCashConvertersSearch(db *gorm.DB) error {
+	ftsSQL := `CREATE VIRTUAL TABLE IF NOT EXISTS CashConvertersSearchFts USING fts5(
+	  listingId UNINDEXED,
+	  title,
+	  description,
+	  canonicalUrl UNINDEXED,
+	  tokenize='unicode61 remove_diacritics 2'
+	);`
+	if err := db.Exec(ftsSQL).Error; err != nil {
+		// Log warning if FTS5 virtual table fails (e.g., SQLite built without FTS5)
+		// Search will automatically fallback to LIKE queries over CashConvertersSearchDoc
+		fmt.Printf("Warning: CashConvertersSearchFts creation failed (using LIKE fallback): %v\n", err)
+	}
+
+	backfillSQL := `
+		INSERT OR IGNORE INTO CashConvertersSearchDoc (
+			listingId, title, description, canonicalUrl, imageUrl, totalPrice,
+			availability, sourceStatus, lastSeenAt, lastDetailAt, updatedAt
+		)
+		SELECT
+			l.id,
+			l.title,
+			COALESCE(l.description, ''),
+			l.canonicalUrl,
+			l.imageUrl,
+			(
+				SELECT o.totalPrice
+				FROM ListingObservation o
+				WHERE o.listingId = l.id
+				ORDER BY o.observedAt DESC
+				LIMIT 1
+			),
+			COALESCE(l.availability, 'available'),
+			COALESCE(m.sourceStatus, 'available'),
+			l.lastSeenAt,
+			l.lastDetailAt,
+			CURRENT_TIMESTAMP
+		FROM Listing l
+		LEFT JOIN CashConvertersListingMeta m ON m.listingId = l.id
+		WHERE l.source = 'cashConverters'
+	`
+	if err := db.Exec(backfillSQL).Error; err != nil {
+		return fmt.Errorf("backfill Cash Converters search documents: %w", err)
+	}
+
+	ftsBackfillSQL := `
+		INSERT INTO CashConvertersSearchFts (listingId, title, description, canonicalUrl)
+		SELECT d.listingId, d.title, d.description, d.canonicalUrl
+		FROM CashConvertersSearchDoc d
+		INNER JOIN (
+			SELECT listingId FROM CashConvertersSearchDoc
+			EXCEPT
+			SELECT listingId FROM CashConvertersSearchFts
+		) missing ON missing.listingId = d.listingId
+	`
+	if err := db.Exec(ftsBackfillSQL).Error; err != nil {
+		// FTS5 is optional; LIKE search still uses the backfilled search documents.
+		fmt.Printf("Warning: CashConvertersSearchFts backfill failed (using LIKE fallback): %v\n", err)
+	}
+
+	for _, indexSQL := range []string{
+		"CREATE INDEX IF NOT EXISTS idx_cc_search_doc_updated ON CashConvertersSearchDoc(updatedAt)",
+		"CREATE INDEX IF NOT EXISTS idx_cc_search_doc_seen ON CashConvertersSearchDoc(lastSeenAt)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_detail_stage ON CashConvertersDetailJob(listingId, stage)",
+	} {
+		if err := db.Exec(indexSQL).Error; err != nil {
+			return fmt.Errorf("create Cash Converters index: %w", err)
+		}
+	}
+	return nil
+}
+
+func migrateCashConvertersSiteWideQueries(db *gorm.DB) error {
+	type legacyFilter struct {
+		ID                string
+		CashConvertersURL string `gorm:"column:cashConvertersUrl"`
+		RequiredPhrases   string
+		ScanMode          string
+	}
+
+	var filters []legacyFilter
+	if err := db.Table("CashConvertersFilter AS f").
+		Select("f.id, f.cashConvertersUrl, f.requiredPhrases, c.scanMode").
+		Joins("JOIN CashConverters AS c ON c.url = f.cashConvertersUrl").
+		Where("c.scanMode = ? OR c.scanMode = ?", "", "searchUrl").
+		Find(&filters).Error; err != nil {
+		return fmt.Errorf("load legacy Cash Converters queries: %w", err)
+	}
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, filter := range filters {
+			if strings.TrimSpace(filter.RequiredPhrases) == "" {
+				phrase := extractLegacyCashConvertersPhrase(filter.CashConvertersURL)
+				if phrase != "" {
+					if err := tx.Model(&CashConvertersFilter{}).
+						Where("id = ?", filter.ID).
+						Update("requiredPhrases", phrase).Error; err != nil {
+						return fmt.Errorf("migrate Cash Converters phrases for %s: %w", filter.ID, err)
+					}
+				}
+			}
+			if err := tx.Model(&CashConverters{}).
+				Where("url = ?", filter.CashConvertersURL).
+				Update("scanMode", "siteWide").Error; err != nil {
+				return fmt.Errorf("migrate Cash Converters scan mode for %s: %w", filter.ID, err)
+			}
+		}
+		return nil
+	})
+}
+
+func extractLegacyCashConvertersPhrase(rawURL string) string {
+	trimmed := strings.TrimSpace(rawURL)
+	parsed, err := url.Parse(trimmed)
+	if err == nil && parsed.Host != "" {
+		for _, key := range []string{"query", "q", "search"} {
+			if phrase := strings.TrimSpace(parsed.Query().Get(key)); phrase != "" && phrase != "0" {
+				return phrase
+			}
+		}
+		pathParts := strings.FieldsFunc(parsed.Path, func(r rune) bool {
+			return r == '/'
+		})
+		if len(pathParts) > 0 {
+			last := strings.TrimSpace(strings.NewReplacer("-", " ", "_", " ").Replace(pathParts[len(pathParts)-1]))
+			if last != "" && last != "shop" && last != "search" {
+				return last
+			}
+		}
+		return ""
+	}
+	if !strings.Contains(trimmed, "://") {
+		return trimmed
+	}
+	return ""
 }
 
 func migrateCashConvertersFilters(db *gorm.DB) error {
@@ -170,13 +323,16 @@ func migrateCashConvertersFilters(db *gorm.DB) error {
 
 		for _, row := range rows {
 			scanMode := row.ScanMode
-			if scanMode == "" {
-				scanMode = "searchUrl"
+			if scanMode == "" || scanMode == "searchUrl" {
+				scanMode = "siteWide"
 			}
 			if err := tx.Create(&CashConverters{Url: row.Url, ScanMode: scanMode}).Error; err != nil {
 				return fmt.Errorf("copy search %q: %w", row.Url, err)
 			}
 			required := combineLegacyPhrases(row.RequiredPhrases, row.RequiredInDescription)
+			if required == "" {
+				required = extractLegacyCashConvertersPhrase(row.Url)
+			}
 			excluded := combineLegacyPhrases(row.ExcludePhrases, row.ExcludeInDescription)
 			filter := CashConvertersFilter{
 				ID:                row.QueryId,

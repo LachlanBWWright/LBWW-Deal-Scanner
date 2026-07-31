@@ -2,26 +2,34 @@ package scanners
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
+	"sync"
 	"time"
 
 	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/models"
 	"dealscanner/internal/notifications"
-
-	"github.com/PuerkitoBio/goquery"
 )
+
+const (
+	ccTailPagesPerPass        = 10
+	ccMaxDetailFetchesPerPass = 6
+	ccMaxMissingChecksPerPass = 3
+	ccRequestMinDelayMs       = 500
+	ccRequestMaxDelayMs       = 1500
+)
+
+type ccDiscoveryPage struct {
+	sort ccCatalogSort
+	page int
+}
 
 type CashConvertersScanner struct {
 	dbClient *qry.Query
 	client   *http.Client
+	mu       sync.Mutex
+	baseURL  string
 }
 
 func NewCashConvertersScanner(dbClient *qry.Query) *CashConvertersScanner {
@@ -31,95 +39,21 @@ func NewCashConvertersScanner(dbClient *qry.Query) *CashConvertersScanner {
 	}
 }
 
+func (s *CashConvertersScanner) getBaseURL() string {
+	if s.baseURL != "" {
+		return s.baseURL
+	}
+	return "https://www.cashconverters.com.au"
+}
+
 func (s *CashConvertersScanner) Name() string {
 	return "Cash Converters"
 }
 
-type CcSummary struct {
-	CanonicalUrl string
-	Title        string
-	Price        float64
-	Shipping     float64
-	TotalPrice   float64
-	ImageUrl     string
-}
-
-type CcDetail struct {
-	CcSummary
-	Description  string
-	Availability string
-}
-
-type CcApiProductItem struct {
-	Title            string `json:"Title"`
-	Sp               string `json:"Sp"`
-	ShippingCost     string `json:"ShippingCost"`
-	AbsoluteImageUrl string `json:"AbsoluteImageUrl"`
-	Url              string `json:"Url"`
-}
-
-type CcApiResponse struct {
-	WasSuccessful bool `json:"WasSuccessful"`
-	Value         struct {
-		ProductList struct {
-			ProductListItems []CcApiProductItem `json:"ProductListItems"`
-		} `json:"ProductList"`
-	} `json:"Value"`
-}
-
-func valueOr(value *string, fallback string) string {
-	if value == nil || *value == "" {
-		return fallback
-	}
-	return *value
-}
-
-func phrasesMatch(searchable string, phrases []string, mode string) bool {
-	if len(phrases) == 0 {
-		return false
-	}
-	if mode == "any" {
-		for _, phrase := range phrases {
-			if strings.Contains(searchable, phrase) {
-				return true
-			}
-		}
-		return false
-	}
-	for _, phrase := range phrases {
-		if !strings.Contains(searchable, phrase) {
-			return false
-		}
-	}
-	return true
-}
-
-func buildCcApiUrl(searchUrl string) string {
-	if !strings.HasPrefix(searchUrl, "http") {
-		apiUrl := url.URL{
-			Scheme: "https",
-			Host:   "www.cashconverters.com.au",
-			Path:   "/c3api/search/results",
-		}
-		q := url.Values{}
-		q.Set("query", searchUrl)
-		apiUrl.RawQuery = q.Encode()
-		return apiUrl.String()
-	}
-
-	parsed, err := url.Parse(searchUrl)
-	if err != nil {
-		return searchUrl
-	}
-
-	parsed.Scheme = "https"
-	parsed.Host = "www.cashconverters.com.au"
-	parsed.Path = "/c3api/search/results"
-	parsed.Fragment = ""
-	return parsed.String()
-}
-
 func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNotification, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	globals, err := s.dbClient.GetGlobals(ctx)
 	if err != nil {
 		return nil, err
@@ -128,427 +62,196 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 		return nil, nil
 	}
 
-	queries, err := s.dbClient.ListSavedQueries(ctx, "cashConverters")
+	filters, err := s.dbClient.ListSavedQueries(ctx, "cashConverters")
 	if err != nil {
 		return nil, err
 	}
 
-	var notifs []notifications.AppNotification
+	state, err := s.dbClient.GetCashConvertersScanState(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now().UTC()
-	descriptionFetchAvailable := true
-	summaryCache := make(map[string][]CcSummary)
-	detailCache := make(map[string]CcDetail)
+	changed := make(map[string]struct{})
+	justCompletedSweep := false
 
-	for _, query := range queries {
-		if query.Url == nil {
-			continue
+	// 1. Always start at the newest inventory and continue until a page reaches
+	// inventory already known before this pass.
+	pages := make([]ccDiscoveryPage, 0, ccTailPagesPerPass+1)
+	for page := 1; ; page++ {
+		catalogPage, fetchErr := s.fetchCatalogPage(ctx, ccCatalogSortNewest, page)
+		if fetchErr != nil {
+			errStr := fetchErr.Error()
+			state.LastError = &errStr
+			state.LastErrorAt = &now
+			log.Printf("Cash Converters newest scan error on page %d: %v", page, fetchErr)
+			break
+		}
+		state.LastSuccessfulRequestAt = &now
+		state.LastError = nil
+		upserted, upsertErr := s.dbClient.UpsertCashConvertersSummaries(ctx, catalogPage.Summaries, state.CurrentSweepID, page, now)
+		if upsertErr != nil {
+			return nil, upsertErr
+		}
+		for _, id := range upserted.ListingIDs {
+			if enqueueErr := s.dbClient.EnqueueCashConvertersDetailJobs(ctx, id, now); enqueueErr != nil {
+				return nil, enqueueErr
+			}
+		}
+		for _, id := range upserted.ChangedListingIDs {
+			changed[id] = struct{}{}
+		}
+		state.LastHeadScanAt = &now
+		lastPage := (catalogPage.TotalItems + ccCatalogPageSize - 1) / ccCatalogPageSize
+		if len(catalogPage.Summaries) == 0 || upserted.HadPreviouslySeen ||
+			(catalogPage.TotalItems > 0 && page >= lastPage) {
+			break
+		}
+		JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
+	}
+
+	// Continue the stable price-ordered back-catalog sweep independently.
+	pages = s.planDiscoveryPages(state)
+	for _, discovery := range pages {
+		catalogPage, err := s.fetchCatalogPage(ctx, discovery.sort, discovery.page)
+		if err != nil {
+			errStr := err.Error()
+			state.LastError = &errStr
+			state.LastErrorAt = &now
+			log.Printf(
+				"Cash Converters scan error on %s page %d: %v",
+				discovery.sort,
+				discovery.page,
+				err,
+			)
+			break // Do not advance cursor for failed page
 		}
 
-		summaries, cached := summaryCache[*query.Url]
-		if !cached {
-			summaries, err = s.discoverCcItems(ctx, *query.Url)
+		state.LastSuccessfulRequestAt = &now
+		state.LastError = nil
+
+		upserted, err := s.dbClient.UpsertCashConvertersSummaries(
+			ctx,
+			catalogPage.Summaries,
+			state.CurrentSweepID,
+			discovery.page,
+			now,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, id := range upserted.ListingIDs {
+			if err := s.dbClient.EnqueueCashConvertersDetailJobs(ctx, id, now); err != nil {
+				return nil, err
+			}
+		}
+		for _, id := range upserted.ChangedListingIDs {
+			changed[id] = struct{}{}
+		}
+
+		// Update page cursor state
+		state.LastTailScanAt = &now
+		if len(catalogPage.Summaries) > 0 {
+			state.LastKnownNonEmptyPage = discovery.page
+			state.ConsecutiveEmptyTailPages = 0
+			state.TailNextPage = discovery.page + 1
+		} else {
+			state.ConsecutiveEmptyTailPages++
+			state.TailNextPage = discovery.page + 1
+		}
+
+		lastPage := (catalogPage.TotalItems + ccCatalogPageSize - 1) / ccCatalogPageSize
+		reachedReportedEnd := catalogPage.TotalItems > 0 && discovery.page >= lastPage
+		reachedEmptyEnd := len(catalogPage.Summaries) == 0
+		if reachedReportedEnd || reachedEmptyEnd {
+			state.LastSweepCompletedAt = &now
+			state.CurrentSweepID++
+			state.TailNextPage = 1
+			state.ConsecutiveEmptyTailPages = 0
+			justCompletedSweep = true
+			break
+		}
+
+		JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
+	}
+
+	// 2. Process due detail jobs
+	dueJobs, err := s.dbClient.ListDueCashConvertersDetailJobs(ctx, ccMaxDetailFetchesPerPass, now)
+	if err != nil {
+		return nil, err
+	}
+	if len(dueJobs) > 0 {
+		for _, job := range dueJobs {
+			listingID, err := s.processDetailJob(ctx, job, now)
 			if err != nil {
-				log.Printf("Cash Converters API fetch failed for URL %s: %v", *query.Url, err)
-				continue
-			}
-			summaryCache[*query.Url] = summaries
-		}
-
-		listingIDs := make([]string, 0, len(summaries))
-		for _, summary := range summaries {
-			listingIDs = append(listingIDs, qry.StableListingId("cashConverters", summary.CanonicalUrl))
-		}
-		existingListings, err := s.dbClient.LoadListings(ctx, listingIDs)
-		if err != nil {
-			log.Printf("Failed to load Cash Converters listings for URL %s: %v", *query.Url, err)
-			continue
-		}
-		latestObservations, err := s.dbClient.LoadLatestListingObservations(ctx, listingIDs)
-		if err != nil {
-			log.Printf("Failed to load Cash Converters observations for URL %s: %v", *query.Url, err)
-			continue
-		}
-		existingStates, err := s.dbClient.LoadQueryListingStates(ctx, query.QueryId, listingIDs)
-		if err != nil {
-			log.Printf("Failed to load Cash Converters states for URL %s: %v", *query.Url, err)
-			continue
-		}
-
-		discovered := make([]qry.DiscoveredListing, 0, len(summaries))
-		states := make([]*models.QueryListingState, 0, len(summaries))
-		queryNotifs := make([]notifications.AppNotification, 0)
-		for _, sum := range summaries {
-			requiredPhrases := combinePhraseFilters(query.RequiredPhrases, query.RequiredInDescription)
-			excludedPhrases := combinePhraseFilters(query.ExcludePhrases, query.ExcludeInDescription)
-			needDescription := requiredPhrases != "" || excludedPhrases != ""
-
-			var detail CcDetail
-			var detailFetchedAt *time.Time
-			if needDescription {
-				cachedDetail, detailCached := detailCache[sum.CanonicalUrl]
-				if detailCached {
-					detail = cachedDetail
-				} else {
-					var fetched bool
-					var available bool
-					var attempted bool
-					listingID := qry.StableListingId("cashConverters", sum.CanonicalUrl)
-					detail, fetched, available, attempted, err = s.getCcDetail(ctx, sum, existingListings[listingID], descriptionFetchAvailable)
-					if attempted {
-						descriptionFetchAvailable = false
-					}
-					if err != nil {
-						log.Printf("Failed to get product details for %s: %v", sum.CanonicalUrl, err)
-						continue
-					}
-					if !available {
-						continue
-					}
-					detailCache[sum.CanonicalUrl] = detail
-					if fetched {
-						fetchedAt := time.Now().UTC()
-						detailFetchedAt = &fetchedAt
-					}
-				}
+				log.Printf("Cash Converters detail job failed for listing %s: %v", listingID, err)
 			} else {
-				detail = CcDetail{
-					CcSummary:    sum,
-					Description:  "",
-					Availability: "available",
-				}
+				changed[listingID] = struct{}{}
 			}
-
-			// Persist listing observation
-			found := qry.DiscoveredListing{
-				Source:       "cashConverters",
-				CanonicalUrl: detail.CanonicalUrl,
-				Title:        detail.Title,
-				Price:        &detail.Price,
-				Shipping:     &detail.Shipping,
-				TotalPrice:   &detail.TotalPrice,
-				ImageUrl:     &detail.ImageUrl,
-				Description:  &detail.Description,
-				Availability: &detail.Availability,
-				LastDetailAt: detailFetchedAt,
-			}
-			listingId := qry.StableListingId("cashConverters", detail.CanonicalUrl)
-			discovered = append(discovered, found)
-
-			// Evaluate keyword and description filters
-			matched := true
-			var rejectReason *string
-
-			searchable := strings.ToLower(detail.Title + " " + detail.Description)
-			if requiredPhrases != "" && !phrasesMatch(searchable, parsePhrases(requiredPhrases), valueOr(query.RequiredMatchMode, "all")) {
-				matched = false
-				reason := "MissingRequiredPhrase"
-				rejectReason = &reason
-			}
-
-			if matched && excludedPhrases != "" && phrasesMatch(searchable, parsePhrases(excludedPhrases), valueOr(query.ExcludeMatchMode, "any")) {
-				matched = false
-				reason := "ExcludedPhrase"
-				rejectReason = &reason
-			}
-
-			if matched && query.MinPrice != nil && detail.TotalPrice < *query.MinPrice {
-				matched = false
-				reason := "BelowMinPrice"
-				rejectReason = &reason
-			}
-			if matched && query.MaxPrice != nil && detail.TotalPrice > *query.MaxPrice {
-				matched = false
-				reason := "AboveMaxPrice"
-				rejectReason = &reason
-			}
-
-			var status qry.ListingStateStatus
-			if matched {
-				status = qry.ListingStateStatusMatched
-			} else {
-				status = qry.ListingStateStatusRejected
-			}
-
-			prev := existingStates[listingId]
-
-			shouldNotify := false
-			if matched {
-				if prev == nil || prev.Status == qry.ListingStateStatusRejected || prev.Status == qry.ListingStateStatusUnavailable || prev.Status == qry.ListingStateStatusUnseen {
-					shouldNotify = true
-				}
-			}
-
-			state := &models.QueryListingState{
-				QueryId:            query.QueryId,
-				ListingId:          listingId,
-				Source:             "cashConverters",
-				Status:             status,
-				LastEvaluatedAt:    now,
-				LastRejectedReason: rejectReason,
-			}
-
-			if prev != nil {
-				state.FirstMatchedAt = prev.FirstMatchedAt
-				state.LastMatchedAt = prev.LastMatchedAt
-				state.LastNotifiedAt = prev.LastNotifiedAt
-				state.LastNotifiedTotalPrice = prev.LastNotifiedTotalPrice
-				if matched && state.FirstMatchedAt == nil {
-					state.FirstMatchedAt = &now
-				}
-				state.LowestObservedPrice = prev.LowestObservedPrice
-				if prev.LowestObservedPrice == nil || detail.TotalPrice < *prev.LowestObservedPrice {
-					state.LowestObservedPrice = &detail.TotalPrice
-				}
-				if matched && state.FirstMatchedAt == nil {
-					state.FirstMatchedAt = &now
-				}
-			} else {
-				state.LowestObservedPrice = &detail.TotalPrice
-				if matched {
-					state.FirstMatchedAt = &now
-				}
-			}
-			if matched {
-				state.LastMatchedAt = &now
-			}
-
-			if shouldNotify {
-				status = qry.ListingStateStatusNotified
-				state.Status = status
-				state.LastNotifiedAt = &now
-				state.LastNotifiedTotalPrice = &detail.TotalPrice
-
-				title := fmt.Sprintf("a %s for $%.2f is available at %s", detail.Title, detail.TotalPrice, detail.CanonicalUrl)
-				queryNotifs = append(queryNotifs, notifications.AppNotification{
-					Kind:     "deal",
-					Source:   "cashConverters",
-					Title:    title,
-					Url:      detail.CanonicalUrl,
-					Price:    &detail.TotalPrice,
-					ImageUrl: &detail.ImageUrl,
-					Query: &notifications.NotificationQuery{
-						Type: "cashConverters",
-						Id:   query.Id,
-					},
-				})
-			}
-
-			states = append(states, state)
+			JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
 		}
+	}
 
-		if err := s.dbClient.PersistListingBatch(ctx, discovered, existingListings, latestObservations, existingStates, states, now); err != nil {
-			return nil, fmt.Errorf("persist Cash Converters results for URL %s: %w", *query.Url, err)
+	// 3. Handle missing items after completed sweep
+	if justCompletedSweep {
+		if err := s.dbClient.MarkCashConvertersMissingCandidates(ctx, state.CurrentSweepID-1, now); err != nil {
+			log.Printf("Cash Converters missing mark failed: %v", err)
 		}
-		notifs = append(notifs, queryNotifs...)
+	}
+
+	missingVerifications, err := s.dbClient.ListCashConvertersMissingVerificationsDue(ctx, ccMaxMissingChecksPerPass, now)
+	if err != nil {
+		return nil, err
+	}
+	if len(missingVerifications) > 0 {
+		for _, listing := range missingVerifications {
+			if err := s.verifyMissingListing(ctx, listing, now); err != nil {
+				log.Printf("Cash Converters missing verification failed for listing %s: %v", listing.ID, err)
+			} else {
+				changed[listing.ID] = struct{}{}
+			}
+			JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
+		}
+	}
+
+	// 4. Save updated scan state
+	if err := s.dbClient.UpdateCashConvertersScanState(ctx, state); err != nil {
+		return nil, err
+	}
+
+	// 5. Periodic retention prune of confirmed missing listings (older than 7 days)
+	if _, err := s.dbClient.DeleteConfirmedCashConvertersListings(ctx, now.AddDate(0, 0, -7), 50); err != nil {
+		return nil, err
+	}
+
+	// 6. Evaluate changed listings against saved filters
+	changedIDs := make([]string, 0, len(changed))
+	for id := range changed {
+		changedIDs = append(changedIDs, id)
+	}
+
+	notifs, err := s.evaluateChangedListings(ctx, filters, changedIDs, now)
+	if err != nil {
+		return nil, err
 	}
 
 	return notifs, nil
 }
 
-func (s *CashConvertersScanner) discoverCcItems(ctx context.Context, searchUrl string) ([]CcSummary, error) {
-	apiUrl := buildCcApiUrl(searchUrl)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", apiUrl, nil)
-	if err != nil {
-		return nil, err
+func (s *CashConvertersScanner) planDiscoveryPages(state *models.CashConvertersScanState) []ccDiscoveryPage {
+	pages := make([]ccDiscoveryPage, 0, ccTailPagesPerPass)
+	startTail := state.TailNextPage
+	if startTail < 1 {
+		startTail = 1
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil {
-		return nil, fmt.Errorf("http response is nil")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status code: %d", resp.StatusCode)
-	}
-
-	var apiResp CcApiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
-	}
-
-	if !apiResp.WasSuccessful {
-		return nil, fmt.Errorf("API response indicates failure")
-	}
-
-	var results []CcSummary
-	for _, item := range apiResp.Value.ProductList.ProductListItems {
-		price := parseCcPrice(item.Sp)
-		shipping := parseCcShipping(item.ShippingCost)
-		total := price + shipping
-
-		href := item.Url
-		if !strings.HasPrefix(href, "http") {
-			href = "https://www.cashconverters.com.au" + href
-		}
-
-		results = append(results, CcSummary{
-			CanonicalUrl: href,
-			Title:        strings.Join(strings.Fields(item.Title), " "),
-			Price:        price,
-			Shipping:     shipping,
-			TotalPrice:   total,
-			ImageUrl:     item.AbsoluteImageUrl,
+	for p := startTail; p < startTail+ccTailPagesPerPass; p++ {
+		pages = append(pages, ccDiscoveryPage{
+			sort: ccCatalogSortPrice,
+			page: p,
 		})
 	}
 
-	return results, nil
-}
-
-func (s *CashConvertersScanner) getCcDetail(
-	ctx context.Context,
-	sum CcSummary,
-	listing *models.Listing,
-	allowFetch bool,
-) (CcDetail, bool, bool, bool, error) {
-	// Item details are immutable for scanner purposes. Once fetched, always
-	// reuse the persisted description instead of revisiting the item page.
-	if listing != nil && listing.LastDetailAt != nil {
-		desc := ""
-		if listing.Description != nil {
-			desc = *listing.Description
-		}
-		avail := "available"
-		if listing.Availability != nil {
-			avail = *listing.Availability
-		}
-		img := sum.ImageUrl
-		if listing.ImageUrl != nil {
-			img = *listing.ImageUrl
-		}
-		return CcDetail{
-			CcSummary: CcSummary{
-				CanonicalUrl: sum.CanonicalUrl,
-				Title:        listing.Title,
-				Price:        sum.Price,
-				Shipping:     sum.Shipping,
-				TotalPrice:   sum.TotalPrice,
-				ImageUrl:     img,
-			},
-			Description:  desc,
-			Availability: avail,
-		}, false, true, false, nil
-	}
-
-	if !allowFetch {
-		return CcDetail{}, false, false, false, nil
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", sum.CanonicalUrl, nil)
-	if err != nil {
-		return CcDetail{}, false, false, true, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return CcDetail{}, false, false, true, err
-	}
-	if resp == nil {
-		return CcDetail{}, false, false, true, fmt.Errorf("http response is nil")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return CcDetail{}, false, false, true, fmt.Errorf("bad status code: %d", resp.StatusCode)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return CcDetail{}, false, false, true, err
-	}
-
-	title := CleanSelectionText(doc.Find("h1, .product-detail__title, .product-title").First())
-	if title == "" {
-		title = strings.Join(strings.Fields(sum.Title), " ")
-	}
-
-	var description string
-	// Try standard meta description tag
-	doc.Find("meta[name='description']").Each(func(i int, sel *goquery.Selection) {
-		if content, exists := sel.Attr("content"); exists {
-			description = strings.TrimSpace(content)
-		}
-	})
-	// Fall back to og:description
-	if description == "" {
-		doc.Find("meta[property='og:description']").Each(func(i int, sel *goquery.Selection) {
-			if content, exists := sel.Attr("content"); exists {
-				description = strings.TrimSpace(content)
-			}
-		})
-	}
-	// Fall back to selector description
-	if description == "" {
-		description = strings.TrimSpace(doc.Find(".product-detail__description, .product-description, [class*='description']").First().Text())
-	}
-
-	regSpace := regexp.MustCompile(`\s+`)
-	description = regSpace.ReplaceAllString(description, " ")
-
-	bodyText := strings.ToLower(doc.Find("body").Text())
-	avail := "available"
-	if strings.Contains(bodyText, "sold") {
-		avail = "unavailable"
-	}
-
-	return CcDetail{
-		CcSummary: CcSummary{
-			CanonicalUrl: sum.CanonicalUrl,
-			Title:        title,
-			Price:        sum.Price,
-			Shipping:     sum.Shipping,
-			TotalPrice:   sum.TotalPrice,
-			ImageUrl:     sum.ImageUrl,
-		},
-		Description:  description,
-		Availability: avail,
-	}, true, true, true, nil
-}
-
-func parseCcPrice(input string) float64 {
-	reg := regexp.MustCompile(`[^0-9.]`)
-	clean := reg.ReplaceAllString(input, "")
-	val, err := strconv.ParseFloat(clean, 64)
-	if err != nil {
-		return 0
-	}
-	return val
-}
-
-func parseCcShipping(input string) float64 {
-	if strings.Contains(strings.ToLower(input), "free") {
-		return 0
-	}
-	return parseCcPrice(input)
-}
-
-func parsePhrases(input string) []string {
-	var results []string
-	for _, p := range strings.Split(input, ",") {
-		clean := strings.TrimSpace(strings.ToLower(p))
-		if clean != "" {
-			results = append(results, clean)
-		}
-	}
-	return results
-}
-
-func combinePhraseFilters(first, second *string) string {
-	switch {
-	case first == nil || *first == "":
-		if second == nil {
-			return ""
-		}
-		return *second
-	case second == nil || *second == "":
-		return *first
-	default:
-		return *first + "," + *second
-	}
+	return pages
 }

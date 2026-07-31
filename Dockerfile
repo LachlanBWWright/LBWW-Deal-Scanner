@@ -33,7 +33,8 @@ COPY goserver/ ./
 # Build the binary with CGO enabled
 ENV CGO_ENABLED=1
 ENV CC=musl-gcc
-RUN go build -tags musl -ldflags="-linkmode external -extldflags -static -w -s" -o dealscanner cmd/dealscanner/main.go
+RUN go build -tags "musl sqlite_fts5" -ldflags="-linkmode external -extldflags -static -w -s" -o dealscanner cmd/dealscanner/main.go
+RUN go build -tags "musl sqlite_fts5" -ldflags="-linkmode external -extldflags -static -w -s" -o migrate-db cmd/migrate-db/main.go
 
 # Stage 4: Run the application
 FROM debian:bookworm-slim
@@ -104,6 +105,7 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Copy the built Go binary
 COPY --from=backend-builder /app/goserver/dealscanner /app/dealscanner
+COPY --from=backend-builder /app/goserver/migrate-db /app/migrate-db
 COPY --from=playwright-builder /root/.cache/ms-playwright-go /root/.cache/ms-playwright-go
 
 # Copy the built frontend static assets

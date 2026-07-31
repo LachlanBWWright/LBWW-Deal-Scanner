@@ -29,6 +29,11 @@ func main() {
 		&models.ScannerRuntimeState{},
 		&models.ActionRegistry{},
 		&models.TtlItem{},
+		&models.CashConvertersScanState{},
+		&models.CashConvertersListingMeta{},
+		&models.CashConvertersDetailJob{},
+		&models.CashConvertersSearchDoc{},
+		&models.CashConvertersDeletedListing{},
 	)
 
 	g.Execute()
