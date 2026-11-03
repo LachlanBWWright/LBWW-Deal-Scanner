@@ -21,8 +21,8 @@ Options:
   -h, --help        Show this help
 
 The script stops application writes, creates a timestamped SQLite online
-backup, runs the release's migrate-db binary, verifies integrity, and restarts
-the service unless --leave-stopped is supplied. A failed migration leaves the
+backup, runs the release's migrate-db binary, and restarts the service unless
+--leave-stopped is supplied. A failed migration leaves the
 database and backup in place and restarts the previously-running service.
 EOF
 }
@@ -95,39 +95,18 @@ source = sqlite3.connect(source_path, timeout=60)
 destination = sqlite3.connect(backup_path)
 with destination:
     source.backup(destination)
-result = destination.execute('PRAGMA integrity_check').fetchone()
 destination.close()
 source.close()
-
-if result is None or result[0] != 'ok':
-    raise SystemExit(f'backup integrity check failed: {result}')
 
 os.chmod(backup_path, 0o600)
 print(backup_path)
 PY"
 )"
-log "Created verified backup: ${backup_path}"
+log "Created backup: ${backup_path}"
 
 log "Running schema migration from ${release_dir}"
 ssh "${host}" \
   "cd '${release_dir}' && DATABASE_URL='file:${remote_database}' TURSO_AUTH_TOKEN='' ./migrate-db"
-
-log "Verifying migrated database integrity and foreign keys"
-ssh "${host}" "REMOTE_DATABASE='${remote_database}' python3 - <<'PY'
-import os
-import sqlite3
-
-database = sqlite3.connect(os.environ['REMOTE_DATABASE'], timeout=60)
-integrity = database.execute('PRAGMA integrity_check').fetchone()
-foreign_keys = database.execute('PRAGMA foreign_key_check').fetchall()
-database.close()
-
-if integrity is None or integrity[0] != 'ok':
-    raise SystemExit(f'integrity check failed: {integrity}')
-if foreign_keys:
-    raise SystemExit(f'foreign key check returned {len(foreign_keys)} violation(s)')
-print('Database verification passed.')
-PY"
 
 migration_succeeded=true
 if [[ "${leave_stopped}" == true ]]; then

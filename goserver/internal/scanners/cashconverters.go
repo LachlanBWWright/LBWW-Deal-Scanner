@@ -2,6 +2,7 @@ package scanners
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -13,11 +14,18 @@ import (
 )
 
 const (
-	ccTailPagesPerPass        = 10
-	ccMaxDetailFetchesPerPass = 6
+	ccHeadPagesPerPass = 5
+	ccTailPagesPerPass = 10
+	// Detail work is deliberately bounded. A large durable backlog must drain
+	// over many cycles and never turn one scan into an unbounded batch.
+	ccMaxDetailFetchesPerPass = 8
+	ccDetailWorkers           = 3
+	ccDetailJobTimeout        = 20 * time.Second
 	ccMaxMissingChecksPerPass = 3
 	ccRequestMinDelayMs       = 500
 	ccRequestMaxDelayMs       = 1500
+	ccHeadDetailPriority      = 100
+	ccTailDetailPriority      = 10
 )
 
 type ccDiscoveryPage struct {
@@ -25,11 +33,20 @@ type ccDiscoveryPage struct {
 	page int
 }
 
+type detailJobResult struct {
+	job         models.CashConvertersDetailJob
+	listingID   string
+	description string
+	elapsed     time.Duration
+	err         error
+}
+
 type CashConvertersScanner struct {
 	dbClient *qry.Query
 	client   *http.Client
 	mu       sync.Mutex
 	baseURL  string
+	insights []string
 }
 
 func NewCashConvertersScanner(dbClient *qry.Query) *CashConvertersScanner {
@@ -50,9 +67,66 @@ func (s *CashConvertersScanner) Name() string {
 	return "Cash Converters"
 }
 
+func (s *CashConvertersScanner) ScanInsights() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.insights...)
+}
+
+func (s *CashConvertersScanner) recordCatalogPage(
+	sort ccCatalogSort,
+	page int,
+	catalogPage ccCatalogPage,
+	elapsed time.Duration,
+) {
+	pageURL := buildCcCatalogPageURL(sort, page)
+	if s.baseURL != "" {
+		pageURL = s.getBaseURL() + "/c3api/search/results?Sort=" + string(sort) + "&page=" + fmt.Sprint(page) + "&query="
+	}
+	s.insights = append(s.insights, fmt.Sprintf(
+		"\n**Catalog %s page %d** — %d items returned (%d reported total), request took %s\n%s",
+		sort,
+		page,
+		len(catalogPage.Summaries),
+		catalogPage.TotalItems,
+		elapsed.Round(time.Millisecond),
+		pageURL,
+	))
+	for _, item := range catalogPage.Summaries {
+		s.insights = append(s.insights, fmt.Sprintf(
+			"• %s — $%.2f item + $%.2f shipping ($%.2f total)\n%s",
+			item.Title,
+			item.Price,
+			item.Shipping,
+			item.TotalPrice,
+			item.CanonicalURL,
+		))
+	}
+}
+
 func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNotification, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.insights = nil
+	scanStartedAt := time.Now()
+	catalogRequests := 0
+	detailRequests := 0
+	missingRequests := 0
+	catalogRequestTime := time.Duration(0)
+	detailRequestTime := time.Duration(0)
+	missingRequestTime := time.Duration(0)
+	defer func() {
+		s.insights = append(s.insights, fmt.Sprintf(
+			"\n**Timing breakdown**\nCatalogue page requests: %d in %s\nDetail jobs processed (normally one item-page request each): %d in %s\nMissing-item verification page requests: %d in %s\nTotal Cash Converters scan time: %s\nIntentional rate-limit delay: 0.5–1.5s between catalogue/detail requests",
+			catalogRequests,
+			catalogRequestTime.Round(time.Millisecond),
+			detailRequests,
+			detailRequestTime.Round(time.Millisecond),
+			missingRequests,
+			missingRequestTime.Round(time.Millisecond),
+			time.Since(scanStartedAt).Round(time.Millisecond),
+		))
+	}()
 
 	globals, err := s.dbClient.GetGlobals(ctx)
 	if err != nil {
@@ -79,8 +153,12 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 	// 1. Always start at the newest inventory and continue until a page reaches
 	// inventory already known before this pass.
 	pages := make([]ccDiscoveryPage, 0, ccTailPagesPerPass+1)
-	for page := 1; ; page++ {
+	for page := 1; page <= ccHeadPagesPerPass; page++ {
+		requestStartedAt := time.Now()
+		catalogRequests++
 		catalogPage, fetchErr := s.fetchCatalogPage(ctx, ccCatalogSortNewest, page)
+		requestElapsed := time.Since(requestStartedAt)
+		catalogRequestTime += requestElapsed
 		if fetchErr != nil {
 			errStr := fetchErr.Error()
 			state.LastError = &errStr
@@ -90,14 +168,10 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 		}
 		state.LastSuccessfulRequestAt = &now
 		state.LastError = nil
-		upserted, upsertErr := s.dbClient.UpsertCashConvertersSummaries(ctx, catalogPage.Summaries, state.CurrentSweepID, page, now)
+		s.recordCatalogPage(ccCatalogSortNewest, page, catalogPage, requestElapsed)
+		upserted, upsertErr := s.dbClient.UpsertCashConvertersSummariesWithDetailJobs(ctx, catalogPage.Summaries, state.CurrentSweepID, page, now, ccHeadDetailPriority)
 		if upsertErr != nil {
 			return nil, upsertErr
-		}
-		for _, id := range upserted.ListingIDs {
-			if enqueueErr := s.dbClient.EnqueueCashConvertersDetailJobs(ctx, id, now); enqueueErr != nil {
-				return nil, enqueueErr
-			}
 		}
 		for _, id := range upserted.ChangedListingIDs {
 			changed[id] = struct{}{}
@@ -108,13 +182,19 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			(catalogPage.TotalItems > 0 && page >= lastPage) {
 			break
 		}
-		JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
+		if !sleepWithContext(ctx, ccRequestMinDelayMs*time.Millisecond) {
+			break
+		}
 	}
 
 	// Continue the stable price-ordered back-catalog sweep independently.
 	pages = s.planDiscoveryPages(state)
 	for _, discovery := range pages {
+		requestStartedAt := time.Now()
+		catalogRequests++
 		catalogPage, err := s.fetchCatalogPage(ctx, discovery.sort, discovery.page)
+		requestElapsed := time.Since(requestStartedAt)
+		catalogRequestTime += requestElapsed
 		if err != nil {
 			errStr := err.Error()
 			state.LastError = &errStr
@@ -130,23 +210,20 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 
 		state.LastSuccessfulRequestAt = &now
 		state.LastError = nil
+		s.recordCatalogPage(discovery.sort, discovery.page, catalogPage, requestElapsed)
 
-		upserted, err := s.dbClient.UpsertCashConvertersSummaries(
+		upserted, err := s.dbClient.UpsertCashConvertersSummariesWithDetailJobs(
 			ctx,
 			catalogPage.Summaries,
 			state.CurrentSweepID,
 			discovery.page,
 			now,
+			ccTailDetailPriority,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, id := range upserted.ListingIDs {
-			if err := s.dbClient.EnqueueCashConvertersDetailJobs(ctx, id, now); err != nil {
-				return nil, err
-			}
-		}
 		for _, id := range upserted.ChangedListingIDs {
 			changed[id] = struct{}{}
 		}
@@ -171,10 +248,21 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 			state.TailNextPage = 1
 			state.ConsecutiveEmptyTailPages = 0
 			justCompletedSweep = true
+		}
+
+		// Persist discovery progress before detail work. Detail requests can consume
+		// the remainder of the scanner deadline; without this checkpoint a timeout
+		// makes the next pass repeat these same catalogue pages indefinitely.
+		if err := s.dbClient.UpdateCashConvertersScanState(ctx, state); err != nil {
+			return nil, err
+		}
+		if justCompletedSweep {
 			break
 		}
 
-		JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
+		if !sleepWithContext(ctx, ccRequestMinDelayMs*time.Millisecond) {
+			break
+		}
 	}
 
 	// 2. Process due detail jobs
@@ -183,14 +271,20 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 		return nil, err
 	}
 	if len(dueJobs) > 0 {
-		for _, job := range dueJobs {
-			listingID, err := s.processDetailJob(ctx, job, now)
-			if err != nil {
-				log.Printf("Cash Converters detail job failed for listing %s: %v", listingID, err)
+		s.insights = append(s.insights, fmt.Sprintf("\n**Detail pages processed:** %d", len(dueJobs)))
+		results := s.processDetailJobs(ctx, dueJobs, now)
+		for result := range results {
+			detailRequests++
+			detailRequestTime += result.elapsed
+			if result.err != nil {
+				log.Printf("Cash Converters detail job failed for listing %s: %v", result.listingID, result.err)
+				s.insights = append(s.insights, fmt.Sprintf("• Detail failed in %s: %s — %v", result.elapsed.Round(time.Millisecond), result.job.ListingID, result.err))
+			} else if result.listingID != "" {
+				changed[result.listingID] = struct{}{}
+				s.insights = append(s.insights, fmt.Sprintf("• Detail loaded in %s: %s\n  Description: %s", result.elapsed.Round(time.Millisecond), result.listingID, result.description))
 			} else {
-				changed[listingID] = struct{}{}
+				s.insights = append(s.insights, fmt.Sprintf("• Orphaned detail job cleaned in %s: %s", result.elapsed.Round(time.Millisecond), result.job.ListingID))
 			}
-			JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
 		}
 	}
 
@@ -206,13 +300,24 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 		return nil, err
 	}
 	if len(missingVerifications) > 0 {
+		s.insights = append(s.insights, fmt.Sprintf("**Missing listings verified:** %d", len(missingVerifications)))
 		for _, listing := range missingVerifications {
+			requestStartedAt := time.Now()
+			missingRequests++
 			if err := s.verifyMissingListing(ctx, listing, now); err != nil {
+				requestElapsed := time.Since(requestStartedAt)
+				missingRequestTime += requestElapsed
 				log.Printf("Cash Converters missing verification failed for listing %s: %v", listing.ID, err)
+				s.insights = append(s.insights, fmt.Sprintf("• Verification failed in %s: %s — %v", requestElapsed.Round(time.Millisecond), listing.CanonicalUrl, err))
 			} else {
+				requestElapsed := time.Since(requestStartedAt)
+				missingRequestTime += requestElapsed
 				changed[listing.ID] = struct{}{}
+				s.insights = append(s.insights, fmt.Sprintf("• Verified in %s: %s", requestElapsed.Round(time.Millisecond), listing.CanonicalUrl))
 			}
-			JitterSleep(ccRequestMinDelayMs, ccRequestMaxDelayMs)
+			if !JitterSleepContext(ctx, ccRequestMinDelayMs, ccRequestMaxDelayMs) {
+				break
+			}
 		}
 	}
 
@@ -231,6 +336,7 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 	for id := range changed {
 		changedIDs = append(changedIDs, id)
 	}
+	s.insights = append(s.insights, fmt.Sprintf("**New or changed listings evaluated:** %d", len(changedIDs)))
 
 	notifs, err := s.evaluateChangedListings(ctx, filters, changedIDs, now)
 	if err != nil {
@@ -238,6 +344,63 @@ func (s *CashConvertersScanner) Scan(ctx context.Context) ([]notifications.AppNo
 	}
 
 	return notifs, nil
+}
+
+// processDetailJobs uses a small, fixed worker pool. Network fetches can
+// overlap, while database writes remain bounded by the database connection
+// pool. The result channel is closed only after every worker exits, so a
+// cancelled scan cannot leak goroutines.
+func (s *CashConvertersScanner) processDetailJobs(
+	ctx context.Context,
+	jobs []models.CashConvertersDetailJob,
+	now time.Time,
+) <-chan detailJobResult {
+	results := make(chan detailJobResult, len(jobs))
+	work := make(chan models.CashConvertersDetailJob)
+	workerCount := ccDetailWorkers
+	if len(jobs) < workerCount {
+		workerCount = len(jobs)
+	}
+
+	var workers sync.WaitGroup
+	workers.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer workers.Done()
+			for job := range work {
+				started := time.Now()
+				jobCtx, cancel := context.WithTimeout(ctx, ccDetailJobTimeout)
+				listingID, description, err := s.processDetailJob(jobCtx, job, now)
+				cancel()
+				results <- detailJobResult{
+					job:         job,
+					listingID:   listingID,
+					description: description,
+					elapsed:     time.Since(started),
+					err:         err,
+				}
+				if !sleepWithContext(ctx, time.Duration(ccRequestMinDelayMs)*time.Millisecond) {
+					return
+				}
+			}
+		}()
+	}
+
+	go func() {
+		defer close(work)
+		for _, job := range jobs {
+			select {
+			case work <- job:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	go func() {
+		workers.Wait()
+		close(results)
+	}()
+	return results
 }
 
 func (s *CashConvertersScanner) planDiscoveryPages(state *models.CashConvertersScanState) []ccDiscoveryPage {

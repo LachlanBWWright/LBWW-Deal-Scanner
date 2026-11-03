@@ -4,7 +4,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -139,6 +142,82 @@ func TestExtractLegacyCashConvertersPhrase(t *testing.T) {
 	for input, want := range tests {
 		if got := extractLegacyCashConvertersPhrase(input); got != want {
 			t.Errorf("extractLegacyCashConvertersPhrase(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestCashConvertersFTSUpdatesOnlyWhenContentChanges(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	if err := db.AutoMigrate(&CashConvertersSearchDoc{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateCashConvertersFTS(db); err != nil {
+		if strings.Contains(err.Error(), "no such module: fts5") {
+			t.Skip("SQLite build does not include FTS5; run with -tags sqlite_fts5")
+		}
+		t.Fatal(err)
+	}
+	// Simulate upgrading a database that still has the unconditional trigger.
+	if err := db.Exec("DROP TRIGGER cc_search_doc_au").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TRIGGER cc_search_doc_au AFTER UPDATE ON CashConvertersSearchDoc BEGIN
+		INSERT INTO CashConvertersSearchFts(CashConvertersSearchFts, rowid, listingId, title, description, canonicalUrl)
+		VALUES ('delete', old.rowid, old.listingId, old.title, old.description, old.canonicalUrl);
+		INSERT INTO CashConvertersSearchFts(rowid, listingId, title, description, canonicalUrl)
+		VALUES (new.rowid, new.listingId, new.title, new.description, new.canonicalUrl);
+	END`).Error; err != nil {
+		t.Fatal(err)
+	}
+	// Repeated startup migrations should keep the upgraded trigger working.
+	for range 2 {
+		if err := migrateCashConvertersFTS(db); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now().UTC()
+	doc := CashConvertersSearchDoc{ListingID: "item", Title: "Console", Description: "original", CanonicalURL: "https://example.com/item", LastSeenAt: now, UpdatedAt: now}
+	if err := db.Create(&doc).Error; err != nil {
+		t.Fatal(err)
+	}
+	changes := func() int64 {
+		t.Helper()
+		var total int64
+		if err := db.Raw("SELECT total_changes()").Scan(&total).Error; err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	before := changes()
+	if err := db.Model(&CashConvertersSearchDoc{}).Where("listingId = ?", "item").Updates(map[string]interface{}{
+		"lastSeenAt": now.Add(time.Minute), "totalPrice": 100, "title": "Console", "description": "original",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if delta := changes() - before; delta != 1 {
+		t.Fatalf("non-content update wrote FTS rows: total_changes delta=%d, want 1", delta)
+	}
+	if err := db.Model(&CashConvertersSearchDoc{}).Where("listingId = ?", "item").Updates(map[string]interface{}{
+		"title": "Laptop", "description": "replacement",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	for term, want := range map[string]int64{"Console": 0, "original": 0, "Laptop": 1, "replacement": 1} {
+		var count int64
+		if err := db.Raw("SELECT count(*) FROM CashConvertersSearchFts WHERE CashConvertersSearchFts MATCH ?", term).Scan(&count).Error; err != nil {
+			t.Fatal(err)
+		}
+		if count != want {
+			t.Fatalf("FTS results for %q = %d, want %d", term, count, want)
 		}
 	}
 }

@@ -42,6 +42,7 @@ type Config struct {
 	EbayChannelId           string
 	EbayRoleId              string
 	ErrorChannelId          string
+	VerboseLogChannelId     string
 	Gumtree                 bool
 	GumtreeChannelId        string
 	GumtreeRoleId           string
@@ -149,6 +150,7 @@ func LoadConfig() *Config {
 		EbayChannelId:           os.Getenv("EBAY_CHANNEL_ID"),
 		EbayRoleId:              os.Getenv("EBAY_ROLE_ID"),
 		ErrorChannelId:          os.Getenv("ERROR_CHANNEL_ID"),
+		VerboseLogChannelId:     os.Getenv("VERBOSE_LOG_CHANNEL_ID"),
 		Gumtree:                 getEnvBool("GUMTREE", false),
 		GumtreeChannelId:        os.Getenv("GUMTREE_CHANNEL_ID"),
 		GumtreeRoleId:           os.Getenv("GUMTREE_ROLE_ID"),

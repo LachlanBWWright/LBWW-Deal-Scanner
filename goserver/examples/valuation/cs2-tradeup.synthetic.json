@@ -1,0 +1,176 @@
+{
+  "float_model": "normalized_average",
+  "currency": "USD",
+  "balance": "cash",
+  "output_safety_margin": 1e-05,
+  "fixed_inputs": [
+    {
+      "asset_id": "fixed-0",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-1",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-2",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-3",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-4",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-5",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-6",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-7",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    },
+    {
+      "asset_id": "fixed-8",
+      "skin": {
+        "name": "Synthetic input",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "rarity": 4,
+      "status": "normal",
+      "float": 0.075,
+      "cost_minor": 100
+    }
+  ],
+  "candidate": {
+    "asset_id": "candidate",
+    "skin": {
+      "name": "Synthetic input",
+      "min_float": 0,
+      "max_float": 1
+    },
+    "collection": "A",
+    "rarity": 4,
+    "status": "normal",
+    "float": 0.01,
+    "cost_minor": 300
+  },
+  "alternative": {
+    "asset_id": "alternative",
+    "skin": {
+      "name": "Synthetic input",
+      "min_float": 0,
+      "max_float": 1
+    },
+    "collection": "A",
+    "rarity": 4,
+    "status": "normal",
+    "float": 0.1,
+    "cost_minor": 100
+  },
+  "outputs": [
+    {
+      "skin": {
+        "name": "Synthetic high output",
+        "min_float": 0,
+        "max_float": 1
+      },
+      "collection": "A",
+      "net_by_wear": {
+        "factory_new": 4000,
+        "minimal_wear": 2000
+      }
+    },
+    {
+      "skin": {
+        "name": "Synthetic low output",
+        "min_float": 0.06,
+        "max_float": 0.8
+      },
+      "collection": "A",
+      "net_by_wear": {
+        "minimal_wear": 500
+      }
+    }
+  ]
+}

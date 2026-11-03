@@ -36,11 +36,12 @@ func openLocalSQLite(connStr string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("open local SQLite database: %w", err)
 	}
 
-	// SQLite permits one writer at a time. A single connection avoids lock
-	// contention between scanner and API goroutines until production metrics
-	// show that a larger pool is worthwhile.
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
+	// SQLite still serializes writers, but WAL mode allows API reads to proceed
+	// while the scanner is doing bounded work. A small pool prevents one
+	// long-running scanner query from monopolizing the only connection without
+	// creating a stampede of competing SQLite writers.
+	sqlDB.SetMaxOpenConns(4)
+	sqlDB.SetMaxIdleConns(4)
 
 	if err := configureLocalSQLite(sqlDB); err != nil {
 		sqlDB.Close()
@@ -109,7 +110,6 @@ func openGormAndMigrate(sqlDB *sql.DB, backend string) (*gorm.DB, error) {
 		sqlDB.Close()
 		return nil, fmt.Errorf("failed to migrate Cash Converters filters: %w", err)
 	}
-
 	err = db.AutoMigrate(
 		&SearchQuery{},
 		&UserQuery{},
@@ -153,20 +153,17 @@ func openGormAndMigrate(sqlDB *sql.DB, backend string) (*gorm.DB, error) {
 }
 
 func migrateCashConvertersSearch(db *gorm.DB) error {
-	ftsSQL := `CREATE VIRTUAL TABLE IF NOT EXISTS CashConvertersSearchFts USING fts5(
-	  listingId UNINDEXED,
-	  title,
-	  description,
-	  canonicalUrl UNINDEXED,
-	  tokenize='unicode61 remove_diacritics 2'
-	);`
-	if err := db.Exec(ftsSQL).Error; err != nil {
-		// Log warning if FTS5 virtual table fails (e.g., SQLite built without FTS5)
-		// Search will automatically fallback to LIKE queries over CashConvertersSearchDoc
-		fmt.Printf("Warning: CashConvertersSearchFts creation failed (using LIKE fallback): %v\n", err)
+	var documentCount int64
+	if err := db.Model(&CashConvertersSearchDoc{}).Count(&documentCount).Error; err != nil {
+		return fmt.Errorf("count Cash Converters search documents: %w", err)
 	}
 
-	backfillSQL := `
+	// Backfill is a one-time migration. Running the INSERT OR IGNORE against the
+	// complete listings table on every process start makes a large local SQLite
+	// database appear unavailable while it scans millions of rows and grows the
+	// WAL. Once documents exist, normal writes keep them current.
+	if documentCount == 0 {
+		backfillSQL := `
 		INSERT OR IGNORE INTO CashConvertersSearchDoc (
 			listingId, title, description, canonicalUrl, imageUrl, totalPrice,
 			availability, sourceStatus, lastSeenAt, lastDetailAt, updatedAt
@@ -192,33 +189,86 @@ func migrateCashConvertersSearch(db *gorm.DB) error {
 		FROM Listing l
 		LEFT JOIN CashConvertersListingMeta m ON m.listingId = l.id
 		WHERE l.source = 'cashConverters'
-	`
-	if err := db.Exec(backfillSQL).Error; err != nil {
-		return fmt.Errorf("backfill Cash Converters search documents: %w", err)
+		`
+		if err := db.Exec(backfillSQL).Error; err != nil {
+			return fmt.Errorf("backfill Cash Converters search documents: %w", err)
+		}
 	}
 
-	ftsBackfillSQL := `
-		INSERT INTO CashConvertersSearchFts (listingId, title, description, canonicalUrl)
-		SELECT d.listingId, d.title, d.description, d.canonicalUrl
-		FROM CashConvertersSearchDoc d
-		INNER JOIN (
-			SELECT listingId FROM CashConvertersSearchDoc
-			EXCEPT
-			SELECT listingId FROM CashConvertersSearchFts
-		) missing ON missing.listingId = d.listingId
-	`
-	if err := db.Exec(ftsBackfillSQL).Error; err != nil {
+	if err := migrateCashConvertersFTS(db); err != nil {
 		// FTS5 is optional; LIKE search still uses the backfilled search documents.
-		fmt.Printf("Warning: CashConvertersSearchFts backfill failed (using LIKE fallback): %v\n", err)
+		fmt.Printf("Warning: CashConvertersSearchFts migration failed (using LIKE fallback): %v\n", err)
 	}
 
 	for _, indexSQL := range []string{
 		"CREATE INDEX IF NOT EXISTS idx_cc_search_doc_updated ON CashConvertersSearchDoc(updatedAt)",
 		"CREATE INDEX IF NOT EXISTS idx_cc_search_doc_seen ON CashConvertersSearchDoc(lastSeenAt)",
+		"CREATE INDEX IF NOT EXISTS idx_cc_search_available_seen ON CashConvertersSearchDoc(availability, sourceStatus, lastSeenAt DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_cc_search_available_price ON CashConvertersSearchDoc(availability, sourceStatus, totalPrice)",
+		"CREATE INDEX IF NOT EXISTS idx_cc_meta_missing_due ON CashConvertersListingMeta(sourceStatus, missingVerifiedAt, missingVerificationCount, updatedAt)",
+		"CREATE INDEX IF NOT EXISTS idx_cc_observation_latest ON ListingObservation(listingId, observedAt DESC)",
 		"CREATE UNIQUE INDEX IF NOT EXISTS idx_cc_detail_stage ON CashConvertersDetailJob(listingId, stage)",
+		"CREATE INDEX IF NOT EXISTS idx_cc_detail_queue_priority ON CashConvertersDetailJob(completedAt, priority DESC, dueAt)",
 	} {
 		if err := db.Exec(indexSQL).Error; err != nil {
 			return fmt.Errorf("create Cash Converters index: %w", err)
+		}
+	}
+	return nil
+}
+
+func migrateCashConvertersFTS(db *gorm.DB) error {
+	var existingSQL string
+	row := db.Raw("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'CashConvertersSearchFts'").Row()
+	err := row.Scan(&existingSQL)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("inspect Cash Converters FTS table: %w", err)
+	}
+
+	isExternalContent := strings.Contains(existingSQL, "content='CashConvertersSearchDoc'")
+	if existingSQL != "" && !isExternalContent {
+		if err := db.Exec("DROP TABLE CashConvertersSearchFts").Error; err != nil {
+			return fmt.Errorf("replace legacy Cash Converters FTS table: %w", err)
+		}
+	}
+
+	statements := []string{
+		`CREATE VIRTUAL TABLE IF NOT EXISTS CashConvertersSearchFts USING fts5(
+			listingId UNINDEXED,
+			title,
+			description,
+			canonicalUrl UNINDEXED,
+			content='CashConvertersSearchDoc',
+			content_rowid='rowid',
+			tokenize='unicode61 remove_diacritics 2'
+		)`,
+		`CREATE TRIGGER IF NOT EXISTS cc_search_doc_ai AFTER INSERT ON CashConvertersSearchDoc BEGIN
+			INSERT INTO CashConvertersSearchFts(rowid, listingId, title, description, canonicalUrl)
+			VALUES (new.rowid, new.listingId, new.title, new.description, new.canonicalUrl);
+		END`,
+		`CREATE TRIGGER IF NOT EXISTS cc_search_doc_ad AFTER DELETE ON CashConvertersSearchDoc BEGIN
+			INSERT INTO CashConvertersSearchFts(CashConvertersSearchFts, rowid, listingId, title, description, canonicalUrl)
+			VALUES ('delete', old.rowid, old.listingId, old.title, old.description, old.canonicalUrl);
+		END`,
+		`DROP TRIGGER IF EXISTS cc_search_doc_au`,
+		`CREATE TRIGGER cc_search_doc_au AFTER UPDATE OF title, description, listingId, canonicalUrl ON CashConvertersSearchDoc
+		WHEN old.title IS NOT new.title OR old.description IS NOT new.description
+			OR old.listingId IS NOT new.listingId OR old.canonicalUrl IS NOT new.canonicalUrl
+		BEGIN
+			INSERT INTO CashConvertersSearchFts(CashConvertersSearchFts, rowid, listingId, title, description, canonicalUrl)
+			VALUES ('delete', old.rowid, old.listingId, old.title, old.description, old.canonicalUrl);
+			INSERT INTO CashConvertersSearchFts(rowid, listingId, title, description, canonicalUrl)
+			VALUES (new.rowid, new.listingId, new.title, new.description, new.canonicalUrl);
+		END`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return fmt.Errorf("create Cash Converters FTS index: %w", err)
+		}
+	}
+	if existingSQL == "" || !isExternalContent {
+		if err := db.Exec("INSERT INTO CashConvertersSearchFts(CashConvertersSearchFts) VALUES ('rebuild')").Error; err != nil {
+			return fmt.Errorf("rebuild Cash Converters FTS index: %w", err)
 		}
 	}
 	return nil

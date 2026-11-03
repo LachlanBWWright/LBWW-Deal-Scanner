@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -174,6 +175,33 @@ func TestCashSearchResultsPaginateWithoutDroppingEntries(t *testing.T) {
 		}
 		if strings.Contains(page, "...(truncated)") {
 			t.Fatal("Cash search page retained the old whole-response truncation marker")
+		}
+	}
+}
+
+func TestCashSearchResponseFitsDiscordLimit(t *testing.T) {
+	results := make([]qry.CashConvertersCatalogSearchResult, 5)
+	for idx := range results {
+		results[idx] = qry.CashConvertersCatalogSearchResult{
+			Title:        "Cash Converters item " + strings.Repeat("x", 120),
+			Description:  strings.Repeat("description ", 40),
+			CanonicalURL: "https://www.cashconverters.com.au/shop/item/" + strings.Repeat("url", 40),
+			TotalPrice:   float64Ptr(float64(idx + 1)),
+			Availability: "available",
+			LastSeenAt:   time.Date(2026, 7, 27, 1, 2, 3, 0, time.UTC),
+		}
+	}
+
+	title := "Cash Converters search: \"5060\" — 5 results — page 1 of 1"
+	content := removeMarkdownCodeFences(title + "\n\n" +
+		strings.Join(formatCashSearchEntriesForDiscord(results, title), ""))
+
+	if got := utf8.RuneCountInString(content); got > discordMessageLimit {
+		t.Fatalf("cash search response exceeded Discord limit: %d", got)
+	}
+	for idx := range results {
+		if !strings.Contains(content, fmt.Sprintf("%d. [Cash Converters item", idx+1)) {
+			t.Fatalf("cash search response omitted result %d", idx+1)
 		}
 	}
 }

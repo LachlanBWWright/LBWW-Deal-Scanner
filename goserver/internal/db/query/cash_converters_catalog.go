@@ -97,216 +97,296 @@ func (q *Query) UpdateCashConvertersScanState(ctx context.Context, state *models
 	return q.db.WithContext(ctx).Save(state).Error
 }
 
+// Keep batches below SQLite's bind-parameter limit, including wider model rows.
+const ccCatalogWriteBatchSize = 40
+
 func (q *Query) UpsertCashConvertersSummaries(
 	ctx context.Context,
 	summaries []CashConvertersDiscoveredSummary,
 	sweepID int64,
 	page int,
 	observedAt time.Time,
-) (result CashConvertersSummaryUpsertResult, err error) {
+) (CashConvertersSummaryUpsertResult, error) {
+	return q.upsertCashConvertersSummaries(ctx, summaries, sweepID, page, observedAt, nil)
+}
+
+// UpsertCashConvertersSummariesWithDetailJobs commits discovery and initial job
+// scheduling together. A failed enqueue cannot leave a known listing without jobs.
+func (q *Query) UpsertCashConvertersSummariesWithDetailJobs(
+	ctx context.Context,
+	summaries []CashConvertersDiscoveredSummary,
+	sweepID int64,
+	page int,
+	observedAt time.Time,
+	priority int,
+) (CashConvertersSummaryUpsertResult, error) {
+	return q.upsertCashConvertersSummaries(ctx, summaries, sweepID, page, observedAt, &priority)
+}
+
+func (q *Query) upsertCashConvertersSummaries(
+	ctx context.Context,
+	summaries []CashConvertersDiscoveredSummary,
+	sweepID int64,
+	page int,
+	observedAt time.Time,
+	detailPriority *int,
+) (CashConvertersSummaryUpsertResult, error) {
+	var result CashConvertersSummaryUpsertResult
 	if len(summaries) == 0 {
 		return result, nil
 	}
-
-	err = q.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, sum := range summaries {
-			listingID := StableListingId("cashConverters", sum.CanonicalURL)
-			result.ListingIDs = append(result.ListingIDs, listingID)
-
-			var existingListing models.Listing
-			res := tx.Where("id = ?", listingID).First(&existingListing)
-
-			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-				// New listing
-				lst := models.Listing{
-					ID:           listingID,
-					Source:       "cashConverters",
-					ExternalId:   sum.ExternalItemID,
-					CanonicalUrl: sum.CanonicalURL,
-					Title:        sum.Title,
-					ImageUrl:     &sum.ImageURL,
-					Availability: ccStringPtr("available"),
-					FirstSeenAt:  observedAt,
-					LastSeenAt:   observedAt,
-				}
-				if err := tx.Create(&lst).Error; err != nil {
-					return fmt.Errorf("create listing %s: %w", listingID, err)
-				}
-
-				obs := models.ListingObservation{
-					ID:           uuid.NewString(),
-					ListingId:    listingID,
-					Source:       "cashConverters",
-					ObservedAt:   observedAt,
-					Price:        &sum.Price,
-					Shipping:     &sum.Shipping,
-					TotalPrice:   &sum.TotalPrice,
-					Title:        sum.Title,
-					ImageUrl:     &sum.ImageURL,
-					Availability: ccStringPtr("available"),
-				}
-				if err := tx.Create(&obs).Error; err != nil {
-					return fmt.Errorf("create observation for %s: %w", listingID, err)
-				}
-
-				meta := models.CashConvertersListingMeta{
-					ListingID:        listingID,
-					ExternalItemID:   sum.ExternalItemID,
-					FirstSeenSweepID: sweepID,
-					LastSeenSweepID:  sweepID,
-					LastSeenPage:     page,
-					LastListedAt:     observedAt,
-					SourceStatus:     "available",
-					CreatedAt:        observedAt,
-					UpdatedAt:        observedAt,
-				}
-				if err := tx.Create(&meta).Error; err != nil {
-					return fmt.Errorf("create metadata for %s: %w", listingID, err)
-				}
-
-				doc := models.CashConvertersSearchDoc{
-					ListingID:    listingID,
-					Title:        sum.Title,
-					Description:  "",
-					CanonicalURL: sum.CanonicalURL,
-					ImageURL:     &sum.ImageURL,
-					TotalPrice:   &sum.TotalPrice,
-					Availability: "available",
-					SourceStatus: "available",
-					LastSeenAt:   observedAt,
-					UpdatedAt:    observedAt,
-				}
-				if err := tx.Clauses(clause.OnConflict{
-					Columns: []clause.Column{{Name: "listingId"}},
-					DoUpdates: clause.AssignmentColumns([]string{
-						"title",
-						"canonicalUrl",
-						"imageUrl",
-						"totalPrice",
-						"availability",
-						"sourceStatus",
-						"lastSeenAt",
-						"updatedAt",
-					}),
-				}).Create(&doc).Error; err != nil {
-					return fmt.Errorf("upsert search doc for %s: %w", listingID, err)
-				}
-
-				updateFtsSearchDoc(tx, &doc)
-
-				result.NewListingIDs = append(result.NewListingIDs, listingID)
-				result.ChangedListingIDs = append(result.ChangedListingIDs, listingID)
-			} else if res.Error == nil {
-				// Existing listing
-				result.HadPreviouslySeen = true
-				var previousDoc models.CashConvertersSearchDoc
-				docResult := tx.Where("listingId = ?", listingID).First(&previousDoc)
-				if docResult.Error != nil && !errors.Is(docResult.Error, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("load previous search doc %s: %w", listingID, docResult.Error)
-				}
-				materiallyChanged := existingListing.Title != sum.Title ||
-					existingListing.ImageUrl == nil || *existingListing.ImageUrl != sum.ImageURL ||
-					existingListing.Availability == nil || *existingListing.Availability != "available" ||
-					errors.Is(docResult.Error, gorm.ErrRecordNotFound) ||
-					previousDoc.TotalPrice == nil || *previousDoc.TotalPrice != sum.TotalPrice ||
-					previousDoc.SourceStatus != "available"
-				updates := map[string]interface{}{
-					"lastSeenAt":   observedAt,
-					"availability": "available",
-					"title":        sum.Title,
-					"imageUrl":     sum.ImageURL,
-				}
-				if sum.ExternalItemID != nil {
-					updates["externalId"] = sum.ExternalItemID
-				}
-				if err := tx.Model(&existingListing).Updates(updates).Error; err != nil {
-					return fmt.Errorf("update listing %s: %w", listingID, err)
-				}
-
-				metaUpdates := map[string]interface{}{
-					"lastSeenSweepId":    sweepID,
-					"lastSeenPage":       page,
-					"lastListedAt":       observedAt,
-					"sourceStatus":       "available",
-					"missingSuspectedAt": nil,
-					"missingVerifiedAt":  nil,
-					"updatedAt":          observedAt,
-				}
-				if sum.ExternalItemID != nil {
-					metaUpdates["externalItemId"] = sum.ExternalItemID
-				}
-				if err := tx.Model(&models.CashConvertersListingMeta{}).Where("listingId = ?", listingID).Updates(metaUpdates).Error; err != nil {
-					return fmt.Errorf("update metadata %s: %w", listingID, err)
-				}
-
-				docUpdates := map[string]interface{}{
-					"title":        sum.Title,
-					"imageUrl":     sum.ImageURL,
-					"totalPrice":   sum.TotalPrice,
-					"availability": "available",
-					"sourceStatus": "available",
-					"lastSeenAt":   observedAt,
-					"updatedAt":    observedAt,
-				}
-				if err := tx.Model(&models.CashConvertersSearchDoc{}).Where("listingId = ?", listingID).Updates(docUpdates).Error; err != nil {
-					return fmt.Errorf("update search doc %s: %w", listingID, err)
-				}
-
-				var currentDoc models.CashConvertersSearchDoc
-				if tx.Where("listingId = ?", listingID).First(&currentDoc).Error == nil {
-					updateFtsSearchDoc(tx, &currentDoc)
-				}
-
-				if materiallyChanged {
-					result.ChangedListingIDs = append(result.ChangedListingIDs, listingID)
-				}
-			} else {
-				return res.Error
+	// Deduplicate before batching; retain the latest summary for each listing.
+	unique := make([]CashConvertersDiscoveredSummary, 0, len(summaries))
+	positions := make(map[string]int, len(summaries))
+	for _, summary := range summaries {
+		id := StableListingId("cashConverters", summary.CanonicalURL)
+		if position, exists := positions[id]; exists {
+			unique[position] = summary
+		} else {
+			positions[id] = len(unique)
+			unique = append(unique, summary)
+			result.ListingIDs = append(result.ListingIDs, id)
+		}
+	}
+	err := q.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for start := 0; start < len(unique); start += ccCatalogWriteBatchSize {
+			end := min(start+ccCatalogWriteBatchSize, len(unique))
+			if err := upsertCashConvertersSummaryBatch(tx, unique[start:end], result.ListingIDs[start:end], sweepID, page, observedAt, &result); err != nil {
+				return err
 			}
+		}
+		if detailPriority != nil {
+			return enqueueCashConvertersDetailJobs(tx, result.NewListingIDs, observedAt, *detailPriority)
 		}
 		return nil
 	})
-
-	return result, err
+	if err != nil {
+		return CashConvertersSummaryUpsertResult{}, err
+	}
+	return result, nil
 }
 
-func (q *Query) EnqueueCashConvertersDetailJobs(ctx context.Context, listingID string, firstSeenAt time.Time) error {
-	stages := []struct {
-		stage string
-		dueAt time.Time
-	}{
-		{stage: "initial", dueAt: firstSeenAt},
-		{stage: "plus_5m", dueAt: firstSeenAt.Add(5 * time.Minute)},
-		{stage: "plus_10m", dueAt: firstSeenAt.Add(10 * time.Minute)},
-		{stage: "plus_60m", dueAt: firstSeenAt.Add(60 * time.Minute)},
-		{stage: "plus_300m", dueAt: firstSeenAt.Add(300 * time.Minute)},
+func upsertCashConvertersSummaryBatch(
+	tx *gorm.DB,
+	summaries []CashConvertersDiscoveredSummary,
+	ids []string,
+	sweepID int64,
+	page int,
+	observedAt time.Time,
+	result *CashConvertersSummaryUpsertResult,
+) error {
+	var existingListings []models.Listing
+	if err := tx.Where("id IN ?", ids).Find(&existingListings).Error; err != nil {
+		return fmt.Errorf("load catalogue listings: %w", err)
 	}
-
-	db := q.db.WithContext(ctx)
-	for _, s := range stages {
-		job := models.CashConvertersDetailJob{
-			ID:        uuid.NewString(),
-			ListingID: listingID,
-			DueAt:     s.dueAt,
-			Stage:     s.stage,
-			CreatedAt: time.Now().UTC(),
-			UpdatedAt: time.Now().UTC(),
+	var existingDocs []models.CashConvertersSearchDoc
+	if err := tx.Where("listingId IN ?", ids).Find(&existingDocs).Error; err != nil {
+		return fmt.Errorf("load catalogue search documents: %w", err)
+	}
+	listingMap := make(map[string]models.Listing, len(existingListings))
+	for _, listing := range existingListings {
+		listingMap[listing.ID] = listing
+	}
+	docMap := make(map[string]models.CashConvertersSearchDoc, len(existingDocs))
+	for _, doc := range existingDocs {
+		docMap[doc.ListingID] = doc
+	}
+	var listings []models.Listing
+	var observations []models.ListingObservation
+	var metadata []models.CashConvertersListingMeta
+	var docs []models.CashConvertersSearchDoc
+	var unchangedListings, unchangedDocs []string
+	for index, summary := range summaries {
+		id := ids[index]
+		listing, exists := listingMap[id]
+		availability := "available"
+		if exists && listing.LastDetailAt != nil && listing.Availability != nil {
+			availability = *listing.Availability
 		}
-		if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&job).Error; err != nil {
-			return err
+		listingChanged := !exists || listing.Title != summary.Title ||
+			listing.ImageUrl == nil || *listing.ImageUrl != summary.ImageURL ||
+			listing.Availability == nil || *listing.Availability != availability ||
+			(summary.ExternalItemID != nil && (listing.ExternalId == nil || *listing.ExternalId != *summary.ExternalItemID))
+		if !exists {
+			listing = models.Listing{ID: id, Source: "cashConverters", CanonicalUrl: summary.CanonicalURL, FirstSeenAt: observedAt}
+			result.NewListingIDs = append(result.NewListingIDs, id)
+			observations = append(observations, models.ListingObservation{
+				ID: uuid.NewString(), ListingId: id, Source: "cashConverters", ObservedAt: observedAt,
+				Price: &summary.Price, Shipping: &summary.Shipping, TotalPrice: &summary.TotalPrice,
+				Title: summary.Title, ImageUrl: &summary.ImageURL, Availability: ccStringPtr(availability),
+			})
+		} else {
+			result.HadPreviouslySeen = true
+		}
+		if summary.ExternalItemID != nil {
+			listing.ExternalId = summary.ExternalItemID
+		}
+		listing.Title = summary.Title
+		listing.ImageUrl = &summary.ImageURL
+		listing.Availability = ccStringPtr(availability)
+		listing.LastSeenAt = observedAt
+		if listingChanged {
+			listings = append(listings, listing)
+		} else {
+			unchangedListings = append(unchangedListings, id)
+		}
+		metadata = append(metadata, models.CashConvertersListingMeta{
+			ListingID: id, ExternalItemID: listing.ExternalId, FirstSeenSweepID: sweepID,
+			LastSeenSweepID: sweepID, LastSeenPage: page, LastListedAt: observedAt,
+			SourceStatus: "available", CreatedAt: observedAt, UpdatedAt: observedAt,
+		})
+		doc, hasDoc := docMap[id]
+		docChanged := !hasDoc || doc.Title != summary.Title || doc.CanonicalURL != summary.CanonicalURL ||
+			doc.ImageURL == nil || *doc.ImageURL != summary.ImageURL ||
+			doc.TotalPrice == nil || *doc.TotalPrice != summary.TotalPrice ||
+			doc.Availability != availability || doc.SourceStatus != "available"
+		if !hasDoc {
+			doc = models.CashConvertersSearchDoc{ListingID: id, LastDetailAt: listing.LastDetailAt}
+			if listing.Description != nil {
+				doc.Description = *listing.Description
+			}
+		}
+		doc.Title = summary.Title
+		doc.CanonicalURL = summary.CanonicalURL
+		doc.ImageURL = &summary.ImageURL
+		doc.TotalPrice = &summary.TotalPrice
+		doc.Availability = availability
+		doc.SourceStatus = "available"
+		doc.LastSeenAt = observedAt
+		if docChanged {
+			doc.UpdatedAt = observedAt
+			docs = append(docs, doc)
+		} else {
+			unchangedDocs = append(unchangedDocs, id)
+		}
+		if !exists || docChanged {
+			result.ChangedListingIDs = append(result.ChangedListingIDs, id)
+		}
+	}
+	if len(listings) > 0 {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"title", "imageUrl", "availability", "externalId", "lastSeenAt"}),
+		}).CreateInBatches(&listings, ccCatalogWriteBatchSize).Error; err != nil {
+			return fmt.Errorf("upsert catalogue listings: %w", err)
+		}
+	}
+	if len(unchangedListings) > 0 {
+		if err := tx.Model(&models.Listing{}).Where("id IN ?", unchangedListings).Update("lastSeenAt", observedAt).Error; err != nil {
+			return fmt.Errorf("refresh catalogue listing sightings: %w", err)
+		}
+	}
+	if len(observations) > 0 {
+		if err := tx.CreateInBatches(&observations, ccCatalogWriteBatchSize).Error; err != nil {
+			return fmt.Errorf("create catalogue observations: %w", err)
+		}
+	}
+	if err := tx.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "listingId"}},
+		DoUpdates: append(clause.AssignmentColumns([]string{
+			"lastSeenSweepId", "lastSeenPage", "lastListedAt", "sourceStatus",
+			"missingSuspectedAt", "missingVerifiedAt", "deletedAt", "updatedAt",
+		}), clause.Assignment{Column: clause.Column{Name: "externalItemId"}, Value: gorm.Expr("COALESCE(excluded.externalItemId, CashConvertersListingMeta.externalItemId)")}),
+	}).CreateInBatches(&metadata, ccCatalogWriteBatchSize).Error; err != nil {
+		return fmt.Errorf("upsert catalogue metadata: %w", err)
+	}
+	if len(docs) > 0 {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "listingId"}},
+			DoUpdates: clause.AssignmentColumns([]string{"title", "canonicalUrl", "imageUrl", "totalPrice", "availability", "sourceStatus", "lastSeenAt", "updatedAt"}),
+		}).CreateInBatches(&docs, ccCatalogWriteBatchSize).Error; err != nil {
+			return fmt.Errorf("upsert catalogue search documents: %w", err)
+		}
+	}
+	if len(unchangedDocs) > 0 {
+		if err := tx.Model(&models.CashConvertersSearchDoc{}).Where("listingId IN ?", unchangedDocs).UpdateColumn("lastSeenAt", observedAt).Error; err != nil {
+			return fmt.Errorf("refresh catalogue search sightings: %w", err)
 		}
 	}
 	return nil
 }
 
+func (q *Query) EnqueueCashConvertersDetailJobs(ctx context.Context, listingID string, firstSeenAt time.Time, priority int) error {
+	return enqueueCashConvertersDetailJobs(q.db.WithContext(ctx), []string{listingID}, firstSeenAt, priority)
+}
+
+func enqueueCashConvertersDetailJobs(db *gorm.DB, listingIDs []string, firstSeenAt time.Time, priority int) error {
+	stages := []struct {
+		stage string
+		delay time.Duration
+	}{
+		{stage: "initial"},
+		{stage: "plus_5m", delay: 5 * time.Minute},
+		{stage: "plus_10m", delay: 10 * time.Minute},
+		{stage: "plus_60m", delay: 60 * time.Minute},
+		{stage: "plus_300m", delay: 300 * time.Minute},
+	}
+	jobs := make([]models.CashConvertersDetailJob, 0, len(listingIDs)*len(stages))
+	now := time.Now().UTC()
+	for _, id := range listingIDs {
+		for _, stage := range stages {
+			jobs = append(jobs, models.CashConvertersDetailJob{
+				ID: uuid.NewString(), ListingID: id, DueAt: firstSeenAt.Add(stage.delay),
+				Stage: stage.stage, Priority: priority, CreatedAt: now, UpdatedAt: now,
+			})
+		}
+	}
+	if len(jobs) == 0 {
+		return nil
+	}
+	return db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&jobs, ccCatalogWriteBatchSize).Error
+}
+
 func (q *Query) ListDueCashConvertersDetailJobs(ctx context.Context, limit int, now time.Time) ([]models.CashConvertersDetailJob, error) {
-	var jobs []models.CashConvertersDetailJob
-	err := q.db.WithContext(ctx).
-		Where("completedAt IS NULL AND dueAt <= ?", now).
-		Order("dueAt ASC").
-		Limit(limit).
-		Find(&jobs).Error
-	return jobs, err
+	if limit <= 0 {
+		return []models.CashConvertersDetailJob{}, nil
+	}
+	load := func(stage string, remaining int) ([]models.CashConvertersDetailJob, error) {
+		var jobs []models.CashConvertersDetailJob
+		query := q.db.WithContext(ctx).
+			Where("completedAt IS NULL AND dueAt <= ?", now)
+		if stage == "initial" {
+			query = query.Where("stage = ?", stage)
+		} else {
+			query = query.Where("stage <> ?", "initial")
+		}
+		err := query.
+			Order("priority DESC").
+			Order("dueAt ASC").
+			Limit(remaining).
+			Find(&jobs).Error
+		return jobs, err
+	}
+	initial, err := load("initial", limit)
+	if err != nil {
+		return nil, err
+	}
+	if len(initial) == limit {
+		return initial, nil
+	}
+	remaining, err := load("non-initial", limit-len(initial))
+	if err != nil {
+		return nil, err
+	}
+	return append(initial, remaining...), nil
+}
+
+func (q *Query) DeleteOrphanedCashConvertersChildren(ctx context.Context, listingID string) error {
+	return q.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		children := []interface{}{
+			&models.QueryListingState{},
+			&models.CashConvertersSearchDoc{},
+			&models.CashConvertersDetailJob{},
+			&models.CashConvertersListingMeta{},
+			&models.ListingObservation{},
+		}
+		for _, child := range children {
+			if err := tx.Where("listingId = ?", listingID).Delete(child).Error; err != nil {
+				return fmt.Errorf("delete orphaned Cash Converters children for %s: %w", listingID, err)
+			}
+		}
+		return nil
+	})
 }
 
 func (q *Query) CompleteCashConvertersDetailJob(ctx context.Context, id string, now time.Time) error {
@@ -390,13 +470,6 @@ func (q *Query) UpdateCashConvertersDetail(
 			return err
 		}
 
-		var doc models.CashConvertersSearchDoc
-		docResult := tx.Where("listingId = ?", listingID).First(&doc)
-		if docResult.Error == nil {
-			updateFtsSearchDoc(tx, &doc)
-		} else if !errors.Is(docResult.Error, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("reload Cash Converters search document: %w", docResult.Error)
-		}
 		return nil
 	})
 }
@@ -449,7 +522,6 @@ func (q *Query) RefreshCashConvertersSearchDoc(ctx context.Context, listingID st
 		if err := tx.Save(&doc).Error; err != nil {
 			return err
 		}
-		updateFtsSearchDoc(tx, &doc)
 		return nil
 	})
 }
@@ -489,7 +561,7 @@ func (q *Query) searchCatalogFTS(ctx context.Context, ftsQuery string, input Cas
 		return nil, fmt.Errorf("empty fts query")
 	}
 
-	ftsExpr := strings.Join(words, " AND ")
+	ftsExpr := cashConvertersFTSPrefixExpression(words)
 
 	query := db.Table("CashConvertersSearchFts f").
 		Select("d.listingId, d.title, d.description, d.canonicalUrl, d.imageUrl, d.totalPrice, d.availability, d.sourceStatus, d.lastSeenAt, d.lastDetailAt").
@@ -589,7 +661,7 @@ func (q *Query) countCatalogFTS(ctx context.Context, text string, input CashConv
 	query := q.db.WithContext(ctx).
 		Table("CashConvertersSearchFts f").
 		Joins("JOIN CashConvertersSearchDoc d ON d.listingId = f.listingId").
-		Where("CashConvertersSearchFts MATCH ?", strings.Join(words, " AND "))
+		Where("CashConvertersSearchFts MATCH ?", cashConvertersFTSPrefixExpression(words))
 	query = applyCashConvertersCatalogFilters(query, input)
 
 	var count int64
@@ -597,6 +669,14 @@ func (q *Query) countCatalogFTS(ctx context.Context, text string, input CashConv
 		return 0, err
 	}
 	return count, nil
+}
+
+func cashConvertersFTSPrefixExpression(words []string) string {
+	expressions := make([]string, 0, len(words))
+	for _, word := range words {
+		expressions = append(expressions, `"`+word+`"*`)
+	}
+	return strings.Join(expressions, " AND ")
 }
 
 func (q *Query) countCatalogLIKE(ctx context.Context, text string, input CashConvertersCatalogSearchInput) (int64, error) {
@@ -792,70 +872,66 @@ func (q *Query) RecordCashConvertersMissingVerification(
 func (q *Query) DeleteConfirmedCashConvertersListings(ctx context.Context, olderThan time.Time, limit int) (int64, error) {
 	db := q.db.WithContext(ctx)
 
-	var metas []models.CashConvertersListingMeta
-	err := db.Where("sourceStatus = ? AND missingVerifiedAt <= ?", "confirmed_missing", olderThan).
+	type pruneCandidate struct {
+		ListingID      string  `gorm:"column:listingId"`
+		CanonicalURL   string  `gorm:"column:canonicalUrl"`
+		ExternalItemID *string `gorm:"column:externalItemId"`
+	}
+
+	var candidates []pruneCandidate
+	err := db.Table("CashConvertersListingMeta AS m").
+		Select("m.listingId, l.canonicalUrl, m.externalItemId").
+		Joins("JOIN Listing AS l ON l.id = m.listingId").
+		Where("m.sourceStatus = ? AND m.missingVerifiedAt <= ?", "confirmed_missing", olderThan).
+		Order("m.missingVerifiedAt ASC").
 		Limit(limit).
-		Find(&metas).Error
-	if err != nil || len(metas) == 0 {
+		Find(&candidates).Error
+	if err != nil || len(candidates) == 0 {
 		return 0, err
 	}
 
-	var count int64
-	for _, meta := range metas {
-		listingID := meta.ListingID
-
-		var lst models.Listing
-		if err := db.Where("id = ?", listingID).First(&lst).Error; err != nil {
-			return count, fmt.Errorf("load confirmed missing listing %s for pruning: %w", listingID, err)
-		}
-
-		err := db.Transaction(func(tx *gorm.DB) error {
-			tombstone := models.CashConvertersDeletedListing{
-				ListingID:      listingID,
-				CanonicalURL:   lst.CanonicalUrl,
-				ExternalItemID: meta.ExternalItemID,
-				DeletedAt:      time.Now().UTC(),
-				Reason:         "confirmed_missing_prune",
-			}
-			if err := tx.Create(&tombstone).Error; err != nil {
-				return fmt.Errorf("create Cash Converters tombstone for %s: %w", listingID, err)
-			}
-			if err := tx.Where("listingId = ?", listingID).Delete(&models.ListingObservation{}).Error; err != nil {
-				return fmt.Errorf("delete observations for %s: %w", listingID, err)
-			}
-			if err := tx.Where("listingId = ?", listingID).Delete(&models.QueryListingState{}).Error; err != nil {
-				return fmt.Errorf("delete query states for %s: %w", listingID, err)
-			}
-			if err := tx.Exec("DELETE FROM CashConvertersSearchFts WHERE listingId = ?", listingID).Error; err != nil &&
-				!strings.Contains(strings.ToLower(err.Error()), "no such table") {
-				return fmt.Errorf("delete FTS document for %s: %w", listingID, err)
-			}
-			if err := tx.Where("listingId = ?", listingID).Delete(&models.CashConvertersSearchDoc{}).Error; err != nil {
-				return fmt.Errorf("delete search document for %s: %w", listingID, err)
-			}
-			if err := tx.Where("listingId = ?", listingID).Delete(&models.CashConvertersDetailJob{}).Error; err != nil {
-				return fmt.Errorf("delete detail jobs for %s: %w", listingID, err)
-			}
-			if err := tx.Where("listingId = ?", listingID).Delete(&models.CashConvertersListingMeta{}).Error; err != nil {
-				return fmt.Errorf("delete metadata for %s: %w", listingID, err)
-			}
-			if err := tx.Where("id = ?", listingID).Delete(&models.Listing{}).Error; err != nil {
-				return fmt.Errorf("delete listing %s: %w", listingID, err)
-			}
-			return nil
+	listingIDs := make([]string, 0, len(candidates))
+	tombstones := make([]models.CashConvertersDeletedListing, 0, len(candidates))
+	deletedAt := time.Now().UTC()
+	for _, candidate := range candidates {
+		listingIDs = append(listingIDs, candidate.ListingID)
+		tombstones = append(tombstones, models.CashConvertersDeletedListing{
+			ListingID:      candidate.ListingID,
+			CanonicalURL:   candidate.CanonicalURL,
+			ExternalItemID: candidate.ExternalItemID,
+			DeletedAt:      deletedAt,
+			Reason:         "confirmed_missing_prune",
 		})
-		if err != nil {
-			return count, err
-		}
-		count++
 	}
-	return count, nil
-}
 
-func updateFtsSearchDoc(tx *gorm.DB, doc *models.CashConvertersSearchDoc) {
-	_ = tx.Exec("DELETE FROM CashConvertersSearchFts WHERE listingId = ?", doc.ListingID).Error
-	_ = tx.Exec("INSERT INTO CashConvertersSearchFts (listingId, title, description, canonicalUrl) VALUES (?, ?, ?, ?)",
-		doc.ListingID, doc.Title, doc.Description, doc.CanonicalURL).Error
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&tombstones).Error; err != nil {
+			return fmt.Errorf("create Cash Converters prune tombstones: %w", err)
+		}
+		if err := tx.Where("listingId IN ?", listingIDs).Delete(&models.ListingObservation{}).Error; err != nil {
+			return fmt.Errorf("delete Cash Converters observations: %w", err)
+		}
+		if err := tx.Where("listingId IN ?", listingIDs).Delete(&models.QueryListingState{}).Error; err != nil {
+			return fmt.Errorf("delete Cash Converters query states: %w", err)
+		}
+		if err := tx.Where("listingId IN ?", listingIDs).Delete(&models.CashConvertersSearchDoc{}).Error; err != nil {
+			return fmt.Errorf("delete Cash Converters search documents: %w", err)
+		}
+		if err := tx.Where("listingId IN ?", listingIDs).Delete(&models.CashConvertersDetailJob{}).Error; err != nil {
+			return fmt.Errorf("delete Cash Converters detail jobs: %w", err)
+		}
+		if err := tx.Where("listingId IN ?", listingIDs).Delete(&models.CashConvertersListingMeta{}).Error; err != nil {
+			return fmt.Errorf("delete Cash Converters metadata: %w", err)
+		}
+		if err := tx.Where("id IN ?", listingIDs).Delete(&models.Listing{}).Error; err != nil {
+			return fmt.Errorf("delete Cash Converters listings: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(candidates)), nil
 }
 
 func ccStringPtr(s string) *string {

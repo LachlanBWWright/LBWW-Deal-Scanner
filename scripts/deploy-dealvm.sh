@@ -7,6 +7,7 @@ repository_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 image_name="dealscanner:dealvm-native-build"
 artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/dealscanner-dealvm.XXXXXX")"
 container_id=""
+run_db_migration="${RUN_DB_MIGRATION:-false}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%H:%M:%S')" "$*"
@@ -86,22 +87,33 @@ fi
 log "Deploying Dealscanner to ${host}"
 log "Local repository: ${repository_dir}"
 log "Temporary artifact directory: ${artifact_dir}"
-log "Checking the local Docker engine"
-require_docker_engine
-log "Docker engine is ready"
 log "Checking SSH connectivity"
 ssh -v "${host}" "printf 'Connected to %s as %s\n' \"\$(hostname)\" \"\$(whoami)\""
 
-log "Building the Linux/amd64 release locally (nothing is built on the VM)"
-run_with_heartbeat "Local Linux/amd64 build" \
-  docker build --progress=plain --platform linux/amd64 --tag "${image_name}" .
+if require_docker_engine; then
+  log "Building the Linux/amd64 release with Docker"
+  run_with_heartbeat "Local Linux/amd64 build" \
+    docker build --progress=plain --platform linux/amd64 --tag "${image_name}" .
 
-log "Extracting the application, frontend, and Playwright driver from the local image"
-container_id="$(docker create "${image_name}")"
-docker cp "${container_id}:/app/dealscanner" "${artifact_dir}/dealscanner"
-docker cp "${container_id}:/app/migrate-db" "${artifact_dir}/migrate-db"
-docker cp "${container_id}:/app/frontend/dist" "${artifact_dir}/frontend"
-docker cp "${container_id}:/root/.cache/ms-playwright-go/1.57.0" "${artifact_dir}/playwright-driver"
+  log "Extracting artifacts from the local image"
+  container_id="$(docker create "${image_name}")"
+  docker cp "${container_id}:/app/dealscanner" "${artifact_dir}/dealscanner"
+  docker cp "${container_id}:/app/migrate-db" "${artifact_dir}/migrate-db"
+  docker cp "${container_id}:/app/frontend/dist" "${artifact_dir}/frontend"
+  docker cp "${container_id}:/root/.cache/ms-playwright-go/1.57.0" "${artifact_dir}/playwright-driver"
+else
+  log "Docker unavailable; using the local Zig/musl toolchain"
+  command -v zig >/dev/null || { echo "Docker unavailable and zig is not installed" >&2; exit 1; }
+  command -v pnpm >/dev/null || { echo "pnpm is required for the fallback frontend build" >&2; exit 1; }
+  run_with_heartbeat "Local Linux/amd64 build" \
+    env GOOS=linux GOARCH=amd64 CGO_ENABLED=1 \
+      CC="zig cc -target x86_64-linux-musl" \
+      go -C "${repository_dir}/goserver" build -tags 'musl sqlite_fts5' \
+        -ldflags='-linkmode external -extldflags -static -w -s' \
+        -o "${artifact_dir}/dealscanner" ./cmd/dealscanner/main.go
+  go -C "${repository_dir}/goserver" build -o "${artifact_dir}/migrate-db" ./cmd/migrate-db/main.go
+  pnpm --dir "${repository_dir}/frontend" run build -- --outDir "${artifact_dir}/frontend"
+fi
 chmod 755 "${artifact_dir}/dealscanner" "${artifact_dir}/migrate-db"
 du -sh "${artifact_dir}"/*
 
@@ -127,15 +139,20 @@ release_dir="${remote_dir}/releases/${release_id}"
 
 log "Uploading release ${release_id} to ${host}:${release_dir}"
 rsync -az --delete --progress "${artifact_dir}/" "${host}:${release_dir}/"
+ssh "${host}" "if [[ ! -f '${release_dir}/playwright-driver/package/cli.js' ]]; then mkdir -p '${release_dir}/playwright-driver' && cp -a '${remote_dir}/current/playwright-driver/package' '${release_dir}/playwright-driver/' && cp -a '${remote_dir}/current/playwright-driver/node' '${release_dir}/playwright-driver/'; fi"
 
 log "Uploading the systemd service definition"
 scp deploy/dealvm/dealscanner.service "${host}:${remote_dir}/dealscanner.service"
 
-log "Backing up and migrating the production database"
-"${repository_dir}/scripts/migrate-dealvm.sh" \
-  "${host}" \
-  --release "${release_dir}" \
-  --leave-stopped
+if [[ "${run_db_migration}" == "true" ]]; then
+  log "Backing up and migrating the production database"
+  "${repository_dir}/scripts/migrate-dealvm.sh" \
+    "${host}" \
+    --release "${release_dir}" \
+    --leave-stopped
+else
+  log "Skipping database migration (set RUN_DB_MIGRATION=true to opt in)"
+fi
 
 log "Activating the release and starting Dealscanner"
 ssh "${host}" "ln -sfn '${release_dir}' '${remote_dir}/current' && sudo install -m 644 '${remote_dir}/dealscanner.service' /etc/systemd/system/dealscanner.service && sudo systemctl daemon-reload && sudo systemctl enable dealscanner && sudo systemctl restart dealscanner && for attempt in \$(seq 1 60); do if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then sudo systemctl --no-pager --full status dealscanner; exit 0; fi; sleep 2; done; sudo systemctl --no-pager --full status dealscanner; sudo journalctl -u dealscanner -n 100 --no-pager; exit 1"

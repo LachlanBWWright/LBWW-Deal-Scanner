@@ -274,7 +274,7 @@ func (ListingObservation) TableName() string {
 type QueryListingState struct {
 	QueryId                string                  `gorm:"primaryKey;column:queryId"`
 	Query                  SearchQuery             `gorm:"foreignKey:QueryId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ListingId              string                  `gorm:"primaryKey;column:listingId"`
+	ListingId              string                  `gorm:"primaryKey;column:listingId;index"`
 	Listing                Listing                 `gorm:"foreignKey:ListingId;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Source                 string                  `gorm:"column:source"`
 	Status                 QueryListingStateStatus `gorm:"column:status"`
@@ -367,9 +367,9 @@ type CashConvertersListingMeta struct {
 	LastListedAt             time.Time  `gorm:"column:lastListedAt;index"`
 	DetailFetchCount         int        `gorm:"column:detailFetchCount"`
 	LastDetailStatus         *string    `gorm:"column:lastDetailStatus"`
-	SourceStatus             string     `gorm:"column:sourceStatus;index"` // available, suspected_missing, confirmed_missing
+	SourceStatus             string     `gorm:"column:sourceStatus;index;index:idx_cc_meta_prune,priority:1"` // available, suspected_missing, confirmed_missing
 	MissingSuspectedAt       *time.Time `gorm:"column:missingSuspectedAt;index"`
-	MissingVerifiedAt        *time.Time `gorm:"column:missingVerifiedAt"`
+	MissingVerifiedAt        *time.Time `gorm:"column:missingVerifiedAt;index:idx_cc_meta_prune,priority:2"`
 	MissingVerificationCount int        `gorm:"column:missingVerificationCount"`
 	DeletedAt                *time.Time `gorm:"column:deletedAt;index"`
 	CreatedAt                time.Time  `gorm:"column:createdAt"`
@@ -383,11 +383,12 @@ func (CashConvertersListingMeta) TableName() string {
 type CashConvertersDetailJob struct {
 	ID            string     `gorm:"primaryKey;column:id"`
 	ListingID     string     `gorm:"column:listingId;index;uniqueIndex:idx_cc_detail_stage"`
-	DueAt         time.Time  `gorm:"column:dueAt;index"`
+	DueAt         time.Time  `gorm:"column:dueAt;index;index:idx_cc_detail_due,priority:2"`
 	Stage         string     `gorm:"column:stage;uniqueIndex:idx_cc_detail_stage"` // initial, plus_5m, plus_10m, plus_60m, plus_300m, missing_verify
+	Priority      int        `gorm:"column:priority;index:idx_cc_detail_queue,priority:2"`
 	Attempts      int        `gorm:"column:attempts"`
 	LastAttemptAt *time.Time `gorm:"column:lastAttemptAt"`
-	CompletedAt   *time.Time `gorm:"column:completedAt;index"`
+	CompletedAt   *time.Time `gorm:"column:completedAt;index;index:idx_cc_detail_due,priority:1"`
 	LastError     *string    `gorm:"column:lastError"`
 	CreatedAt     time.Time  `gorm:"column:createdAt"`
 	UpdatedAt     time.Time  `gorm:"column:updatedAt"`

@@ -215,6 +215,76 @@ func formatCashSearchEntries(results []qry.CashConvertersCatalogSearchResult) []
 	return entries
 }
 
+func formatCashSearchEntriesForDiscord(
+	results []qry.CashConvertersCatalogSearchResult,
+	title string,
+) []string {
+	if len(results) == 0 {
+		return nil
+	}
+
+	// Keep the result-page model (up to five items) while reserving room for
+	// the heading. Descriptions and titles are shortened as needed; URLs are
+	// retained intact so every result remains clickable.
+	available := discordMessageLimit - len([]rune(title+"\n\n"))
+	entryLimit := (available - len(results) + 1) / len(results)
+	if entryLimit < 1 {
+		entryLimit = 1
+	}
+
+	entries := make([]string, 0, len(results))
+	for idx, result := range results {
+		entries = append(entries, formatCashSearchEntryForDiscord(result, idx, entryLimit))
+	}
+	return entries
+}
+
+func formatCashSearchEntryForDiscord(
+	result qry.CashConvertersCatalogSearchResult,
+	idx int,
+	limit int,
+) string {
+	price := "N/A"
+	if result.TotalPrice != nil {
+		price = fmt.Sprintf("$%.2f", *result.TotalPrice)
+	}
+	lastSeen := result.LastSeenAt.Format("2006-01-02 15:04 UTC")
+	status := result.Availability
+	if result.SourceStatus != "" && result.SourceStatus != "available" {
+		status = result.SourceStatus
+	}
+
+	title := truncateCashSearchField(result.Title, 100)
+	descriptionLimit := 180
+	for {
+		description := truncateCashSearchField(result.Description, descriptionLimit)
+		entry := fmt.Sprintf(
+			"%d. [%s](<%s>) - %s\n   *Last seen: %s | Status: %s*\n",
+			idx+1, title, result.CanonicalURL, price, lastSeen, status,
+		)
+		if description != "" {
+			entry += fmt.Sprintf("   \"%s\"\n", description)
+		}
+		entry += "\n"
+		if len([]rune(entry)) <= limit || descriptionLimit == 0 {
+			return entry
+		}
+		descriptionLimit -= 20
+		if descriptionLimit < 0 {
+			descriptionLimit = 0
+		}
+	}
+}
+
+func truncateCashSearchField(value string, limit int) string {
+	value = strings.Join(strings.Fields(value), " ")
+	if limit <= 0 || len([]rune(value)) <= limit {
+		return value
+	}
+	runes := []rune(value)
+	return string(runes[:limit-1]) + "…"
+}
+
 func formatLiveCashSearchEntries(results []qry.CashConvertersCatalogSearchResult) string {
 	var content strings.Builder
 	for idx, result := range results {
@@ -251,7 +321,6 @@ func (b *Bot) sendPaginatedCashSearch(
 	if page < 1 {
 		page = 1
 	}
-
 	totalResults, err := b.dbClient.CountCashConvertersCatalog(ctx, input)
 	if err != nil {
 		content := removeMarkdownCodeFences(fmt.Sprintf("❌ Error searching Cash Converters catalog: %v", err))
@@ -281,7 +350,13 @@ func (b *Bot) sendPaginatedCashSearch(
 
 	resultLabel := fmt.Sprintf("%d results — page %d of %d", totalResults, page, totalPages)
 	title := fmt.Sprintf("Cash Converters search: \"%s\" — %s", input.Text, resultLabel)
-	content := removeMarkdownCodeFences(title + "\n\n" + strings.Join(formatCashSearchEntries(results), ""))
+	content := removeMarkdownCodeFences(title + "\n\n" + strings.Join(formatCashSearchEntriesForDiscord(results, title), ""))
+	// A pathological URL can be longer than the entire Discord response limit.
+	// This is only a last-resort guard; normal oversized content is handled per
+	// item above so all result entries remain visible.
+	if len([]rune(content)) > discordMessageLimit {
+		content = truncateDiscordMessage(content)
+	}
 	components := b.cashSearchPaginationComponents(ctx, input, page, totalPages)
 	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content:    &content,

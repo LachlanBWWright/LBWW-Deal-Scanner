@@ -109,7 +109,10 @@ func (s *CashConvertersScanner) evaluateChangedListings(
 	db := s.dbClient.UnderlyingDB().WithContext(ctx)
 
 	var searchDocs []models.CashConvertersSearchDoc
-	if err := db.Where("listingId IN ?", changedListingIDs).Find(&searchDocs).Error; err != nil {
+	if err := db.Table("CashConvertersSearchDoc AS d").
+		Joins("JOIN Listing AS l ON l.id = d.listingId").
+		Where("d.listingId IN ?", changedListingIDs).
+		Find(&searchDocs).Error; err != nil {
 		return nil, fmt.Errorf("load search docs for matching: %w", err)
 	}
 

@@ -233,6 +233,49 @@ func (b *Bot) SendError(channelId, message string) error {
 	return err
 }
 
+// SendVerboseLog publishes a scan report, splitting it into Discord-safe messages.
+func (b *Bot) SendVerboseLog(channelID, message string) error {
+	if b.session == nil {
+		return fmt.Errorf("bot session is not initialized")
+	}
+	for _, chunk := range splitDiscordMessage(removeMarkdownCodeFences(message), 2000) {
+		if _, err := b.session.ChannelMessageSend(channelID, chunk); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func splitDiscordMessage(message string, limit int) []string {
+	if message == "" || limit <= 0 {
+		return nil
+	}
+
+	remaining := []rune(message)
+	chunks := make([]string, 0, (len(remaining)/limit)+1)
+	for len(remaining) > limit {
+		splitAt := limit
+		for index := limit; index > 0; index-- {
+			if remaining[index-1] == '\n' {
+				splitAt = index - 1
+				break
+			}
+		}
+		if splitAt == 0 {
+			splitAt = limit
+		}
+		chunks = append(chunks, string(remaining[:splitAt]))
+		remaining = remaining[splitAt:]
+		for len(remaining) > 0 && remaining[0] == '\n' {
+			remaining = remaining[1:]
+		}
+	}
+	if len(remaining) > 0 {
+		chunks = append(chunks, string(remaining))
+	}
+	return chunks
+}
+
 func (b *Bot) getQueryIdByTypeAndKey(ctx context.Context, qType, key string) (string, error) {
 	var qId string
 	var err error

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,14 @@ type StatusSetter interface {
 	SetStatus(statusText string)
 }
 
+type verboseLogSender interface {
+	SendVerboseLog(channelID, message string) error
+}
+
+type scanInsightProvider interface {
+	ScanInsights() []string
+}
+
 const statusUpdateInterval = 20 * time.Second
 const minimumScanCycleDuration = 30 * time.Second
 const DefaultScanTimeout = 3 * time.Minute
@@ -29,9 +38,11 @@ type Runner struct {
 	stateManager *runtime.StateManager
 	notifService *notifications.NotificationService
 	statusSetter StatusSetter
+	verboseLogs  verboseLogSender
 	scanners     []Scanner
 	scanTimeout  time.Duration
 	statusMu     sync.Mutex
+	scanMu       sync.Mutex
 	previousScan *scanStatusResult
 }
 
@@ -62,12 +73,17 @@ func NewRunner(
 	notifService *notifications.NotificationService,
 	statusSetter StatusSetter,
 ) *Runner {
+	var verboseLogs verboseLogSender
+	if sender, ok := statusSetter.(verboseLogSender); ok {
+		verboseLogs = sender
+	}
 	return &Runner{
 		cfg:          cfg,
 		dbClient:     dbClient,
 		stateManager: stateManager,
 		notifService: notifService,
 		statusSetter: statusSetter,
+		verboseLogs:  verboseLogs,
 		scanTimeout:  DefaultScanTimeout,
 	}
 }
@@ -199,7 +215,13 @@ func waitForMinimumCycleDuration(ctx context.Context, startedAt time.Time, minim
 }
 
 func (r *Runner) runScanPass(ctx context.Context, steamScanCnt, csTradeScanCnt int) {
-	// Execute registered scanners sequentially
+	// Manual and scheduled/background scans share the same database and browser
+	// resources. Serialize passes so an API-triggered scan cannot overlap the
+	// background loop and amplify SQLite contention or browser load.
+	r.scanMu.Lock()
+	defer r.scanMu.Unlock()
+
+	// Execute registered scanners sequentially.
 	for _, sc := range r.scanners {
 		if sc.Name() == "Steam Market" && steamScanCnt < 55 {
 			continue
@@ -253,6 +275,9 @@ func (r *Runner) publish(ctx context.Context, notifs []notifications.AppNotifica
 }
 
 func (r *Runner) RunManualScanOnce(ctx context.Context) {
+	r.scanMu.Lock()
+	defer r.scanMu.Unlock()
+
 	record := r.stateManager.BeginScanRun("manual")
 	log.Println("Manual scan run started...")
 
@@ -310,12 +335,57 @@ func (r *Runner) scanWithTimedStatus(
 
 	notifs, err := r.runScannerWithTimeout(ctx, sc)
 	stopStatus()
+	elapsed := time.Since(startedAt)
 	r.setPreviousScanResult(scanStatusResult{
 		name:    sc.Name(),
-		elapsed: time.Since(startedAt),
+		elapsed: elapsed,
 		outcome: getScanOutcome(notifs, err),
 	})
+	r.sendVerboseScanLog(sc, elapsed, notifs, err)
 	return notifs, err
+}
+
+func (r *Runner) sendVerboseScanLog(
+	scanner Scanner,
+	elapsed time.Duration,
+	notifs []notifications.AppNotification,
+	scanErr error,
+) {
+	if r.verboseLogs == nil || r.cfg.VerboseLogChannelId == "" {
+		return
+	}
+
+	var report strings.Builder
+	fmt.Fprintf(&report, "**Scan complete: %s**\n", scanner.Name())
+	fmt.Fprintf(&report, "Status: %s\n", getScanOutcome(notifs, scanErr))
+	fmt.Fprintf(&report, "Duration: %s\n", elapsed.Round(time.Millisecond))
+	fmt.Fprintf(&report, "Matches found: %d", len(notifs))
+	if scanErr != nil {
+		fmt.Fprintf(&report, "\nError: %v", scanErr)
+	}
+	if provider, ok := scanner.(scanInsightProvider); ok {
+		insights := provider.ScanInsights()
+		if len(insights) > 0 {
+			report.WriteString("\n\n**Scanner details**")
+			for _, insight := range insights {
+				fmt.Fprintf(&report, "\n%s", insight)
+			}
+		}
+	}
+
+	for index, notification := range notifs {
+		fmt.Fprintf(&report, "\n\n%d. %s", index+1, notification.Title)
+		if notification.Price != nil {
+			fmt.Fprintf(&report, " — $%.2f", *notification.Price)
+		}
+		if notification.Url != "" {
+			fmt.Fprintf(&report, "\n%s", notification.Url)
+		}
+	}
+
+	if err := r.verboseLogs.SendVerboseLog(r.cfg.VerboseLogChannelId, report.String()); err != nil {
+		log.Printf("Failed to send verbose scan log for %q: %v", scanner.Name(), err)
+	}
 }
 
 type scanResult struct {
@@ -434,11 +504,16 @@ func getStatusText(name string) string {
 
 // Helper to sleep with random jitter
 func JitterSleep(minMs, maxMs int) {
+	_ = JitterSleepContext(context.Background(), minMs, maxMs)
+}
+
+func JitterSleepContext(ctx context.Context, minMs, maxMs int) bool {
 	delta := maxMs - minMs
+	durationMs := minMs
 	if delta <= 0 {
-		time.Sleep(time.Duration(minMs) * time.Millisecond)
-		return
+		durationMs = minMs
+	} else {
+		durationMs = minMs + rand.Intn(delta)
 	}
-	jitter := rand.Intn(delta)
-	time.Sleep(time.Duration(minMs+jitter) * time.Millisecond)
+	return sleepWithContext(ctx, time.Duration(durationMs)*time.Millisecond)
 }

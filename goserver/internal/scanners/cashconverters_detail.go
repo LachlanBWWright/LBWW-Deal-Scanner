@@ -2,6 +2,7 @@ package scanners
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/models"
 	"github.com/PuerkitoBio/goquery"
+	"gorm.io/gorm"
 )
 
 type CcDetailPageResult struct {
@@ -120,23 +122,26 @@ func (s *CashConvertersScanner) fetchCcDetailPage(ctx context.Context, canonical
 	}, nil
 }
 
-func (s *CashConvertersScanner) processDetailJob(ctx context.Context, job models.CashConvertersDetailJob, now time.Time) (string, error) {
+func (s *CashConvertersScanner) processDetailJob(ctx context.Context, job models.CashConvertersDetailJob, now time.Time) (string, string, error) {
 	var lst models.Listing
 	db := s.dbClient.UnderlyingDB().WithContext(ctx)
 	if err := db.Where("id = ?", job.ListingID).First(&lst).Error; err != nil {
-		if completeErr := s.dbClient.CompleteCashConvertersDetailJob(ctx, job.ID, now); completeErr != nil {
-			return job.ListingID, fmt.Errorf("complete orphaned detail job %s: %w", job.ID, completeErr)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if cleanupErr := s.dbClient.DeleteOrphanedCashConvertersChildren(ctx, job.ListingID); cleanupErr != nil {
+				return "", "", cleanupErr
+			}
+			return "", "", nil
 		}
-		return job.ListingID, nil
+		return "", "", fmt.Errorf("load listing for detail job %s: %w", job.ID, err)
 	}
 
 	res, err := s.fetchCcDetailPage(ctx, lst.CanonicalUrl)
 	if err != nil {
 		nextDue := now.Add(time.Duration((job.Attempts+1)*10) * time.Minute)
 		if retryErr := s.dbClient.RetryCashConvertersDetailJob(ctx, job.ID, nextDue, err.Error()); retryErr != nil {
-			return job.ListingID, fmt.Errorf("retry detail job %s after fetch failure: %w", job.ID, retryErr)
+			return job.ListingID, "", fmt.Errorf("retry detail job %s after fetch failure: %w", job.ID, retryErr)
 		}
-		return job.ListingID, err
+		return job.ListingID, "", err
 	}
 
 	if res.IsMissing {
@@ -147,12 +152,12 @@ func (s *CashConvertersScanner) processDetailJob(ctx context.Context, job models
 			Availability: "unavailable",
 		}
 		if err := s.dbClient.UpdateCashConvertersDetail(ctx, job.ListingID, detailInput, now); err != nil {
-			return job.ListingID, err
+			return job.ListingID, "", err
 		}
 		if err := s.dbClient.CompleteCashConvertersDetailJob(ctx, job.ID, now); err != nil {
-			return job.ListingID, err
+			return job.ListingID, "", err
 		}
-		return job.ListingID, nil
+		return job.ListingID, detailInput.Description, nil
 	}
 
 	title := res.Title
@@ -174,15 +179,15 @@ func (s *CashConvertersScanner) processDetailJob(ctx context.Context, job models
 
 	if err := s.dbClient.UpdateCashConvertersDetail(ctx, job.ListingID, detailInput, now); err != nil {
 		if retryErr := s.dbClient.RetryCashConvertersDetailJob(ctx, job.ID, now.Add(10*time.Minute), err.Error()); retryErr != nil {
-			return job.ListingID, fmt.Errorf("retry detail job %s after update failure: %w", job.ID, retryErr)
+			return job.ListingID, "", fmt.Errorf("retry detail job %s after update failure: %w", job.ID, retryErr)
 		}
-		return job.ListingID, err
+		return job.ListingID, "", err
 	}
 
 	if err := s.dbClient.CompleteCashConvertersDetailJob(ctx, job.ID, now); err != nil {
-		return job.ListingID, err
+		return job.ListingID, "", err
 	}
-	return job.ListingID, nil
+	return job.ListingID, detailInput.Description, nil
 }
 
 func (s *CashConvertersScanner) verifyMissingListing(ctx context.Context, listing models.Listing, now time.Time) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	qry "dealscanner/internal/db/query"
 	"dealscanner/internal/models"
@@ -49,6 +50,12 @@ func (b *Bot) registerCommands() {
 	}
 
 	commands := []*discordgo.ApplicationCommand{
+		{Name: "agentprompts", Description: "List reusable agent prompts"},
+		{Name: "agentprompt", Description: "Prepare a copy-and-paste prompt with current query data", Options: agentPromptOptions()},
+		{Name: "agentexport", Description: "Export queries and recent state as JSON", Options: agentContextOptions()},
+		{Name: "querysummary", Description: "Summarize recent query listing states", Options: agentContextOptions()},
+		{Name: "agentimport", Description: "Preview agent JSON before applying it", Options: []*discordgo.ApplicationCommandOption{{Type: discordgo.ApplicationCommandOptionString, Name: "json", Description: "Paste agent changes JSON", Required: true}}},
+		{Name: "agentapply", Description: "Apply your previously previewed agent changes", Options: []*discordgo.ApplicationCommandOption{{Type: discordgo.ApplicationCommandOptionString, Name: "token", Description: "Preview token", Required: true}}},
 		// eBay
 		{Name: "createebayquery", Description: "Creates a saved query for eBay", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "query", Description: "The URL of the query.", Required: true},
@@ -89,7 +96,7 @@ func (b *Bot) registerCommands() {
 			{Type: discordgo.ApplicationCommandOptionString, Name: "id", Description: "URL/ID of the query to delete", Required: true},
 		}},
 		{Name: "viewcashqueries", Description: "List all saved Cash Converters queries"},
-		{Name: "cashsearch", Description: "Search live Cash Converters inventory", Options: []*discordgo.ApplicationCommandOption{
+		{Name: "cashsearch", Description: "Search locally indexed Cash Converters inventory", Options: []*discordgo.ApplicationCommandOption{
 			{Type: discordgo.ApplicationCommandOptionString, Name: "text", Description: "Search title and description.", Required: true},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "required", Description: "Comma-separated phrases required in the title or description.", Required: false},
 			{Type: discordgo.ApplicationCommandOptionString, Name: "requiredmode", Description: "Required phrase matching: whole/partial and any/all.", Required: false, Choices: matchModeChoices()},
@@ -243,7 +250,7 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 	responseFlags := discordgo.MessageFlags(0)
-	if data.Name == "cashsearch" && getBoolOptionDefault(options, "ephemeral", true) {
+	if strings.HasPrefix(data.Name, "agent") || data.Name == "querysummary" || data.Name == "cashsearch" && getBoolOptionDefault(options, "ephemeral", true) {
 		responseFlags = discordgo.MessageFlagsEphemeral
 	}
 
@@ -256,6 +263,12 @@ func (b *Bot) handleCommand(s *discordgo.Session, i *discordgo.InteractionCreate
 	var responseContent string
 
 	switch data.Name {
+	case "agentprompts", "agentprompt", "agentexport", "querysummary":
+		b.handleAgentCommand(ctx, s, i, data.Name, options)
+		return
+	case "agentimport", "agentapply":
+		b.handleAgentImport(ctx, s, i, data.Name, options)
+		return
 	// eBay
 	case "createebayquery":
 		query := getStringOption(options, "query")

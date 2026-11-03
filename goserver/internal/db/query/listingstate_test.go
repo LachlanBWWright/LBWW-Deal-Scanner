@@ -240,6 +240,9 @@ func TestPersistListingBatchSkipsFreshUnchangedObservationAndState(t *testing.T)
 	if err != nil {
 		t.Fatalf("get state: %v", err)
 	}
+	if state == nil {
+		t.Fatal("expected persisted listing state")
+	}
 	if !state.LastEvaluatedAt.Equal(observedAt) {
 		t.Fatalf("last evaluated = %v; expected unchanged %v", state.LastEvaluatedAt, observedAt)
 	}
@@ -327,6 +330,9 @@ func TestPersistListingBatchKeepsFreshPriceChangeObservationAndState(t *testing.
 	state, err := dbClient.GetQueryListingState(ctx, queryObj.ID, listingID)
 	if err != nil {
 		t.Fatalf("get state: %v", err)
+	}
+	if state == nil {
+		t.Fatal("expected persisted listing state")
 	}
 	if state.LowestObservedPrice == nil || *state.LowestObservedPrice != secondPrice {
 		t.Fatalf("lowest observed price = %v; expected %v", state.LowestObservedPrice, secondPrice)
